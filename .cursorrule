@@ -1,0 +1,260 @@
+# 📋 Reglas de Desarrollo - Tasks Concept
+
+## 🚨 REGLAS OBLIGATORIAS
+
+### 1. React Native Paper - USO EXCLUSIVO
+- **OBLIGATORIO**: Solo usar componentes de React Native Paper
+- **PROHIBIDO**: Usar componentes básicos de React Native para UI (Text, Button, TextInput, etc.)
+- **PERMITIDO**: Solo View, ScrollView, SafeAreaView, StatusBar de React Native core
+
+### 2. Componentes Permitidos
+```typescript
+// ✅ USAR SIEMPRE
+import { 
+  Button, Card, TextInput, Chip, Text, Surface, 
+  Appbar, FAB, List, Dialog, Snackbar, etc.
+} from 'react-native-paper';
+
+// ✅ COMPONENTES DEL PROYECTO
+import { 
+  PaperButtonComponent, PaperCard, PaperInput, PaperChip 
+} from '@/components';
+
+// ✅ REACT NATIVE CORE - SOLO ESTRUCTURALES
+import { View, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+```
+
+### 3. Componentes Prohibidos
+```typescript
+// ❌ NUNCA USAR
+import { Text, Button, TextInput } from 'react-native';
+import { Header } from 'react-native-elements';
+import { Container } from 'native-base';
+
+// ❌ NUNCA CREAR CUSTOM COMPONENTS SIN PAPER
+const CustomButton = () => <TouchableOpacity>...</TouchableOpacity>;
+```
+
+### 4. Sistema de Espaciado OBLIGATORIO
+```typescript
+// ✅ USAR SIEMPRE
+import { SPACING, LAYOUT } from '@/constants';
+
+// Espaciado disponible:
+SPACING = {
+  xs: 4,    // 4dp - micro espacios
+  sm: 8,    // 8dp - pequeño
+  md: 16,   // 16dp - medio (base)
+  lg: 24,   // 24dp - grande
+  xl: 32,   // 32dp - extra grande
+  xxl: 40,  // 40dp - secciones principales
+}
+
+// ❌ NUNCA hardcodear espaciado
+style={{ margin: 20, padding: 15 }}
+
+// ✅ USAR SIEMPRE constantes
+style={{ margin: SPACING.md, padding: SPACING.lg }}
+```
+
+### 5. Uso del Tema
+```typescript
+// ✅ USAR SIEMPRE
+import { useTheme } from 'react-native-paper';
+
+const theme = useTheme();
+// Usar theme.colors.primary, theme.colors.surface, etc.
+
+// ❌ NUNCA colores hardcodeados
+style={{ backgroundColor: '#007AFF' }}
+
+// ✅ USAR tema dinámico
+style={{ backgroundColor: theme.colors.primary }}
+```
+
+## 📱 TEMPLATES OBLIGATORIOS
+
+### Template para Pantallas
+```typescript
+import React from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Surface, Text, useTheme } from 'react-native-paper';
+import { SPACING, LAYOUT } from '@/constants';
+
+export const ExampleScreen: React.FC = () => {
+  const theme = useTheme();
+
+  return (
+    <Surface style={styles.container}>
+      <Surface style={styles.header} elevation={4}>
+        <Text variant="headlineSmall">Título</Text>
+      </Surface>
+
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {/* Contenido */}
+      </ScrollView>
+    </Surface>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: LAYOUT.header,
+  content: { flex: 1 },
+  contentContainer: LAYOUT.scrollContent,
+});
+```
+
+### Template para Componentes
+```typescript
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import { ComponentName, ComponentNameProps } from 'react-native-paper';
+import { SPACING } from '@/constants';
+
+interface CustomComponentProps extends ComponentNameProps {
+  // Props específicas
+}
+
+export const CustomComponent: React.FC<CustomComponentProps> = ({
+  style,
+  ...props
+}) => {
+  return (
+    <ComponentName
+      style={[styles.container, style]}
+      {...props}
+    />
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    margin: SPACING.md,
+  },
+});
+```
+
+## 🔍 CHECKLIST OBLIGATORIO
+
+### Antes de Crear Componente:
+- [ ] ¿Existe componente Paper equivalente?
+- [ ] ¿Extiende props del componente Paper base?
+- [ ] ¿Usa sistema de espaciado SPACING?
+- [ ] ¿Tiene tipado TypeScript completo?
+- [ ] ¿Usa tema dinámico con useTheme()?
+
+### Antes de Crear Pantalla:
+- [ ] ¿Usa template de pantalla estándar?
+- [ ] ¿Tiene Surface como contenedor principal?
+- [ ] ¿Header con elevación apropiada?
+- [ ] ¿ScrollView con contentContainerStyle?
+- [ ] ¿Usa variantes tipográficas Paper?
+
+### Antes de Commit:
+- [ ] ¿Todos los componentes usan Paper?
+- [ ] ¿No hay componentes RN básicos para UI?
+- [ ] ¿Espaciado usa constantes SPACING?
+- [ ] ¿Colores usan tema dinámico?
+- [ ] ¿Código tipado correctamente?
+
+## 📏 ESPACIADO ESTANDARIZADO
+
+### Reglas de Espaciado:
+- **Entre secciones**: `SPACING.xl` (32dp)
+- **Entre elementos relacionados**: `SPACING.md` (16dp)
+- **Entre elementos lista**: `SPACING.sm` (8dp)
+- **Padding contenedores**: `SPACING.md` (16dp)
+- **Padding secciones**: `SPACING.lg` (24dp)
+- **Touch targets**: mínimo 48dp
+
+### Layouts Predefinidos:
+```typescript
+// ✅ USAR SIEMPRE que sea posible
+LAYOUT = {
+  container: { paddingHorizontal: 16, paddingVertical: 24 },
+  card: { padding: 16, marginBottom: 16 },
+  button: { marginVertical: 8, minHeight: 48 },
+  header: { paddingHorizontal: 16, paddingVertical: 24, elevation: 4 },
+  scrollContent: { padding: 16, gap: 16 },
+}
+```
+
+## 🚫 ANTIPATRONES - NUNCA HACER
+
+```typescript
+// ❌ Componentes RN básicos para UI
+<Text>Mi texto</Text>
+<Button title="Click" />
+<TextInput placeholder="Input" />
+
+// ❌ Componentes custom sin Paper
+const MyButton = () => <TouchableOpacity>...</TouchableOpacity>;
+
+// ❌ Espaciado hardcodeado
+style={{ margin: 20, padding: 15 }}
+
+// ❌ Colores hardcodeados
+style={{ backgroundColor: '#007AFF' }}
+
+// ❌ No usar tema
+const styles = StyleSheet.create({
+  text: { color: '#000000' }
+});
+```
+
+## ✅ BUENAS PRÁCTICAS - SIEMPRE HACER
+
+```typescript
+// ✅ Componentes Paper
+<Text variant="bodyLarge">Mi texto</Text>
+<Button mode="contained">Click</Button>
+<TextInput placeholder="Input" />
+
+// ✅ Wrappers tipados de Paper
+const MyButton = (props) => <Button {...props} />;
+
+// ✅ Espaciado estandarizado
+style={{ margin: SPACING.md, padding: SPACING.lg }}
+
+// ✅ Colores del tema
+const theme = useTheme();
+style={{ backgroundColor: theme.colors.primary }}
+
+// ✅ Usar tema dinámico
+const styles = StyleSheet.create({
+  // Aplicar colores en render con theme
+});
+```
+
+## 📚 DOCUMENTACIÓN OBLIGATORIA
+
+- **Material Design 3**: https://m3.material.io/
+- **React Native Paper**: https://callstack.github.io/react-native-paper/
+- **Archivo reglas**: `DEVELOPMENT_RULES.md`
+
+## 🔧 FUNCIONES HELPER
+
+```typescript
+// ✅ Validar componente antes de crear
+const isValidComponent = (component) => {
+  return component.extends === 'react-native-paper' || 
+         component.isWrapper === true;
+};
+
+// ✅ Aplicar espaciado consistente
+const applySpacing = (type: 'section' | 'element' | 'list') => {
+  switch (type) {
+    case 'section': return SPACING.xl;
+    case 'element': return SPACING.md;
+    case 'list': return SPACING.sm;
+  }
+};
+```
+
+---
+
+**IMPORTANTE**: Estas reglas son OBLIGATORIAS. Siempre validar antes de crear cualquier componente o pantalla. En caso de duda, seguir los templates y consultar `DEVELOPMENT_RULES.md`. 
