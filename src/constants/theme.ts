@@ -1,53 +1,10 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 
+// Usar los temas MD3 originales sin personalizaciones
 export const lightTheme = {
   ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: '#007AFF',
-    primaryContainer: '#E5F3FF',
-    secondary: '#5856D6',
-    secondaryContainer: '#E8E7FF',
-    tertiary: '#34C759',
-    tertiaryContainer: '#E6F7EA',
-    surface: '#FFFFFF',
-    surfaceVariant: '#F2F2F7',
-    background: '#F2F2F7',
-    error: '#FF3B30',
-    errorContainer: '#FFEBE9',
-    onPrimary: '#FFFFFF',
-    onSecondary: '#FFFFFF',
-    onTertiary: '#FFFFFF',
-    onSurface: '#000000',
-    onSurfaceVariant: '#8E8E93',
-    onBackground: '#000000',
-    outline: '#C6C6C8',
-    outlineVariant: '#E5E5E5',
-  },
 };
 
 export const darkTheme = {
   ...MD3DarkTheme,
-  colors: {
-    ...MD3DarkTheme.colors,
-    primary: '#007AFF',
-    primaryContainer: '#001E3D',
-    secondary: '#5856D6',
-    secondaryContainer: '#1A1947',
-    tertiary: '#34C759',
-    tertiaryContainer: '#0C2E17',
-    surface: '#1C1C1E',
-    surfaceVariant: '#2C2C2E',
-    background: '#000000',
-    error: '#FF453A',
-    errorContainer: '#3D1213',
-    onPrimary: '#FFFFFF',
-    onSecondary: '#FFFFFF',
-    onTertiary: '#FFFFFF',
-    onSurface: '#FFFFFF',
-    onSurfaceVariant: '#8E8E93',
-    onBackground: '#FFFFFF',
-    outline: '#636366',
-    outlineVariant: '#48484A',
-  },
 };

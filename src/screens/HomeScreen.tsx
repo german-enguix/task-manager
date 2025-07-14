@@ -1,13 +1,17 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Alert } from 'react-native';
-import { Text, Surface, useTheme } from 'react-native-paper';
-import { PaperCard, PaperButtonComponent } from '@/components';
+import { ScrollView, Alert, StyleSheet, View } from 'react-native';
+import { Text, Surface, Button, Card, IconButton, Switch } from 'react-native-paper';
 import { formatDate } from '@/utils';
-import { SPACING, LAYOUT } from '@/constants';
 
-export const HomeScreen: React.FC = () => {
-  const theme = useTheme();
+interface HomeScreenProps {
+  isDarkMode: boolean;
+  toggleTheme: () => void;
+}
 
+export const HomeScreen: React.FC<HomeScreenProps> = ({ 
+  isDarkMode, 
+  toggleTheme 
+}) => {
   const handleFichar = () => {
     const currentTime = new Date().toLocaleTimeString('es-ES', {
       hour: '2-digit',
@@ -24,60 +28,65 @@ export const HomeScreen: React.FC = () => {
 
   return (
     <Surface style={styles.container}>
-      {/* Header */}
-      <Surface style={styles.header} elevation={4}>
-        <Text variant="headlineMedium" style={styles.headerTitle}>
-          Bienvenido
-        </Text>
-        <Text variant="bodyMedium" style={[styles.headerSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-          {formatDate(new Date())}
-        </Text>
+      {/* Header with Dark Mode Toggle */}
+      <Surface elevation={2} style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerText}>
+            <Text variant="headlineMedium">
+              Bienvenido
+            </Text>
+            <Text variant="bodyMedium">
+              {formatDate(new Date())}
+            </Text>
+          </View>
+          
+          <View style={styles.themeToggle}>
+            <IconButton
+              icon={isDarkMode ? 'weather-sunny' : 'weather-night'}
+              size={24}
+              onPress={toggleTheme}
+            />
+            <Switch value={isDarkMode} onValueChange={toggleTheme} />
+          </View>
+        </View>
       </Surface>
 
       {/* Main Content */}
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-      >
+      <ScrollView style={styles.content}>
         {/* Hola Mundo Card */}
-        <PaperCard
-          title="¡Hola Mundo!"
-          subtitle="Tu aplicación está funcionando correctamente"
-          style={styles.card}
-        >
-          <Surface style={styles.cardContent}>
-            <Text variant="bodyLarge" style={styles.welcomeText}>
+        <Card style={styles.card}>
+          <Card.Title title="¡Hola Mundo!" subtitle="Tu aplicación está funcionando correctamente" />
+          <Card.Content>
+            <Text variant="bodyLarge">
               🎉 Bienvenido a Tasks Concept
             </Text>
-            <Text variant="bodyMedium" style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
+            <Text variant="bodyMedium">
               Esta es tu página principal. Desde aquí podrás gestionar todas tus
               tareas y fichajes.
             </Text>
-          </Surface>
-        </PaperCard>
+          </Card.Content>
+        </Card>
 
         {/* Fichar Section */}
-        <PaperCard title="Sistema de Fichaje" style={styles.card}>
-          <Surface style={styles.ficharSection}>
-            <Text variant="bodyMedium" style={[styles.ficharDescription, { color: theme.colors.onSurfaceVariant }]}>
+        <Card style={styles.card}>
+          <Card.Title title="Sistema de Fichaje" />
+          <Card.Content>
+            <Text variant="bodyMedium">
               Registra tu entrada o salida con un simple clic
             </Text>
 
-            <Surface style={styles.buttonContainer}>
-              <PaperButtonComponent
-                title="Fichar"
-                onPress={handleFichar}
-                variant="contained"
-                size="large"
-                style={styles.ficharButton}
-              />
-            </Surface>
+            <Button
+              mode="contained"
+              onPress={handleFichar}
+              style={styles.button}>
+              Fichar
+            </Button>
 
-            <Text variant="bodySmall" style={[styles.timeText, { color: theme.colors.onSurfaceVariant }]}>
+            <Text variant="bodySmall">
               Hora actual: {new Date().toLocaleTimeString('es-ES')}
             </Text>
-          </Surface>
-        </PaperCard>
+          </Card.Content>
+        </Card>
       </ScrollView>
     </Surface>
   );
@@ -88,57 +97,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    ...LAYOUT.header,
-    borderRadius: 0,
-    borderBottomLeftRadius: SPACING.md,
-    borderBottomRightRadius: SPACING.md,
+    padding: 16,
   },
-  headerTitle: {
-    fontWeight: 'bold',
-    marginBottom: SPACING.xs,
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  headerSubtitle: {
-    // Color aplicado dinámicamente con theme
+  headerText: {
+    flex: 1,
+  },
+  themeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
   },
-  contentContainer: {
-    ...LAYOUT.scrollContent,
-  },
   card: {
-    marginBottom: SPACING.md,
+    margin: 16,
   },
-  cardContent: {
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-  },
-  welcomeText: {
-    textAlign: 'center',
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-  },
-  description: {
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  ficharSection: {
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-  },
-  ficharDescription: {
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-  },
-  buttonContainer: {
-    marginBottom: SPACING.md,
-  },
-  ficharButton: {
-    ...LAYOUT.button,
-    minWidth: 120,
-    paddingHorizontal: SPACING.xl,
-  },
-  timeText: {
-    fontStyle: 'italic',
+  button: {
+    marginVertical: 8,
   },
 });
