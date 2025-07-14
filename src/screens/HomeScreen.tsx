@@ -1,9 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, Alert, StyleSheet, View } from 'react-native';
 import { Text, Surface, Button, Card, IconButton, Switch, Chip } from 'react-native-paper';
 import { formatDate } from '@/utils';
-import { getAllTasks } from '@/utils/mockData';
-import { TaskStatus } from '@/types';
+import { 
+  getCurrentWorkDay, 
+  updateWorkDay, 
+  updateTimesheet, 
+  markNotificationAsRead 
+} from '@/utils/mockData';
+import { TaskStatus, WorkDay } from '@/types';
+import { 
+  DayHeader, 
+  TimesheetWidget, 
+  NotificationsSection 
+} from '@/components';
 
 interface HomeScreenProps {
   isDarkMode: boolean;
@@ -16,20 +26,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   toggleTheme,
   onNavigateToTask
 }) => {
-  const tasks = getAllTasks();
+  const [workDay, setWorkDay] = useState<WorkDay>(getCurrentWorkDay());
 
-  const handleFichar = () => {
-    const currentTime = new Date().toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+  const handleTimesheetUpdate = (updates: Partial<WorkDay['timesheet']>) => {
+    const updatedWorkDay = updateTimesheet(updates);
+    setWorkDay(updatedWorkDay);
+  };
 
-    Alert.alert(
-      'Fichaje registrado',
-      `Has fichado correctamente a las ${currentTime}`,
-      [{ text: 'OK', style: 'default' }]
-    );
+  const handleNotificationAction = (notificationId: string, actionData?: any) => {
+    if (actionData?.taskId) {
+      onNavigateToTask(actionData.taskId);
+    }
+  };
+
+  const handleMarkNotificationAsRead = (notificationId: string) => {
+    const updatedWorkDay = markNotificationAsRead(notificationId);
+    setWorkDay(updatedWorkDay);
   };
 
   const getStatusColor = (status: TaskStatus) => {
@@ -62,6 +74,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
+  const getTaskProgress = (task: any) => {
+    if (task.requiredEvidences.length === 0) return 0;
+    const completedEvidences = task.requiredEvidences.filter((e: any) => e.isCompleted).length;
+    return (completedEvidences / task.requiredEvidences.length) * 100;
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+
   return (
     <Surface style={styles.container}>
       {/* Header with Dark Mode Toggle */}
@@ -69,7 +93,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.headerContent}>
           <View style={styles.headerText}>
             <Text variant="headlineMedium">
-              Bienvenido
+              Mi Día
             </Text>
             <Text variant="bodyMedium">
               {formatDate(new Date())}
@@ -89,25 +113,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Main Content */}
       <ScrollView style={styles.content}>
-        {/* Hola Mundo Card */}
-        <Card style={styles.card}>
-          <Card.Title title="¡Hola Mundo!" subtitle="Tu aplicación está funcionando correctamente" />
-          <Card.Content>
-            <Text variant="bodyLarge">
-              🎉 Bienvenido a Tasks Concept
-            </Text>
-            <Text variant="bodyMedium">
-              Esta es tu página principal. Desde aquí podrás gestionar todas tus
-              tareas y fichajes.
-            </Text>
-          </Card.Content>
-        </Card>
+        {/* Encabezado del día */}
+        <DayHeader workDay={workDay} />
 
-        {/* Tareas */}
+        {/* Widget de fichaje */}
+        <TimesheetWidget 
+          workDay={workDay} 
+          onTimesheetUpdate={handleTimesheetUpdate}
+        />
+
+        {/* Notificaciones */}
+        <NotificationsSection 
+          workDay={workDay}
+          onNotificationAction={handleNotificationAction}
+          onMarkAsRead={handleMarkNotificationAsRead}
+        />
+
+        {/* Lista de tareas del día */}
         <Card style={styles.card}>
-          <Card.Title title="Mis Tareas" subtitle="Tareas asignadas" />
+          <Card.Title 
+            title="Tareas del día" 
+            subtitle={`${workDay.tasks.length} tareas asignadas`}
+          />
           <Card.Content>
-            {tasks.slice(0, 3).map((task) => (
+            {workDay.tasks.map((task) => (
               <Card 
                 key={task.id} 
                 style={styles.taskCard}
@@ -142,53 +171,57 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     )}
                   </View>
                   
-                  {/* Mostrar progreso de evidencias */}
+                  {/* Información del cronómetro */}
+                  {task.timer.totalElapsed > 0 && (
+                    <View style={styles.taskTimer}>
+                      <Text variant="bodySmall" style={styles.taskTimerText}>
+                        ⏱️ Tiempo: {formatDuration(task.timer.totalElapsed)}
+                        {task.timer.isRunning && ' (activo)'}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Progreso de subtareas */}
+                  {task.subtasks.length > 0 && (
+                    <View style={styles.taskProgress}>
+                      <Text variant="bodySmall" style={styles.taskProgressText}>
+                        ✅ Subtareas: {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Progreso de evidencias */}
                   {task.requiredEvidences.length > 0 && (
                     <View style={styles.evidenceProgress}>
                       <Text variant="bodySmall" style={styles.evidenceProgressText}>
-                        Evidencias: {task.requiredEvidences.filter(e => e.isCompleted).length}/{task.requiredEvidences.length}
+                        📎 Evidencias: {task.requiredEvidences.filter(e => e.isCompleted).length}/{task.requiredEvidences.length}
                       </Text>
+                      <View style={styles.progressBar}>
+                        <View 
+                          style={[
+                            styles.progressBarFill, 
+                            { width: `${getTaskProgress(task)}%` }
+                          ]} 
+                        />
+                      </View>
                     </View>
                   )}
                 </Card.Content>
               </Card>
             ))}
             
-            {tasks.length > 3 && (
-              <Button 
-                mode="text" 
-                onPress={() => {
-                  // Aquí se podría navegar a una lista completa de tareas
-                  Alert.alert('Info', 'Funcionalidad pendiente: Ver todas las tareas');
-                }}
-                style={styles.viewAllButton}
-              >
-                Ver todas las tareas ({tasks.length})
-              </Button>
+            {workDay.tasks.length === 0 && (
+              <View style={styles.emptyState}>
+                <Text variant="bodyMedium" style={styles.emptyStateText}>
+                  No hay tareas asignadas para hoy
+                </Text>
+              </View>
             )}
           </Card.Content>
         </Card>
 
-        {/* Fichar Section */}
-        <Card style={styles.card}>
-          <Card.Title title="Sistema de Fichaje" />
-          <Card.Content>
-            <Text variant="bodyMedium">
-              Registra tu entrada o salida con un simple clic
-            </Text>
-
-            <Button
-              mode="contained"
-              onPress={handleFichar}
-              style={styles.button}>
-              Fichar
-            </Button>
-
-            <Text variant="bodySmall">
-              Hora actual: {new Date().toLocaleTimeString('es-ES')}
-            </Text>
-          </Card.Content>
-        </Card>
+        {/* Espacio adicional al final */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </Surface>
   );
@@ -244,24 +277,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
   taskAssignee: {
     fontWeight: '500',
   },
   taskDueDate: {
-    opacity: 0.6,
+    opacity: 0.7,
   },
-  evidenceProgress: {
-    marginTop: 8,
+  taskTimer: {
+    marginBottom: 4,
   },
-  evidenceProgressText: {
-    opacity: 0.8,
+  taskTimerText: {
+    color: '#2196F3',
     fontWeight: '500',
   },
-  viewAllButton: {
-    marginTop: 8,
+  taskProgress: {
+    marginBottom: 4,
   },
-  button: {
-    marginVertical: 8,
+  taskProgressText: {
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  evidenceProgress: {
+    marginTop: 4,
+  },
+  evidenceProgressText: {
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 2,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyStateText: {
+    opacity: 0.6,
+  },
+  bottomSpacer: {
+    height: 24,
   },
 });

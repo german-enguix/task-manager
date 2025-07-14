@@ -7,7 +7,11 @@ import {
   TaskTimer,
   RequiredEvidence,
   EvidenceType,
-  CommentType 
+  CommentType,
+  WorkDay,
+  DayStatus,
+  TimesheetStatus,
+  NotificationType
 } from '@/types';
 
 // Datos mockeados para tareas
@@ -446,4 +450,128 @@ export const completeRequiredEvidence = (taskId: string, requiredEvidenceId: str
   });
   
   return true;
+};
+
+// Datos mockeados para el día de trabajo
+export const mockWorkDay: WorkDay = {
+  id: 'workday-2025-01-12',
+  date: new Date('2025-01-12'),
+  status: DayStatus.ACTIVE,
+  
+  // Información del día
+  site: 'Planta Industrial Norte',
+  startTime: new Date('2025-01-12T08:00:00'),
+  endTime: undefined, // Aún no finalizado
+  projectName: 'Modernización Línea de Producción A',
+  
+  // Fichaje independiente
+  timesheet: {
+    id: 'timesheet-2025-01-12',
+    status: TimesheetStatus.IN_PROGRESS,
+    totalDuration: 14400, // 4 horas
+    currentSessionStart: new Date('2025-01-12T13:00:00'),
+    sessions: [
+      {
+        id: 'session-1',
+        startTime: new Date('2025-01-12T08:00:00'),
+        endTime: new Date('2025-01-12T12:00:00'),
+        duration: 14400, // 4 horas
+        location: {
+          latitude: 40.7128,
+          longitude: -74.0060,
+          accuracy: 5,
+        },
+      },
+    ],
+    notes: 'Turno matutino - Inspección y mantenimiento',
+  },
+  
+  // Tareas del día (referenciando las tareas mockeadas existentes)
+  tasks: mockTasks,
+  
+  // Notificaciones
+  notifications: [
+    {
+      id: 'notification-1',
+      type: NotificationType.INFO,
+      title: 'Recordatorio',
+      message: 'No olvides completar la evidencia de firma del supervisor en la tarea de inspección.',
+      isRead: false,
+      createdAt: new Date('2025-01-12T11:00:00'),
+      actionRequired: true,
+      actionLabel: 'Ver tarea',
+      actionData: { taskId: 'task-1' },
+    },
+    {
+      id: 'notification-2',
+      type: NotificationType.WARNING,
+      title: 'Tiempo límite',
+      message: 'La tarea de mantenimiento debe iniciarse antes de las 15:00 para cumplir con el cronograma.',
+      isRead: false,
+      createdAt: new Date('2025-01-12T13:30:00'),
+      actionRequired: true,
+      actionLabel: 'Iniciar tarea',
+      actionData: { taskId: 'task-2' },
+    },
+    {
+      id: 'notification-3',
+      type: NotificationType.SUCCESS,
+      title: 'Evidencia aceptada',
+      message: 'La evidencia de audio del sistema de ventilación ha sido validada correctamente.',
+      isRead: true,
+      createdAt: new Date('2025-01-12T12:15:00'),
+      actionRequired: false,
+    },
+  ],
+  
+  // Resumen del día (undefined porque aún está activo)
+  summary: undefined,
+  
+  // Metadatos
+  createdAt: new Date('2025-01-12T08:00:00'),
+  updatedAt: new Date('2025-01-12T13:45:00'),
+  createdBy: 'admin',
+};
+
+// Funciones para manejar el día de trabajo
+export const getCurrentWorkDay = (): WorkDay => {
+  return mockWorkDay;
+};
+
+export const updateWorkDay = (updates: Partial<WorkDay>): WorkDay => {
+  Object.assign(mockWorkDay, {
+    ...updates,
+    updatedAt: new Date(),
+  });
+  return mockWorkDay;
+};
+
+export const updateTimesheet = (updates: Partial<WorkDay['timesheet']>): WorkDay => {
+  mockWorkDay.timesheet = {
+    ...mockWorkDay.timesheet,
+    ...updates,
+  };
+  mockWorkDay.updatedAt = new Date();
+  return mockWorkDay;
+};
+
+export const addNotification = (notification: Omit<WorkDay['notifications'][0], 'id' | 'createdAt'>): WorkDay => {
+  const newNotification = {
+    ...notification,
+    id: `notification-${Date.now()}`,
+    createdAt: new Date(),
+  };
+  
+  mockWorkDay.notifications.unshift(newNotification);
+  mockWorkDay.updatedAt = new Date();
+  return mockWorkDay;
+};
+
+export const markNotificationAsRead = (notificationId: string): WorkDay => {
+  const notification = mockWorkDay.notifications.find(n => n.id === notificationId);
+  if (notification) {
+    notification.isRead = true;
+    mockWorkDay.updatedAt = new Date();
+  }
+  return mockWorkDay;
 }; 

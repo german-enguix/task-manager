@@ -150,3 +150,91 @@ export interface Task {
   createdBy: string;
   assignedTo?: string;
 }
+
+// Day System Types
+export enum DayStatus {
+  ACTIVE = 'active',
+  COMPLETED = 'completed',
+}
+
+export enum TimesheetStatus {
+  NOT_STARTED = 'not_started',
+  IN_PROGRESS = 'in_progress',
+  PAUSED = 'paused',
+  COMPLETED = 'completed',
+}
+
+export interface TimesheetSession {
+  id: string;
+  startTime: Date;
+  endTime?: Date;
+  duration: number; // En segundos
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
+}
+
+export interface Timesheet {
+  id: string;
+  status: TimesheetStatus;
+  totalDuration: number; // En segundos
+  currentSessionStart?: Date;
+  sessions: TimesheetSession[];
+  notes?: string;
+}
+
+export enum NotificationType {
+  INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+  SUCCESS = 'success',
+}
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: Date;
+  actionRequired?: boolean;
+  actionLabel?: string;
+  actionData?: any;
+}
+
+export interface WorkDay {
+  id: string;
+  date: Date;
+  status: DayStatus;
+  
+  // Información del día
+  site: string;
+  startTime: Date;
+  endTime?: Date;
+  projectName?: string;
+  
+  // Fichaje independiente
+  timesheet: Timesheet;
+  
+  // Tareas del día
+  tasks: Task[];
+  
+  // Notificaciones
+  notifications: Notification[];
+  
+  // Resumen del día (para cuando está completado)
+  summary?: {
+    totalTasksCompleted: number;
+    totalWorkTime: number; // En segundos
+    evidencesSubmitted: number;
+    problemsReported: number;
+    notes?: string;
+  };
+  
+  // Metadatos
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
