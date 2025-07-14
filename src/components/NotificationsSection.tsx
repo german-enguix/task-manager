@@ -7,12 +7,14 @@ interface NotificationsSectionProps {
   workDay: WorkDay;
   onNotificationAction: (notificationId: string, actionData?: any) => void;
   onMarkAsRead: (notificationId: string) => void;
+  isReadOnly?: boolean;
 }
 
 export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
   workDay,
   onNotificationAction,
   onMarkAsRead,
+  isReadOnly = false,
 }) => {
   const theme = useTheme();
   const { notifications } = workDay;
@@ -57,6 +59,8 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
   };
 
   const handleNotificationPress = (notification: any) => {
+    if (isReadOnly) return;
+    
     if (!notification.isRead) {
       onMarkAsRead(notification.id);
     }
@@ -72,7 +76,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
         <Card.Content style={styles.emptyContent}>
           <Icon source="bell-sleep" size={48} color={theme.colors.onSurfaceVariant} />
           <Text variant="bodyMedium" style={styles.emptyText}>
-            No hay notificaciones
+            {isReadOnly ? 'No hubo notificaciones este día' : 'No hay notificaciones'}
           </Text>
         </Card.Content>
       </Card>
@@ -80,7 +84,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
   }
 
   return (
-    <Card style={styles.container}>
+    <Card style={[styles.container, isReadOnly && styles.readOnlyContainer]}>
       <Card.Content style={styles.content}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
@@ -88,8 +92,11 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
             <Text variant="titleMedium" style={styles.title}>
               Notificaciones
             </Text>
-            {unreadCount > 0 && (
+            {!isReadOnly && unreadCount > 0 && (
               <Badge style={styles.badge}>{unreadCount}</Badge>
+            )}
+            {isReadOnly && (
+              <Icon source="lock" size={16} color={theme.colors.onSurfaceVariant} />
             )}
           </View>
         </View>
@@ -100,7 +107,8 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
               key={notification.id}
               style={[
                 styles.notificationItem,
-                !notification.isRead && styles.unreadNotification,
+                !notification.isRead && !isReadOnly && styles.unreadNotification,
+                isReadOnly && styles.readOnlyNotification,
               ]}
             >
               <View style={styles.notificationHeader}>
@@ -114,7 +122,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
                     variant="bodyMedium"
                     style={[
                       styles.notificationTitle,
-                      !notification.isRead && styles.unreadText,
+                      !notification.isRead && !isReadOnly && styles.unreadText,
                     ]}
                   >
                     {notification.title}
@@ -130,7 +138,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
                 {notification.message}
               </Text>
 
-              {notification.actionRequired && (
+              {notification.actionRequired && !isReadOnly && (
                 <View style={styles.actionRow}>
                   <Button
                     mode="contained-tonal"
@@ -143,7 +151,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
                 </View>
               )}
 
-              {!notification.isRead && (
+              {!notification.isRead && !isReadOnly && (
                 <View style={styles.readIndicator}>
                   <View style={styles.unreadDot} />
                 </View>
@@ -151,6 +159,14 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
             </View>
           ))}
         </ScrollView>
+
+        {isReadOnly && (
+          <View style={styles.readOnlyFooter}>
+            <Text variant="bodySmall" style={styles.readOnlyText}>
+              📚 Información histórica - Solo lectura
+            </Text>
+          </View>
+        )}
       </Card.Content>
     </Card>
   );
@@ -160,6 +176,10 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginBottom: 16,
+  },
+  readOnlyContainer: {
+    opacity: 0.8,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   content: {
     paddingVertical: 16,
@@ -199,6 +219,10 @@ const styles = StyleSheet.create({
   },
   unreadNotification: {
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  readOnlyNotification: {
+    backgroundColor: 'rgba(0, 0, 0, 0.01)',
+    opacity: 0.8,
   },
   notificationHeader: {
     flexDirection: 'row',
@@ -246,6 +270,17 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#2196F3',
+  },
+  readOnlyFooter: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  readOnlyText: {
+    opacity: 0.6,
+    fontStyle: 'italic',
   },
 });
 

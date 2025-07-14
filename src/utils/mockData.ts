@@ -452,107 +452,322 @@ export const completeRequiredEvidence = (taskId: string, requiredEvidenceId: str
   return true;
 };
 
-// Datos mockeados para el día de trabajo
-export const mockWorkDay: WorkDay = {
-  id: 'workday-2025-01-12',
-  date: new Date('2025-01-12'),
-  status: DayStatus.ACTIVE,
-  
-  // Información del día
-  site: 'Planta Industrial Norte',
-  startTime: new Date('2025-01-12T08:00:00'),
-  endTime: undefined, // Aún no finalizado
-  projectName: 'Modernización Línea de Producción A',
-  
-  // Fichaje independiente
-  timesheet: {
-    id: 'timesheet-2025-01-12',
-    status: TimesheetStatus.IN_PROGRESS,
-    totalDuration: 14400, // 4 horas
-    currentSessionStart: new Date('2025-01-12T13:00:00'),
-    sessions: [
-      {
-        id: 'session-1',
-        startTime: new Date('2025-01-12T08:00:00'),
-        endTime: new Date('2025-01-12T12:00:00'),
-        duration: 14400, // 4 horas
-        location: {
-          latitude: 40.7128,
-          longitude: -74.0060,
-          accuracy: 5,
+// Datos mockeados para los días de trabajo
+export const mockWorkDays: WorkDay[] = [
+  // Día anterior (finalizado)
+  {
+    id: 'workday-2025-01-11',
+    date: new Date('2025-01-11'),
+    status: DayStatus.COMPLETED,
+    
+    // Información del día
+    site: 'Planta Industrial Norte',
+    startTime: new Date('2025-01-11T08:00:00'),
+    endTime: new Date('2025-01-11T17:00:00'),
+    projectName: 'Modernización Línea de Producción A',
+    
+    // Fichaje completado
+    timesheet: {
+      id: 'timesheet-2025-01-11',
+      status: TimesheetStatus.COMPLETED,
+      totalDuration: 32400, // 9 horas
+      currentSessionStart: undefined,
+      sessions: [
+        {
+          id: 'session-1',
+          startTime: new Date('2025-01-11T08:00:00'),
+          endTime: new Date('2025-01-11T12:00:00'),
+          duration: 14400, // 4 horas
+          location: {
+            latitude: 40.7128,
+            longitude: -74.0060,
+            accuracy: 5,
+          },
         },
+        {
+          id: 'session-2',
+          startTime: new Date('2025-01-11T13:00:00'),
+          endTime: new Date('2025-01-11T17:00:00'),
+          duration: 14400, // 4 horas
+          location: {
+            latitude: 40.7128,
+            longitude: -74.0060,
+            accuracy: 5,
+          },
+        },
+      ],
+      notes: 'Jornada completa - Inspección finalizada exitosamente',
+    },
+    
+    // Tareas completadas del día anterior
+    tasks: [
+      {
+        ...mockTasks[0], // Tarea de inspección
+        status: TaskStatus.COMPLETED,
+        timer: {
+          totalElapsed: 7200, // 2 horas
+          isRunning: false,
+          currentSessionStart: undefined,
+          sessions: [
+            {
+              startTime: new Date('2025-01-11T09:00:00'),
+              endTime: new Date('2025-01-11T11:00:00'),
+              duration: 7200,
+            },
+          ],
+        },
+        // Todas las subtareas completadas
+        subtasks: mockTasks[0].subtasks.map(subtask => ({
+          ...subtask,
+          isCompleted: true,
+          completedAt: new Date('2025-01-11T15:30:00'),
+        })),
+        // Todas las evidencias completadas
+        requiredEvidences: mockTasks[0].requiredEvidences.map(evidence => ({
+          ...evidence,
+          isCompleted: true,
+        })),
       },
     ],
-    notes: 'Turno matutino - Inspección y mantenimiento',
+    
+    // Notificaciones del día anterior (todas leídas)
+    notifications: [
+      {
+        id: 'notification-completed-1',
+        type: NotificationType.SUCCESS,
+        title: 'Día finalizado',
+        message: 'Todas las tareas del día han sido completadas exitosamente.',
+        isRead: true,
+        createdAt: new Date('2025-01-11T17:00:00'),
+        actionRequired: false,
+      },
+    ],
+    
+    // Resumen del día completado
+    summary: {
+      totalTasksCompleted: 1,
+      totalWorkTime: 32400, // 9 horas
+      evidencesSubmitted: 4,
+      problemsReported: 1,
+      notes: 'Jornada exitosa. Todas las tareas completadas dentro del tiempo estimado.',
+    },
+    
+    // Metadatos
+    createdAt: new Date('2025-01-11T08:00:00'),
+    updatedAt: new Date('2025-01-11T17:00:00'),
+    createdBy: 'admin',
   },
   
-  // Tareas del día (referenciando las tareas mockeadas existentes)
-  tasks: mockTasks,
-  
-  // Notificaciones
-  notifications: [
-    {
-      id: 'notification-1',
-      type: NotificationType.INFO,
-      title: 'Recordatorio',
-      message: 'No olvides completar la evidencia de firma del supervisor en la tarea de inspección.',
-      isRead: false,
-      createdAt: new Date('2025-01-12T11:00:00'),
-      actionRequired: true,
-      actionLabel: 'Ver tarea',
-      actionData: { taskId: 'task-1' },
+  // Día actual (activo)
+  {
+    id: 'workday-2025-01-12',
+    date: new Date('2025-01-12'),
+    status: DayStatus.ACTIVE,
+    
+    // Información del día
+    site: 'Planta Industrial Norte',
+    startTime: new Date('2025-01-12T08:00:00'),
+    endTime: undefined, // Aún no finalizado
+    projectName: 'Modernización Línea de Producción A',
+    
+    // Fichaje independiente
+    timesheet: {
+      id: 'timesheet-2025-01-12',
+      status: TimesheetStatus.IN_PROGRESS,
+      totalDuration: 14400, // 4 horas
+      currentSessionStart: new Date('2025-01-12T13:00:00'),
+      sessions: [
+        {
+          id: 'session-1',
+          startTime: new Date('2025-01-12T08:00:00'),
+          endTime: new Date('2025-01-12T12:00:00'),
+          duration: 14400, // 4 horas
+          location: {
+            latitude: 40.7128,
+            longitude: -74.0060,
+            accuracy: 5,
+          },
+        },
+      ],
+      notes: 'Turno matutino - Inspección y mantenimiento',
     },
-    {
-      id: 'notification-2',
-      type: NotificationType.WARNING,
-      title: 'Tiempo límite',
-      message: 'La tarea de mantenimiento debe iniciarse antes de las 15:00 para cumplir con el cronograma.',
-      isRead: false,
-      createdAt: new Date('2025-01-12T13:30:00'),
-      actionRequired: true,
-      actionLabel: 'Iniciar tarea',
-      actionData: { taskId: 'task-2' },
-    },
-    {
-      id: 'notification-3',
-      type: NotificationType.SUCCESS,
-      title: 'Evidencia aceptada',
-      message: 'La evidencia de audio del sistema de ventilación ha sido validada correctamente.',
-      isRead: true,
-      createdAt: new Date('2025-01-12T12:15:00'),
-      actionRequired: false,
-    },
-  ],
+    
+    // Tareas del día actual
+    tasks: mockTasks,
+    
+    // Notificaciones
+    notifications: [
+      {
+        id: 'notification-1',
+        type: NotificationType.INFO,
+        title: 'Recordatorio',
+        message: 'No olvides completar la evidencia de firma del supervisor en la tarea de inspección.',
+        isRead: false,
+        createdAt: new Date('2025-01-12T11:00:00'),
+        actionRequired: true,
+        actionLabel: 'Ver tarea',
+        actionData: { taskId: 'task-1' },
+      },
+      {
+        id: 'notification-2',
+        type: NotificationType.WARNING,
+        title: 'Tiempo límite',
+        message: 'La tarea de mantenimiento debe iniciarse antes de las 15:00 para cumplir con el cronograma.',
+        isRead: false,
+        createdAt: new Date('2025-01-12T13:30:00'),
+        actionRequired: true,
+        actionLabel: 'Iniciar tarea',
+        actionData: { taskId: 'task-2' },
+      },
+      {
+        id: 'notification-3',
+        type: NotificationType.SUCCESS,
+        title: 'Evidencia aceptada',
+        message: 'La evidencia de audio del sistema de ventilación ha sido validada correctamente.',
+        isRead: true,
+        createdAt: new Date('2025-01-12T12:15:00'),
+        actionRequired: false,
+      },
+    ],
+    
+    // Resumen del día (undefined porque aún está activo)
+    summary: undefined,
+    
+    // Metadatos
+    createdAt: new Date('2025-01-12T08:00:00'),
+    updatedAt: new Date('2025-01-12T13:45:00'),
+    createdBy: 'admin',
+  },
   
-  // Resumen del día (undefined porque aún está activo)
-  summary: undefined,
-  
-  // Metadatos
-  createdAt: new Date('2025-01-12T08:00:00'),
-  updatedAt: new Date('2025-01-12T13:45:00'),
-  createdBy: 'admin',
+  // Día siguiente (por iniciar)
+  {
+    id: 'workday-2025-01-13',
+    date: new Date('2025-01-13'),
+    status: DayStatus.ACTIVE,
+    
+    // Información del día
+    site: 'Planta Industrial Norte',
+    startTime: new Date('2025-01-13T08:00:00'),
+    endTime: undefined,
+    projectName: 'Modernización Línea de Producción A',
+    
+    // Fichaje no iniciado
+    timesheet: {
+      id: 'timesheet-2025-01-13',
+      status: TimesheetStatus.NOT_STARTED,
+      totalDuration: 0,
+      currentSessionStart: undefined,
+      sessions: [],
+      notes: 'Turno programado - Calibración de sensores',
+    },
+    
+    // Tareas programadas para el día siguiente
+    tasks: [
+      {
+        ...mockTasks[2], // Tarea de calibración
+        status: TaskStatus.NOT_STARTED,
+        timer: {
+          totalElapsed: 0,
+          isRunning: false,
+          currentSessionStart: undefined,
+          sessions: [],
+        },
+        // Todas las subtareas sin completar
+        subtasks: mockTasks[2].subtasks.map(subtask => ({
+          ...subtask,
+          isCompleted: false,
+          completedAt: undefined,
+        })),
+        // Todas las evidencias sin completar
+        requiredEvidences: mockTasks[2].requiredEvidences.map(evidence => ({
+          ...evidence,
+          isCompleted: false,
+        })),
+        evidences: [], // Sin evidencias aún
+        comments: [], // Sin comentarios aún
+      },
+    ],
+    
+    // Notificaciones para el día siguiente
+    notifications: [
+      {
+        id: 'notification-tomorrow-1',
+        type: NotificationType.INFO,
+        title: 'Día programado',
+        message: 'Tienes programada una calibración de sensores para mañana a las 08:00.',
+        isRead: false,
+        createdAt: new Date('2025-01-12T16:00:00'),
+        actionRequired: false,
+      },
+    ],
+    
+    // Sin resumen aún
+    summary: undefined,
+    
+    // Metadatos
+    createdAt: new Date('2025-01-12T16:00:00'),
+    updatedAt: new Date('2025-01-12T16:00:00'),
+    createdBy: 'admin',
+  },
+];
+
+// Estado para el día actual seleccionado
+let currentSelectedDayIndex = 1; // Índice del día actual (2025-01-12)
+
+// Funciones para manejar múltiples días
+export const getAllWorkDays = (): WorkDay[] => {
+  return mockWorkDays;
 };
 
-// Funciones para manejar el día de trabajo
 export const getCurrentWorkDay = (): WorkDay => {
-  return mockWorkDay;
+  return mockWorkDays[currentSelectedDayIndex];
+};
+
+export const getWorkDayByDate = (date: Date): WorkDay | undefined => {
+  return mockWorkDays.find(day => 
+    day.date.toDateString() === date.toDateString()
+  );
+};
+
+export const navigateToDay = (direction: 'prev' | 'next' | 'today'): WorkDay => {
+  if (direction === 'prev' && currentSelectedDayIndex > 0) {
+    currentSelectedDayIndex--;
+  } else if (direction === 'next' && currentSelectedDayIndex < mockWorkDays.length - 1) {
+    currentSelectedDayIndex++;
+  } else if (direction === 'today') {
+    currentSelectedDayIndex = 1; // Día actual
+  }
+  
+  return mockWorkDays[currentSelectedDayIndex];
+};
+
+export const getSelectedDayIndex = (): number => {
+  return currentSelectedDayIndex;
+};
+
+export const canNavigatePrev = (): boolean => {
+  return currentSelectedDayIndex > 0;
+};
+
+export const canNavigateNext = (): boolean => {
+  return currentSelectedDayIndex < mockWorkDays.length - 1;
 };
 
 export const updateWorkDay = (updates: Partial<WorkDay>): WorkDay => {
-  Object.assign(mockWorkDay, {
+  Object.assign(mockWorkDays[currentSelectedDayIndex], {
     ...updates,
     updatedAt: new Date(),
   });
-  return mockWorkDay;
+  return mockWorkDays[currentSelectedDayIndex];
 };
 
 export const updateTimesheet = (updates: Partial<WorkDay['timesheet']>): WorkDay => {
-  mockWorkDay.timesheet = {
-    ...mockWorkDay.timesheet,
+  mockWorkDays[currentSelectedDayIndex].timesheet = {
+    ...mockWorkDays[currentSelectedDayIndex].timesheet,
     ...updates,
   };
-  mockWorkDay.updatedAt = new Date();
-  return mockWorkDay;
+  mockWorkDays[currentSelectedDayIndex].updatedAt = new Date();
+  return mockWorkDays[currentSelectedDayIndex];
 };
 
 export const addNotification = (notification: Omit<WorkDay['notifications'][0], 'id' | 'createdAt'>): WorkDay => {
@@ -562,16 +777,16 @@ export const addNotification = (notification: Omit<WorkDay['notifications'][0], 
     createdAt: new Date(),
   };
   
-  mockWorkDay.notifications.unshift(newNotification);
-  mockWorkDay.updatedAt = new Date();
-  return mockWorkDay;
+  mockWorkDays[currentSelectedDayIndex].notifications.unshift(newNotification);
+  mockWorkDays[currentSelectedDayIndex].updatedAt = new Date();
+  return mockWorkDays[currentSelectedDayIndex];
 };
 
 export const markNotificationAsRead = (notificationId: string): WorkDay => {
-  const notification = mockWorkDay.notifications.find(n => n.id === notificationId);
+  const notification = mockWorkDays[currentSelectedDayIndex].notifications.find(n => n.id === notificationId);
   if (notification) {
     notification.isRead = true;
-    mockWorkDay.updatedAt = new Date();
+    mockWorkDays[currentSelectedDayIndex].updatedAt = new Date();
   }
-  return mockWorkDay;
+  return mockWorkDays[currentSelectedDayIndex];
 }; 

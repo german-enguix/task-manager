@@ -6,9 +6,12 @@ import {
   getCurrentWorkDay, 
   updateWorkDay, 
   updateTimesheet, 
-  markNotificationAsRead 
+  markNotificationAsRead,
+  navigateToDay,
+  canNavigatePrev,
+  canNavigateNext
 } from '@/utils/mockData';
-import { TaskStatus, WorkDay } from '@/types';
+import { TaskStatus, WorkDay, DayStatus } from '@/types';
 import { 
   DayHeader, 
   TimesheetWidget, 
@@ -27,19 +30,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToTask
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay>(getCurrentWorkDay());
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  const isReadOnly = workDay.status === DayStatus.COMPLETED;
+
+  const handleDayNavigation = (direction: 'prev' | 'next' | 'today') => {
+    if (isNavigating) return;
+    
+    setIsNavigating(true);
+    const newWorkDay = navigateToDay(direction);
+    setWorkDay(newWorkDay);
+    
+    // Simular una pequeña demora para la navegación
+    setTimeout(() => {
+      setIsNavigating(false);
+    }, 300);
+  };
 
   const handleTimesheetUpdate = (updates: Partial<WorkDay['timesheet']>) => {
+    if (isReadOnly) return;
+    
     const updatedWorkDay = updateTimesheet(updates);
     setWorkDay(updatedWorkDay);
   };
 
   const handleNotificationAction = (notificationId: string, actionData?: any) => {
-    if (actionData?.taskId) {
+    if (actionData?.taskId && !isReadOnly) {
       onNavigateToTask(actionData.taskId);
     }
   };
 
   const handleMarkNotificationAsRead = (notificationId: string) => {
+    if (isReadOnly) return;
+    
     const updatedWorkDay = markNotificationAsRead(notificationId);
     setWorkDay(updatedWorkDay);
   };
@@ -86,6 +109,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return `${hours}h ${minutes}m`;
   };
 
+  const handleTaskPress = (taskId: string) => {
+    if (!isReadOnly) {
+      onNavigateToTask(taskId);
+    }
+  };
+
   return (
     <Surface style={styles.container}>
       {/* Header with Dark Mode Toggle */}
@@ -113,20 +142,61 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Main Content */}
       <ScrollView style={styles.content}>
-        {/* Encabezado del día */}
-        <DayHeader workDay={workDay} />
-
-        {/* Widget de fichaje */}
-        <TimesheetWidget 
+        {/* Encabezado del día con navegación */}
+        <DayHeader 
           workDay={workDay} 
-          onTimesheetUpdate={handleTimesheetUpdate}
+          canNavigatePrev={canNavigatePrev()}
+          canNavigateNext={canNavigateNext()}
+          onNavigateDay={handleDayNavigation}
         />
+
+        {/* Widget de fichaje (solo si no es solo lectura) */}
+        {!isReadOnly && (
+          <TimesheetWidget 
+            workDay={workDay} 
+            onTimesheetUpdate={handleTimesheetUpdate}
+          />
+        )}
+
+        {/* Información del fichaje para días finalizados */}
+        {isReadOnly && workDay.timesheet.status === 'completed' && (
+          <Card style={styles.card}>
+            <Card.Title 
+              title="Fichaje del día" 
+              subtitle="Información de la jornada completada"
+            />
+            <Card.Content>
+              <View style={styles.timesheetSummary}>
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}>
+                    <Text variant="bodySmall" style={styles.summaryLabel}>Duración total</Text>
+                    <Text variant="titleMedium" style={styles.summaryValue}>
+                      {formatDuration(workDay.timesheet.totalDuration)}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text variant="bodySmall" style={styles.summaryLabel}>Sesiones</Text>
+                    <Text variant="titleMedium" style={styles.summaryValue}>
+                      {workDay.timesheet.sessions.length}
+                    </Text>
+                  </View>
+                </View>
+                {workDay.timesheet.notes && (
+                  <Text variant="bodySmall" style={styles.timesheetNotes}>
+                    {workDay.timesheet.notes}
+                  </Text>
+                )}
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Notificaciones */}
         <NotificationsSection 
           workDay={workDay}
           onNotificationAction={handleNotificationAction}
           onMarkAsRead={handleMarkNotificationAsRead}
+          isReadOnly={isReadOnly}
         />
 
         {/* Lista de tareas del día */}
@@ -139,8 +209,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {workDay.tasks.map((task) => (
               <Card 
                 key={task.id} 
-                style={styles.taskCard}
-                onPress={() => onNavigateToTask(task.id)}
+                style={[
+                  styles.taskCard,
+                  isReadOnly && styles.taskCardReadOnly
+                ]}
+                onPress={() => handleTaskPress(task.id)}
               >
                 <Card.Content>
                   <View style={styles.taskHeader}>
@@ -206,6 +279,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       </View>
                     </View>
                   )}
+                  
+                  {/* Indicador de solo lectura */}
+                  {isReadOnly && (
+                    <View style={styles.readOnlyIndicator}>
+                      <Text variant="bodySmall" style={styles.readOnlyText}>
+                        🔒 Solo lectura
+                      </Text>
+                    </View>
+                  )}
                 </Card.Content>
               </Card>
             ))}
@@ -213,7 +295,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {workDay.tasks.length === 0 && (
               <View style={styles.emptyState}>
                 <Text variant="bodyMedium" style={styles.emptyStateText}>
-                  No hay tareas asignadas para hoy
+                  {isReadOnly ? 'No hubo tareas asignadas este día' : 'No hay tareas asignadas para hoy'}
                 </Text>
               </View>
             )}
@@ -255,6 +337,10 @@ const styles = StyleSheet.create({
   taskCard: {
     marginBottom: 12,
     elevation: 1,
+  },
+  taskCardReadOnly: {
+    opacity: 0.8,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   taskHeader: {
     flexDirection: 'row',
@@ -317,12 +403,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
     borderRadius: 2,
   },
+  readOnlyIndicator: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  readOnlyText: {
+    opacity: 0.6,
+    fontStyle: 'italic',
+  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 32,
   },
   emptyStateText: {
     opacity: 0.6,
+  },
+  timesheetSummary: {
+    paddingVertical: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  summaryItem: {
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    opacity: 0.6,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontWeight: '600',
+    color: '#4CAF50',
+  },
+  timesheetNotes: {
+    textAlign: 'center',
+    opacity: 0.7,
+    fontStyle: 'italic',
   },
   bottomSpacer: {
     height: 24,
