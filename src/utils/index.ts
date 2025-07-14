@@ -23,3 +23,6 @@ export const isValidEmail = (email: string): boolean => {
 export const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
+
+// Mock data exports
+export { mockTasks, getTaskById, getAllTasks, updateTask } from './mockData';
