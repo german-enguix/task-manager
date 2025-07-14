@@ -31,7 +31,7 @@ export enum TaskStatus {
 }
 
 export enum EvidenceType {
-  PHOTO = 'photo',
+  PHOTO_VIDEO = 'photo_video', // Fotografía o video
   AUDIO = 'audio',
   SIGNATURE = 'signature',
   LOCATION = 'location',
@@ -52,14 +52,41 @@ export interface TaskSubtask {
   completedAt?: Date;
 }
 
-export interface TaskEvidence {
+// Evidencia requerida configurada por el manager
+export interface RequiredEvidence {
   id: string;
   type: EvidenceType;
   title: string;
+  description: string;
+  isRequired: boolean;
+  isCompleted: boolean;
+  order: number;
+  // Configuración específica del tipo
+  config?: {
+    // Para PHOTO_VIDEO
+    allowPhoto?: boolean;
+    allowVideo?: boolean;
+    maxFileSize?: number; // En MB
+    // Para AUDIO
+    maxDuration?: number; // En segundos
+    // Para LOCATION
+    requiredAccuracy?: number; // En metros
+    // Para SIGNATURE
+    requiredFields?: string[]; // Campos adicionales requeridos
+  };
+}
+
+// Evidencia completada por el usuario
+export interface TaskEvidence {
+  id: string;
+  requiredEvidenceId: string; // Referencia a la evidencia requerida
+  type: EvidenceType;
+  title: string;
   description?: string;
-  filePath?: string; // Para fotos y audios
+  filePath?: string; // Para fotos, videos y audios
   data?: any; // Para firmas o datos de ubicación
   createdAt: Date;
+  completedBy: string;
 }
 
 export interface TaskComment {
@@ -97,7 +124,10 @@ export interface Task {
   // Cronómetro
   timer: TaskTimer;
   
-  // Evidencias
+  // Evidencias requeridas (configuradas por el manager)
+  requiredEvidences: RequiredEvidence[];
+  
+  // Evidencias completadas (subidas por el usuario)
   evidences: TaskEvidence[];
   
   // Comentarios

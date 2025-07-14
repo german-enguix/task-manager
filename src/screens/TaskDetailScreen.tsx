@@ -19,8 +19,8 @@ import {
   ProgressBar,
   useTheme 
 } from 'react-native-paper';
-import { Task, TaskStatus, EvidenceType, CommentType } from '@/types';
-import { getTaskById, updateTask } from '@/utils/mockData';
+import { Task, TaskStatus, EvidenceType, CommentType, RequiredEvidence } from '@/types';
+import { getTaskById, updateTask, completeRequiredEvidence } from '@/utils/mockData';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -144,18 +144,73 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     updateTask(taskId, { timer: newTimer });
   };
 
-  const addEvidence = (type: EvidenceType) => {
+  const handleCompleteEvidence = (requiredEvidence: RequiredEvidence) => {
+    if (!task) return;
+    
+    const actionText = getEvidenceActionText(requiredEvidence);
+    
     Alert.alert(
-      'Agregar Evidencia',
-      `¿Deseas agregar evidencia de tipo ${type}?`,
+      'Completar Evidencia',
+      `¿Deseas ${actionText.toLowerCase()} para "${requiredEvidence.title}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Agregar', onPress: () => {
-          // Aquí se implementaría la lógica para agregar evidencia
-          console.log(`Adding evidence of type: ${type}`);
+        { text: 'Completar', onPress: () => {
+          // Aquí se implementaría la lógica específica para cada tipo de evidencia
+          console.log(`Completing evidence: ${requiredEvidence.id}`);
+          
+          // Simular completar la evidencia
+          const success = completeRequiredEvidence(taskId, requiredEvidence.id, {
+            type: requiredEvidence.type,
+            title: `${requiredEvidence.title} - Completada`,
+            description: 'Evidencia completada por el usuario',
+            createdAt: new Date(),
+            completedBy: task.assignedTo || 'Usuario',
+          });
+          
+          if (success) {
+            // Actualizar el estado local
+            const updatedTask = getTaskById(taskId);
+            if (updatedTask) {
+              setTask(updatedTask);
+            }
+          }
         }},
       ]
     );
+  };
+
+  const getEvidenceIcon = (type: EvidenceType, config?: RequiredEvidence['config']) => {
+    switch (type) {
+      case EvidenceType.PHOTO_VIDEO:
+        if (config?.allowPhoto && config?.allowVideo) return 'camera-plus';
+        if (config?.allowVideo) return 'video';
+        return 'camera';
+      case EvidenceType.AUDIO:
+        return 'microphone';
+      case EvidenceType.SIGNATURE:
+        return 'pen';
+      case EvidenceType.LOCATION:
+        return 'map-marker';
+      default:
+        return 'file';
+    }
+  };
+
+  const getEvidenceActionText = (evidence: RequiredEvidence) => {
+    switch (evidence.type) {
+      case EvidenceType.PHOTO_VIDEO:
+        if (evidence.config?.allowPhoto && evidence.config?.allowVideo) return 'Capturar foto o video';
+        if (evidence.config?.allowVideo) return 'Grabar video';
+        return 'Tomar foto';
+      case EvidenceType.AUDIO:
+        return 'Grabar audio';
+      case EvidenceType.SIGNATURE:
+        return 'Firmar';
+      case EvidenceType.LOCATION:
+        return 'Obtener ubicación';
+      default:
+        return 'Completar';
+    }
   };
 
   const addComment = (type: CommentType) => {
@@ -197,6 +252,10 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const completedSubtasks = task.subtasks.filter(subtask => subtask.isCompleted).length;
   const totalSubtasks = task.subtasks.length;
   const progress = totalSubtasks > 0 ? completedSubtasks / totalSubtasks : 0;
+
+  const completedEvidences = task.requiredEvidences.filter(evidence => evidence.isCompleted).length;
+  const totalEvidences = task.requiredEvidences.length;
+  const evidenceProgress = totalEvidences > 0 ? completedEvidences / totalEvidences : 0;
 
   return (
     <Surface style={styles.container}>
@@ -297,69 +356,65 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           </Card.Content>
         </Card>
 
-        {/* Evidencias */}
+        {/* Evidencias Requeridas */}
         <Card style={styles.card}>
-          <Card.Title title="Evidencias" />
+          <Card.Title title="Evidencias Requeridas" />
           <Card.Content>
-            {task.evidences.length > 0 ? (
-              task.evidences.map((evidence) => (
+            <View style={styles.progressContainer}>
+              <Text variant="bodyMedium">
+                {completedEvidences} de {totalEvidences} completadas
+              </Text>
+              <ProgressBar progress={evidenceProgress} style={styles.progressBar} />
+            </View>
+            
+            {task.requiredEvidences.map((requiredEvidence) => (
+              <View key={requiredEvidence.id} style={styles.evidenceRequirement}>
                 <List.Item
-                  key={evidence.id}
-                  title={evidence.title}
-                  description={evidence.description}
+                  title={requiredEvidence.title}
+                  description={requiredEvidence.description}
                   left={() => (
                     <List.Icon 
-                      icon={
-                        evidence.type === EvidenceType.PHOTO ? 'camera' :
-                        evidence.type === EvidenceType.AUDIO ? 'microphone' :
-                        evidence.type === EvidenceType.SIGNATURE ? 'pen' :
-                        'map-marker'
-                      }
+                      icon={getEvidenceIcon(requiredEvidence.type, requiredEvidence.config)}
+                      color={requiredEvidence.isCompleted ? theme.colors.tertiary : theme.colors.outline}
                     />
                   )}
-                  style={styles.evidenceItem}
+                  right={() => (
+                    requiredEvidence.isCompleted ? (
+                      <Chip 
+                        mode="flat"
+                        style={styles.completedChip}
+                        textStyle={{ color: theme.colors.tertiary }}
+                      >
+                        Completada
+                      </Chip>
+                    ) : (
+                      <Button 
+                        mode="outlined"
+                        onPress={() => handleCompleteEvidence(requiredEvidence)}
+                        style={styles.evidenceActionButton}
+                      >
+                        {getEvidenceActionText(requiredEvidence)}
+                      </Button>
+                    )
+                  )}
+                  style={requiredEvidence.isCompleted ? styles.completedEvidence : styles.pendingEvidence}
                 />
-              ))
-            ) : (
-              <Text variant="bodyMedium" style={styles.emptyText}>
-                No hay evidencias registradas
-              </Text>
-            )}
-            
-            <View style={styles.evidenceButtons}>
-              <Button 
-                mode="outlined" 
-                icon="camera" 
-                onPress={() => addEvidence(EvidenceType.PHOTO)}
-                style={styles.evidenceButton}
-              >
-                Foto
-              </Button>
-              <Button 
-                mode="outlined" 
-                icon="microphone" 
-                onPress={() => addEvidence(EvidenceType.AUDIO)}
-                style={styles.evidenceButton}
-              >
-                Audio
-              </Button>
-              <Button 
-                mode="outlined" 
-                icon="pen" 
-                onPress={() => addEvidence(EvidenceType.SIGNATURE)}
-                style={styles.evidenceButton}
-              >
-                Firma
-              </Button>
-              <Button 
-                mode="outlined" 
-                icon="map-marker" 
-                onPress={() => addEvidence(EvidenceType.LOCATION)}
-                style={styles.evidenceButton}
-              >
-                Ubicación
-              </Button>
-            </View>
+                
+                {/* Mostrar evidencias completadas para este requerimiento */}
+                {task.evidences
+                  .filter(evidence => evidence.requiredEvidenceId === requiredEvidence.id)
+                  .map((evidence) => (
+                    <View key={evidence.id} style={styles.completedEvidenceItem}>
+                      <List.Item
+                        title={evidence.title}
+                        description={`Completada por ${evidence.completedBy} - ${evidence.createdAt.toLocaleDateString('es-ES')}`}
+                        left={() => <List.Icon icon="check-circle" color={theme.colors.tertiary} />}
+                        style={styles.completedEvidenceSubitem}
+                      />
+                    </View>
+                  ))}
+              </View>
+            ))}
           </Card.Content>
         </Card>
 
@@ -515,18 +570,28 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     opacity: 0.6,
   },
-  evidenceItem: {
-    paddingVertical: 4,
+  evidenceRequirement: {
+    marginBottom: 16,
   },
-  evidenceButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 16,
+  completedEvidence: {
+    opacity: 0.7,
   },
-  evidenceButton: {
-    flex: 1,
-    minWidth: 80,
+  pendingEvidence: {
+    // Estilo normal
+  },
+  completedChip: {
+    alignSelf: 'center',
+  },
+  evidenceActionButton: {
+    alignSelf: 'center',
+  },
+  completedEvidenceItem: {
+    marginLeft: 16,
+    marginTop: 8,
+  },
+  completedEvidenceSubitem: {
+    paddingLeft: 16,
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   commentItem: {
     marginBottom: 16,

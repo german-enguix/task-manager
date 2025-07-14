@@ -141,6 +141,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       </Text>
                     )}
                   </View>
+                  
+                  {/* Mostrar progreso de evidencias */}
+                  {task.requiredEvidences.length > 0 && (
+                    <View style={styles.evidenceProgress}>
+                      <Text variant="bodySmall" style={styles.evidenceProgressText}>
+                        Evidencias: {task.requiredEvidences.filter(e => e.isCompleted).length}/{task.requiredEvidences.length}
+                      </Text>
+                    </View>
+                  )}
                 </Card.Content>
               </Card>
             ))}
@@ -241,6 +250,13 @@ const styles = StyleSheet.create({
   },
   taskDueDate: {
     opacity: 0.6,
+  },
+  evidenceProgress: {
+    marginTop: 8,
+  },
+  evidenceProgressText: {
+    opacity: 0.8,
+    fontWeight: '500',
   },
   viewAllButton: {
     marginTop: 8,
