@@ -260,89 +260,100 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   return (
     <Surface style={styles.container}>
-      {/* Header with back button */}
-      <Surface elevation={2} style={styles.header}>
-        <View style={styles.headerContent}>
-          <IconButton
-            icon="chevron-left"
-            size={24}
-            onPress={onGoBack}
-          />
-          <View style={styles.headerText}>
-            <Text variant="headlineSmall" numberOfLines={1}>
-              {task.title}
-            </Text>
+      <ScrollView style={styles.content}>
+        {/* Header integrado */}
+        <View style={styles.header}>
+          {/* Fila superior: botón atrás y badges */}
+          <View style={styles.headerTop}>
+            <IconButton
+              icon="chevron-left"
+              size={24}
+              onPress={onGoBack}
+              style={styles.backButton}
+            />
             <View style={styles.statusContainer}>
               <Chip 
-                mode="outlined" 
-                style={[styles.statusChip, { borderColor: getStatusColor(task.status) }]}
-                textStyle={{ color: getStatusColor(task.status) }}
-              >
-                {getStatusText(task.status)}
-              </Chip>
-              <Chip 
                 mode="outlined"
-                style={[styles.priorityChip, { borderColor: getPriorityColor(task.priority) }]}
-                textStyle={{ color: getPriorityColor(task.priority) }}
+                style={[styles.priorityBadge, { borderColor: getPriorityColor(task.priority) }]}
+                textStyle={{ color: getPriorityColor(task.priority), fontSize: 11 }}
+                compact
               >
                 {task.priority.toUpperCase()}
               </Chip>
+              <Chip 
+                mode="outlined" 
+                style={[styles.statusBadge, { borderColor: getStatusColor(task.status) }]}
+                textStyle={{ color: getStatusColor(task.status), fontSize: 11 }}
+                compact
+              >
+                {getStatusText(task.status)}
+              </Chip>
             </View>
           </View>
+          
+          {/* Título ocupando todo el ancho */}
+          <View style={styles.headerTitle}>
+            <Text variant="headlineMedium">
+              {task.title}
+            </Text>
+          </View>
         </View>
-      </Surface>
 
-      <ScrollView style={styles.content}>
-        {/* Descripción */}
-        <Card style={styles.card}>
-          <Card.Title title="Descripción" />
-          <Card.Content>
-            <Text variant="bodyMedium">{task.description}</Text>
-            
-            {/* Información del proyecto y ubicación */}
-            <View style={styles.taskMeta}>
-              <View style={styles.taskMetaRow}>
-                <Icon source="folder" size={16} color="#2196F3" />
-                <Text variant="bodySmall" style={styles.taskProject}>
-                  Proyecto: {task.projectName}
-                </Text>
-              </View>
-              <View style={styles.taskMetaRow}>
-                <Icon source="map-marker" size={16} color="#4CAF50" />
-                <Text variant="bodySmall" style={styles.taskLocation}>
-                  Ubicación: {task.location}
-                </Text>
-              </View>
-            </View>
-            
-            {task.dueDate && (
-              <Text variant="bodySmall" style={styles.dueDate}>
-                Fecha límite: {task.dueDate.toLocaleDateString('es-ES')}
+        {/* Información de la tarea */}
+        <View style={styles.taskInfo}>
+          <Text variant="bodyMedium" style={styles.taskDescription}>
+            {task.description}
+          </Text>
+          
+          {/* Información del proyecto y ubicación */}
+          <View style={styles.taskMeta}>
+            <View style={styles.taskMetaRow}>
+              <Icon source="folder" size={16} color="#2196F3" />
+              <Text variant="bodySmall" style={styles.taskProject}>
+                Proyecto: {task.projectName}
               </Text>
+            </View>
+            <View style={styles.taskMetaRow}>
+              <Icon source="map-marker" size={16} color="#4CAF50" />
+              <Text variant="bodySmall" style={styles.taskLocation}>
+                Ubicación: {task.location}
+              </Text>
+            </View>
+            {task.dueDate && (
+              <View style={styles.taskMetaRow}>
+                <Icon source="calendar" size={16} color="#666" />
+                <Text variant="bodySmall" style={styles.taskDueDate}>
+                  {task.dueDate.toLocaleDateString('es-ES')}
+                </Text>
+              </View>
             )}
-          </Card.Content>
-        </Card>
+          </View>
+        </View>
 
-        {/* Cronómetro */}
+        {/* Temporizador */}
         <Card style={styles.card}>
-          <Card.Title title="Cronómetro" />
           <Card.Content>
-            <View style={styles.timerContainer}>
-              <Text variant="displaySmall" style={styles.timerText}>
+            {/* Temporizador principal */}
+            <View style={styles.timerSection}>
+              <Text variant="bodySmall" style={styles.timerLabel}>
+                {task.timer.sessions.length} sesiones registradas
+              </Text>
+              <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
                 {timerDisplay}
               </Text>
+            </View>
+            
+            {/* Controles del temporizador */}
+            <View style={styles.timerControls}>
               <Button 
                 mode={task.timer.isRunning ? "outlined" : "contained"}
                 onPress={toggleTimer}
                 icon={task.timer.isRunning ? "pause" : "play"}
                 style={styles.timerButton}
               >
-                {task.timer.isRunning ? 'Pausar' : 'Iniciar'}
+                {task.timer.isRunning ? 'Pausar' : 'Iniciar temporizador'}
               </Button>
             </View>
-            <Text variant="bodySmall" style={styles.timerInfo}>
-              {task.timer.sessions.length} sesiones registradas
-            </Text>
           </Card.Content>
         </Card>
 
@@ -528,25 +539,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
-  headerContent: {
+  headerTop: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  headerText: {
-    flex: 1,
-    marginLeft: 8,
+  headerTitle: {
+    alignItems: 'flex-start',
   },
   statusContainer: {
     flexDirection: 'row',
-    marginTop: 8,
     gap: 8,
   },
-  statusChip: {
+  statusBadge: {
     alignSelf: 'flex-start',
   },
-  priorityChip: {
+  priorityBadge: {
     alignSelf: 'flex-start',
   },
   content: {
@@ -556,24 +569,13 @@ const styles = StyleSheet.create({
     margin: 16,
     marginBottom: 8,
   },
-  dueDate: {
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
-  timerContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  timerText: {
-    fontFamily: 'monospace',
-    marginBottom: 16,
-  },
   timerButton: {
     minWidth: 120,
   },
   timerInfo: {
     textAlign: 'center',
-    marginTop: 8,
+    opacity: 0.7,
+    fontSize: 12,
   },
   progressContainer: {
     marginBottom: 16,
@@ -655,9 +657,14 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     marginVertical: 16,
   },
+  taskInfo: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  taskDescription: {
+    marginBottom: 12,
+  },
   taskMeta: {
-    marginTop: 16,
-    marginBottom: 8,
     gap: 8,
   },
   taskMetaRow: {
@@ -674,9 +681,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 6,
   },
+  taskDueDate: {
+    color: '#666',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
   fab: {
     position: 'absolute',
     right: 16,
     bottom: 16,
+  },
+  backButton: {
+    marginRight: 8,
+  },
+  timerSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timerLabel: {
+    color: '#666',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  timerDisplay: {
+    fontWeight: '700',
+  },
+  timerControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
 }); 
