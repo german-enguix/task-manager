@@ -20,7 +20,7 @@ import {
   useTheme,
   Icon
 } from 'react-native-paper';
-import { Task, TaskStatus, EvidenceType, CommentType, RequiredEvidence } from '@/types';
+import { Task, TaskStatus, EvidenceType, CommentType, RequiredEvidence, TaskSubtask, SubtaskEvidenceRequirement } from '@/types';
 import { getTaskById, updateTask, completeRequiredEvidence } from '@/utils/mockData';
 
 interface TaskDetailScreenProps {
@@ -100,20 +100,86 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const toggleSubtask = (subtaskId: string) => {
     if (!task) return;
     
-    const updatedSubtasks = task.subtasks.map(subtask => {
-      if (subtask.id === subtaskId) {
+    const subtask = task.subtasks.find(s => s.id === subtaskId);
+    if (!subtask) return;
+    
+    // Verificar si la subtarea requiere evidencia obligatoria
+    if (subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted) {
+      Alert.alert(
+        'Evidencia Requerida',
+        `Esta subtarea requiere evidencia antes de poder marcarla como completada: ${subtask.evidenceRequirement.title}`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Proporcionar Evidencia', onPress: () => handleSubtaskEvidence(subtask) }
+        ]
+      );
+      return;
+    }
+    
+    const updatedSubtasks = task.subtasks.map(s => {
+      if (s.id === subtaskId) {
         return {
-          ...subtask,
-          isCompleted: !subtask.isCompleted,
-          completedAt: !subtask.isCompleted ? new Date() : undefined,
+          ...s,
+          isCompleted: !s.isCompleted,
+          completedAt: !s.isCompleted ? new Date() : undefined,
         };
       }
-      return subtask;
+      return s;
     });
     
     const updatedTask = { ...task, subtasks: updatedSubtasks };
     setTask(updatedTask);
     updateTask(taskId, { subtasks: updatedSubtasks });
+  };
+
+  const handleSubtaskEvidence = (subtask: TaskSubtask) => {
+    if (!subtask.evidenceRequirement) return;
+    
+    const actionText = getSubtaskEvidenceActionText(subtask.evidenceRequirement);
+    Alert.alert(
+      'Proporcionar Evidencia',
+      `${subtask.evidenceRequirement.description}`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: actionText, onPress: () => simulateEvidenceCapture(subtask) }
+      ]
+    );
+  };
+
+  const simulateEvidenceCapture = (subtask: TaskSubtask) => {
+    if (!task || !subtask.evidenceRequirement) return;
+    
+    // Simulación de captura de evidencia
+    Alert.alert(
+      'Evidencia Capturada',
+      `Se ha simulado la captura de evidencia de tipo ${getEvidenceTypeName(subtask.evidenceRequirement.type)}`,
+      [
+        { text: 'OK', onPress: () => {
+          // Actualizar subtarea con evidencia completada
+          const updatedSubtasks = task.subtasks.map(s => {
+            if (s.id === subtask.id) {
+              return {
+                ...s,
+                evidence: {
+                  id: `subtask-evidence-${Date.now()}`,
+                  subtaskId: subtask.id,
+                  type: subtask.evidenceRequirement!.type,
+                  title: `${subtask.evidenceRequirement!.title} - Completada`,
+                  description: 'Evidencia simulada capturada correctamente',
+                  createdAt: new Date(),
+                  completedBy: 'Usuario Actual',
+                },
+              };
+            }
+            return s;
+          });
+          
+          const updatedTask = { ...task, subtasks: updatedSubtasks };
+          setTask(updatedTask);
+          updateTask(taskId, { subtasks: updatedSubtasks });
+        }}
+      ]
+    );
   };
 
   const toggleTimer = () => {
@@ -192,6 +258,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         return 'pen';
       case EvidenceType.LOCATION:
         return 'map-marker';
+      case EvidenceType.NFC:
+        return 'nfc';
       default:
         return 'file';
     }
@@ -209,9 +277,64 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         return 'Firmar';
       case EvidenceType.LOCATION:
         return 'Obtener ubicación';
+      case EvidenceType.NFC:
+        return 'Escanear NFC';
       default:
         return 'Completar';
     }
+  };
+
+  const getSubtaskEvidenceActionText = (evidenceReq: SubtaskEvidenceRequirement) => {
+    switch (evidenceReq.type) {
+      case EvidenceType.PHOTO_VIDEO:
+        if (evidenceReq.config?.allowPhoto && evidenceReq.config?.allowVideo) return 'Capturar foto o video';
+        if (evidenceReq.config?.allowVideo) return 'Grabar video';
+        return 'Tomar foto';
+      case EvidenceType.AUDIO:
+        return 'Grabar audio';
+      case EvidenceType.SIGNATURE:
+        return 'Firmar';
+      case EvidenceType.LOCATION:
+        return 'Obtener ubicación';
+      case EvidenceType.NFC:
+        return 'Escanear NFC';
+      default:
+        return 'Completar';
+    }
+  };
+
+  const getEvidenceTypeName = (type: EvidenceType) => {
+    switch (type) {
+      case EvidenceType.PHOTO_VIDEO:
+        return 'Foto/Video';
+      case EvidenceType.AUDIO:
+        return 'Audio';
+      case EvidenceType.SIGNATURE:
+        return 'Firma';
+      case EvidenceType.LOCATION:
+        return 'GPS';
+      case EvidenceType.NFC:
+        return 'NFC';
+      default:
+        return 'Evidencia';
+    }
+  };
+
+  const getSubtaskCheckboxStatus = (subtask: TaskSubtask) => {
+    // Si está completada, siempre checked
+    if (subtask.isCompleted) return 'checked';
+    
+    // Si requiere evidencia obligatoria y no la tiene, bloqueado
+    if (subtask.evidenceRequirement?.isRequired && !subtask.evidence) {
+      return 'unchecked'; // Mantener unchecked pero cambiaremos el icono
+    }
+    
+    // En cualquier otro caso, normal
+    return 'unchecked';
+  };
+
+  const isSubtaskBlocked = (subtask: TaskSubtask) => {
+    return subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted;
   };
 
   const addComment = (type: CommentType) => {
@@ -369,18 +492,85 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             </View>
             
             {task.subtasks.map((subtask) => (
-              <List.Item
-                key={subtask.id}
-                title={subtask.title}
-                description={subtask.description}
-                left={() => (
-                  <Checkbox
-                    status={subtask.isCompleted ? 'checked' : 'unchecked'}
-                    onPress={() => toggleSubtask(subtask.id)}
-                  />
+              <View key={subtask.id} style={styles.subtaskContainer}>
+                <List.Item
+                  title={subtask.title}
+                  description={subtask.description}
+                  left={() => (
+                    <View style={styles.subtaskCheckContainer}>
+                      {isSubtaskBlocked(subtask) ? (
+                        <Icon 
+                          source="lock" 
+                          size={24} 
+                          color={theme.colors.outline}
+                        />
+                      ) : (
+                        <Checkbox
+                          status={getSubtaskCheckboxStatus(subtask)}
+                          onPress={() => toggleSubtask(subtask.id)}
+                        />
+                      )}
+                    </View>
+                  )}
+                  style={[
+                    styles.subtask,
+                    subtask.isCompleted && styles.completedSubtask,
+                    isSubtaskBlocked(subtask) && styles.blockedSubtask
+                  ]}
+                />
+                
+                {/* Información de evidencia requerida */}
+                {subtask.evidenceRequirement && (
+                  <View style={styles.evidenceInfo}>
+                    <View style={styles.evidenceHeader}>
+                      <Icon 
+                        source={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)} 
+                        size={16} 
+                        color={subtask.evidence ? theme.colors.tertiary : (subtask.evidenceRequirement.isRequired ? theme.colors.error : theme.colors.outline)}
+                      />
+                      <Text variant="bodySmall" style={[
+                        styles.evidenceTitle,
+                        { color: subtask.evidence ? theme.colors.tertiary : (subtask.evidenceRequirement.isRequired ? theme.colors.error : theme.colors.outline) }
+                      ]}>
+                        {subtask.evidenceRequirement.title}
+                        {subtask.evidenceRequirement.isRequired && ' (Obligatoria)'}
+                        {!subtask.evidenceRequirement.isRequired && ' (Opcional)'}
+                      </Text>
+                    </View>
+                    
+                    <Text variant="bodySmall" style={styles.evidenceDescription}>
+                      {subtask.evidenceRequirement.description}
+                    </Text>
+                    
+                    {/* Estado de la evidencia */}
+                    {subtask.evidence ? (
+                      <View style={styles.evidenceCompleted}>
+                        <Chip 
+                          mode="flat"
+                          icon="check-circle"
+                          style={styles.evidenceCompletedChip}
+                          textStyle={{ color: theme.colors.tertiary }}
+                        >
+                          Evidencia completada
+                        </Chip>
+                        <Text variant="bodySmall" style={styles.evidenceCompletedInfo}>
+                          {subtask.evidence.title} - {subtask.evidence.createdAt.toLocaleDateString('es-ES')}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Button 
+                        mode={subtask.evidenceRequirement.isRequired ? "contained" : "outlined"}
+                        icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
+                        onPress={() => handleSubtaskEvidence(subtask)}
+                        style={styles.evidenceActionButton}
+                        buttonColor={subtask.evidenceRequirement.isRequired ? theme.colors.error : undefined}
+                      >
+                        {getSubtaskEvidenceActionText(subtask.evidenceRequirement)}
+                      </Button>
+                    )}
+                  </View>
                 )}
-                style={subtask.isCompleted ? styles.completedSubtask : styles.subtask}
-              />
+              </View>
             ))}
           </Card.Content>
         </Card>
@@ -588,6 +778,10 @@ const styles = StyleSheet.create({
   },
   completedSubtask: {
     paddingVertical: 4,
+    opacity: 0.7,
+  },
+  blockedSubtask: {
+    paddingVertical: 4,
     opacity: 0.6,
   },
   evidenceRequirement: {
@@ -710,5 +904,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     marginBottom: 16,
+  },
+  subtaskContainer: {
+    marginBottom: 12,
+  },
+  subtaskCheckContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 40,
+  },
+  evidenceInfo: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+  },
+  evidenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  evidenceTitle: {
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  evidenceDescription: {
+    color: '#666',
+    marginBottom: 8,
+  },
+  evidenceCompleted: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  evidenceCompletedChip: {
+    marginRight: 8,
+  },
+  evidenceCompletedInfo: {
+    color: '#666',
+    fontSize: 12,
   },
 }); 

@@ -30,12 +30,49 @@ export enum EvidenceType {
   PHOTO_VIDEO = 'photo_video', // Fotografía o video
   AUDIO = 'audio',
   SIGNATURE = 'signature',
-  LOCATION = 'location',
+  LOCATION = 'location', // GPS
+  NFC = 'nfc', // Near Field Communication
 }
 
 export enum CommentType {
   TEXT = 'text',
   VOICE = 'voice',
+}
+
+// Configuración de evidencia para subtareas
+export interface SubtaskEvidenceRequirement {
+  type: EvidenceType;
+  isRequired: boolean; // true = obligatoria (check bloqueado), false = opcional (check normal)
+  title: string;
+  description: string;
+  config?: {
+    // Para PHOTO_VIDEO
+    allowPhoto?: boolean;
+    allowVideo?: boolean;
+    maxFileSize?: number; // En MB
+    // Para AUDIO
+    maxDuration?: number; // En segundos
+    // Para LOCATION
+    requiredAccuracy?: number; // En metros
+    // Para SIGNATURE
+    requiredFields?: string[]; // Campos adicionales requeridos
+    // Para NFC
+    expectedTag?: string; // ID del tag NFC esperado
+    allowAnyTag?: boolean; // Si permite cualquier tag NFC
+  };
+}
+
+// Evidencia completada para una subtarea
+export interface SubtaskEvidence {
+  id: string;
+  subtaskId: string;
+  type: EvidenceType;
+  title: string;
+  description?: string;
+  filePath?: string; // Para fotos, videos y audios
+  data?: any; // Para firmas, datos de ubicación o NFC
+  createdAt: Date;
+  completedBy: string;
 }
 
 export interface TaskSubtask {
@@ -46,6 +83,10 @@ export interface TaskSubtask {
   order: number;
   createdAt: Date;
   completedAt?: Date;
+  
+  // Nueva funcionalidad de evidencias
+  evidenceRequirement?: SubtaskEvidenceRequirement; // Si requiere evidencia
+  evidence?: SubtaskEvidence; // Evidencia completada (si existe)
 }
 
 // Evidencia requerida configurada por el manager

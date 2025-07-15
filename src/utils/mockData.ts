@@ -16,7 +16,9 @@ import {
   Project,
   ProjectStatus,
   ProjectPriority,
-  SupervisorObservation
+  SupervisorObservation,
+  SubtaskEvidenceRequirement,
+  SubtaskEvidence
 } from '@/types';
 
 // Datos mockeados para tareas
@@ -34,7 +36,7 @@ export const mockTasks: Task[] = [
     projectName: 'Modernización Línea de Producción A',
     location: 'Planta Industrial Norte - Área Principal',
     
-    // Subtareas
+    // Subtareas con diferentes tipos de evidencias
     subtasks: [
       {
         id: 'subtask-1',
@@ -44,6 +46,28 @@ export const mockTasks: Task[] = [
         order: 1,
         createdAt: new Date('2025-01-12T09:00:00'),
         completedAt: new Date('2025-01-12T10:30:00'),
+        // Evidencia requerida: PHOTO_VIDEO (COMPLETADA)
+        evidenceRequirement: {
+          type: EvidenceType.PHOTO_VIDEO,
+          isRequired: true,
+          title: 'Foto de extintores',
+          description: 'Tomar foto de cada extintor mostrando presión y fecha de vencimiento',
+          config: {
+            allowPhoto: true,
+            allowVideo: false,
+            maxFileSize: 10, // 10MB
+          },
+        },
+        evidence: {
+          id: 'subtask-evidence-1',
+          subtaskId: 'subtask-1',
+          type: EvidenceType.PHOTO_VIDEO,
+          title: 'Extintores Área Principal',
+          description: 'Fotos de todos los extintores verificados - presión correcta',
+          filePath: '/photos/extintores-area-principal.jpg',
+          createdAt: new Date('2025-01-12T10:15:00'),
+          completedBy: 'Juan Pérez',
+        },
       },
       {
         id: 'subtask-2',
@@ -53,6 +77,32 @@ export const mockTasks: Task[] = [
         order: 2,
         createdAt: new Date('2025-01-12T09:00:00'),
         completedAt: new Date('2025-01-12T11:00:00'),
+        // Evidencia requerida: LOCATION/GPS (COMPLETADA)
+        evidenceRequirement: {
+          type: EvidenceType.LOCATION,
+          isRequired: true,
+          title: 'Ubicación GPS de salidas',
+          description: 'Registrar coordenadas GPS de cada salida de emergencia verificada',
+          config: {
+            requiredAccuracy: 5, // 5 metros
+          },
+        },
+        evidence: {
+          id: 'subtask-evidence-2',
+          subtaskId: 'subtask-2',
+          type: EvidenceType.LOCATION,
+          title: 'GPS Salidas de Emergencia',
+          description: 'Coordenadas de todas las salidas verificadas',
+          data: {
+            locations: [
+              { latitude: 40.7128, longitude: -74.0060, accuracy: 3, name: 'Salida Norte' },
+              { latitude: 40.7130, longitude: -74.0058, accuracy: 4, name: 'Salida Sur' },
+              { latitude: 40.7126, longitude: -74.0062, accuracy: 2, name: 'Salida Este' },
+            ],
+          },
+          createdAt: new Date('2025-01-12T10:45:00'),
+          completedBy: 'Juan Pérez',
+        },
       },
       {
         id: 'subtask-3',
@@ -61,6 +111,18 @@ export const mockTasks: Task[] = [
         isCompleted: false,
         order: 3,
         createdAt: new Date('2025-01-12T09:00:00'),
+        // Evidencia requerida: NFC (NO COMPLETADA)
+        evidenceRequirement: {
+          type: EvidenceType.NFC,
+          isRequired: true,
+          title: 'Escaneo NFC de equipos',
+          description: 'Escanear etiquetas NFC de cada extractor para verificar último mantenimiento',
+          config: {
+            allowAnyTag: false,
+            expectedTag: 'VENT_', // Tags que empiecen con VENT_
+          },
+        },
+        // Sin evidencia completada aún
       },
       {
         id: 'subtask-4',
@@ -69,6 +131,38 @@ export const mockTasks: Task[] = [
         isCompleted: false,
         order: 4,
         createdAt: new Date('2025-01-12T09:00:00'),
+        // Evidencia opcional: PHOTO_VIDEO (NO COMPLETADA)
+        evidenceRequirement: {
+          type: EvidenceType.PHOTO_VIDEO,
+          isRequired: false, // OPCIONAL
+          title: 'Fotos de EPIs (opcional)',
+          description: 'Fotografías opcionales del estado de los EPIs para documentación',
+          config: {
+            allowPhoto: true,
+            allowVideo: true,
+            maxFileSize: 15, // 15MB
+          },
+        },
+        // Sin evidencia completada
+      },
+      {
+        id: 'subtask-5',
+        title: 'Obtener firma del supervisor',
+        description: 'Conseguir firma del supervisor de área para validar la inspección',
+        isCompleted: false,
+        order: 5,
+        createdAt: new Date('2025-01-12T09:00:00'),
+        // Evidencia requerida: SIGNATURE (NO COMPLETADA)
+        evidenceRequirement: {
+          type: EvidenceType.SIGNATURE,
+          isRequired: true,
+          title: 'Firma del supervisor',
+          description: 'Firma digital del supervisor validando la inspección de seguridad',
+          config: {
+            requiredFields: ['nombre', 'cargo', 'area', 'fecha'],
+          },
+        },
+        // Sin evidencia completada aún
       },
     ],
     
@@ -242,28 +336,52 @@ export const mockTasks: Task[] = [
     
     subtasks: [
       {
-        id: 'subtask-5',
+        id: 'subtask-6',
         title: 'Lubricar rodamientos',
         description: 'Aplicar lubricante en todos los puntos de rodamiento',
         isCompleted: false,
         order: 1,
         createdAt: new Date('2025-01-10T08:00:00'),
+        // Sin evidencia requerida
       },
       {
-        id: 'subtask-6',
+        id: 'subtask-7',
         title: 'Revisar correas',
         description: 'Verificar tensión y estado de todas las correas',
         isCompleted: false,
         order: 2,
         createdAt: new Date('2025-01-10T08:00:00'),
+        // Evidencia opcional: PHOTO_VIDEO
+        evidenceRequirement: {
+          type: EvidenceType.PHOTO_VIDEO,
+          isRequired: false, // OPCIONAL
+          title: 'Video del estado de correas',
+          description: 'Video opcional mostrando el estado de las correas para registro',
+          config: {
+            allowPhoto: false,
+            allowVideo: true,
+            maxFileSize: 25, // 25MB
+          },
+        },
       },
       {
-        id: 'subtask-7',
+        id: 'subtask-8',
         title: 'Cambiar filtros',
         description: 'Reemplazar filtros de aire y aceite',
         isCompleted: false,
         order: 3,
         createdAt: new Date('2025-01-10T08:00:00'),
+        // Evidencia requerida: NFC + SIGNATURE
+        evidenceRequirement: {
+          type: EvidenceType.NFC,
+          isRequired: true,
+          title: 'Escaneo NFC filtros nuevos',
+          description: 'Escanear código NFC de los filtros nuevos para registro de trazabilidad',
+          config: {
+            allowAnyTag: false,
+            expectedTag: 'FILTER_', // Tags que empiecen con FILTER_
+          },
+        },
       },
     ],
     
@@ -328,22 +446,82 @@ export const mockTasks: Task[] = [
     
     subtasks: [
       {
-        id: 'subtask-8',
+        id: 'subtask-9',
         title: 'Sensor temperatura T1',
         description: 'Calibrar sensor de temperatura principal',
         isCompleted: true,
         order: 1,
         createdAt: new Date('2025-01-08T09:00:00'),
         completedAt: new Date('2025-01-10T10:30:00'),
+        // Evidencia requerida: SIGNATURE (COMPLETADA)
+        evidenceRequirement: {
+          type: EvidenceType.SIGNATURE,
+          isRequired: true,
+          title: 'Firma de calibración T1',
+          description: 'Firma digital confirmando la calibración del sensor de temperatura',
+          config: {
+            requiredFields: ['tecnico', 'fecha', 'valores_calibracion', 'resultado'],
+          },
+        },
+        evidence: {
+          id: 'subtask-evidence-3',
+          subtaskId: 'subtask-9',
+          type: EvidenceType.SIGNATURE,
+          title: 'Calibración Sensor T1 Completada',
+          description: 'Firma digital confirmando calibración exitosa',
+          data: {
+            signatureData: 'base64_signature_data_t1',
+            signedBy: 'Carlos Ruiz',
+            signedAt: new Date('2025-01-10T10:30:00'),
+            fields: {
+              tecnico: 'Carlos Ruiz',
+              fecha: '2025-01-10',
+              valores_calibracion: 'Rango: 0-100°C, Precisión: ±0.1°C',
+              resultado: 'Calibración exitosa - dentro de parámetros',
+            },
+          },
+          createdAt: new Date('2025-01-10T10:30:00'),
+          completedBy: 'Carlos Ruiz',
+        },
       },
       {
-        id: 'subtask-9',
+        id: 'subtask-10',
         title: 'Sensor presión P1',
         description: 'Calibrar sensor de presión de entrada',
         isCompleted: true,
         order: 2,
         createdAt: new Date('2025-01-08T09:00:00'),
         completedAt: new Date('2025-01-10T11:00:00'),
+        // Evidencia requerida: NFC (COMPLETADA)
+        evidenceRequirement: {
+          type: EvidenceType.NFC,
+          isRequired: true,
+          title: 'Escaneo NFC sensor P1',
+          description: 'Escanear etiqueta NFC del sensor para registro de calibración',
+          config: {
+            expectedTag: 'SENSOR_P1',
+            allowAnyTag: false,
+          },
+        },
+        evidence: {
+          id: 'subtask-evidence-4',
+          subtaskId: 'subtask-10',
+          type: EvidenceType.NFC,
+          title: 'NFC Sensor P1 Registrado',
+          description: 'Etiqueta NFC del sensor escaneada correctamente',
+          data: {
+            tagId: 'SENSOR_P1_2024_001',
+            timestamp: new Date('2025-01-10T11:00:00'),
+            calibrationData: {
+              range: '0-10 bar',
+              precision: '±0.01 bar',
+              lastCalibration: '2025-01-10',
+              nextCalibration: '2025-07-10',
+            },
+          },
+          createdAt: new Date('2025-01-10T11:00:00'),
+          completedBy: 'Carlos Ruiz',
+        },
       },
     ],
     
