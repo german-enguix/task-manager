@@ -14,14 +14,13 @@ import {
   Chip, 
   List, 
   Checkbox, 
-  FAB, 
   Divider,
   ProgressBar,
   useTheme,
   Icon
 } from 'react-native-paper';
-import { Task, TaskStatus, EvidenceType, CommentType, RequiredEvidence, TaskSubtask, SubtaskEvidenceRequirement } from '@/types';
-import { getTaskById, updateTask, completeRequiredEvidence } from '@/utils/mockData';
+import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement } from '@/types';
+import { getTaskById, updateTask } from '@/utils/mockData';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -211,40 +210,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     updateTask(taskId, { timer: newTimer });
   };
 
-  const handleCompleteEvidence = (requiredEvidence: RequiredEvidence) => {
-    if (!task) return;
-    
-    const actionText = getEvidenceActionText(requiredEvidence);
-    
-    Alert.alert(
-      'Completar Evidencia',
-      `¿Deseas ${actionText.toLowerCase()} para "${requiredEvidence.title}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Completar', onPress: () => {
-          // Aquí se implementaría la lógica específica para cada tipo de evidencia
-          console.log(`Completing evidence: ${requiredEvidence.id}`);
-          
-          // Simular completar la evidencia
-          const success = completeRequiredEvidence(taskId, requiredEvidence.id, {
-            type: requiredEvidence.type,
-            title: `${requiredEvidence.title} - Completada`,
-            description: 'Evidencia completada por el usuario',
-            createdAt: new Date(),
-            completedBy: task.assignedTo || 'Usuario',
-          });
-          
-          if (success) {
-            // Actualizar el estado local
-            const updatedTask = getTaskById(taskId);
-            if (updatedTask) {
-              setTask(updatedTask);
-            }
-          }
-        }},
-      ]
-    );
-  };
+
 
   const getEvidenceIcon = (type: EvidenceType, config?: RequiredEvidence['config']) => {
     switch (type) {
@@ -265,24 +231,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
   };
 
-  const getEvidenceActionText = (evidence: RequiredEvidence) => {
-    switch (evidence.type) {
-      case EvidenceType.PHOTO_VIDEO:
-        if (evidence.config?.allowPhoto && evidence.config?.allowVideo) return 'Capturar foto o video';
-        if (evidence.config?.allowVideo) return 'Grabar video';
-        return 'Tomar foto';
-      case EvidenceType.AUDIO:
-        return 'Grabar audio';
-      case EvidenceType.SIGNATURE:
-        return 'Firmar';
-      case EvidenceType.LOCATION:
-        return 'Obtener ubicación';
-      case EvidenceType.NFC:
-        return 'Escanear NFC';
-      default:
-        return 'Completar';
-    }
-  };
+
 
   const getSubtaskEvidenceActionText = (evidenceReq: SubtaskEvidenceRequirement) => {
     switch (evidenceReq.type) {
@@ -376,10 +325,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const completedSubtasks = task.subtasks.filter(subtask => subtask.isCompleted).length;
   const totalSubtasks = task.subtasks.length;
   const progress = totalSubtasks > 0 ? completedSubtasks / totalSubtasks : 0;
-
-  const completedEvidences = task.requiredEvidences.filter(evidence => evidence.isCompleted).length;
-  const totalEvidences = task.requiredEvidences.length;
-  const evidenceProgress = totalEvidences > 0 ? completedEvidences / totalEvidences : 0;
 
   return (
     <Surface style={styles.container}>
@@ -519,30 +464,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                   ]}
                 />
                 
-                {/* Información de evidencia requerida */}
+                {/* CTA de evidencia */}
                 {subtask.evidenceRequirement && (
                   <View style={styles.evidenceInfo}>
-                    <View style={styles.evidenceHeader}>
-                      <Icon 
-                        source={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)} 
-                        size={16} 
-                        color={subtask.evidence ? theme.colors.tertiary : (subtask.evidenceRequirement.isRequired ? theme.colors.error : theme.colors.outline)}
-                      />
-                      <Text variant="bodySmall" style={[
-                        styles.evidenceTitle,
-                        { color: subtask.evidence ? theme.colors.tertiary : (subtask.evidenceRequirement.isRequired ? theme.colors.error : theme.colors.outline) }
-                      ]}>
-                        {subtask.evidenceRequirement.title}
-                        {subtask.evidenceRequirement.isRequired && ' (Obligatoria)'}
-                        {!subtask.evidenceRequirement.isRequired && ' (Opcional)'}
-                      </Text>
-                    </View>
-                    
-                    {/* CTA de evidencia */}
                     {subtask.evidence ? (
                       <Button 
                         mode="outlined"
-                        icon="check-circle"
+                        icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
                         disabled={true}
                         style={styles.evidenceCompletedButton}
                         labelStyle={styles.evidenceCompletedButtonText}
@@ -567,67 +495,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           </Card.Content>
         </Card>
 
-        {/* Evidencias Requeridas */}
-        <Card style={styles.card}>
-          <Card.Title title="Evidencias Requeridas" />
-          <Card.Content>
-            <View style={styles.progressContainer}>
-              <Text variant="bodyMedium">
-                {completedEvidences} de {totalEvidences} completadas
-              </Text>
-              <ProgressBar progress={evidenceProgress} style={styles.progressBar} />
-            </View>
-            
-            {task.requiredEvidences.map((requiredEvidence) => (
-              <View key={requiredEvidence.id} style={styles.evidenceRequirement}>
-                <List.Item
-                  title={requiredEvidence.title}
-                  description={requiredEvidence.description}
-                  left={() => (
-                    <List.Icon 
-                      icon={getEvidenceIcon(requiredEvidence.type, requiredEvidence.config)}
-                      color={requiredEvidence.isCompleted ? theme.colors.tertiary : theme.colors.outline}
-                    />
-                  )}
-                  right={() => (
-                    requiredEvidence.isCompleted ? (
-                      <Chip 
-                        mode="flat"
-                        style={styles.completedChip}
-                        textStyle={{ color: theme.colors.tertiary }}
-                      >
-                        Completada
-                      </Chip>
-                    ) : (
-                      <Button 
-                        mode="outlined"
-                        onPress={() => handleCompleteEvidence(requiredEvidence)}
-                        style={styles.evidenceActionButton}
-                      >
-                        {getEvidenceActionText(requiredEvidence)}
-                      </Button>
-                    )
-                  )}
-                  style={requiredEvidence.isCompleted ? styles.completedEvidence : styles.pendingEvidence}
-                />
-                
-                {/* Mostrar evidencias completadas para este requerimiento */}
-                {task.evidences
-                  .filter(evidence => evidence.requiredEvidenceId === requiredEvidence.id)
-                  .map((evidence) => (
-                    <View key={evidence.id} style={styles.completedEvidenceItem}>
-                      <List.Item
-                        title={evidence.title}
-                        description={`Completada por ${evidence.completedBy} - ${evidence.createdAt.toLocaleDateString('es-ES')}`}
-                        left={() => <List.Icon icon="check-circle" color={theme.colors.tertiary} />}
-                        style={styles.completedEvidenceSubitem}
-                      />
-                    </View>
-                  ))}
-              </View>
-            ))}
-          </Card.Content>
-        </Card>
+
 
         {/* Comentarios */}
         <Card style={styles.card}>
@@ -680,11 +548,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         </Card>
 
         {/* Problemas reportados */}
-        {task.problemReports.length > 0 && (
-          <Card style={styles.card}>
-            <Card.Title title="Problemas Reportados" />
-            <Card.Content>
-              {task.problemReports.map((problem) => (
+        <Card style={styles.card}>
+          <Card.Title title="Problemas Reportados" />
+          <Card.Content>
+            {task.problemReports.length > 0 ? (
+              task.problemReports.map((problem) => (
                 <View key={problem.id} style={styles.problemItem}>
                   <Text variant="titleMedium">{problem.title}</Text>
                   <Text variant="bodyMedium">{problem.description}</Text>
@@ -699,19 +567,24 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                     {problem.severity.toUpperCase()}
                   </Chip>
                 </View>
-              ))}
-            </Card.Content>
-          </Card>
-        )}
+              ))
+            ) : (
+              <Text variant="bodyMedium" style={styles.emptyText}>
+                No hay problemas reportados
+              </Text>
+            )}
+            
+            <Button 
+              mode="outlined" 
+              icon="alert" 
+              onPress={reportProblem}
+              style={styles.reportButton}
+            >
+              Reportar Problema
+            </Button>
+          </Card.Content>
+        </Card>
       </ScrollView>
-
-      {/* FAB para reportar problema */}
-      <FAB
-        icon="alert"
-        label="Reportar Problema"
-        style={styles.fab}
-        onPress={reportProblem}
-      />
     </Surface>
   );
 };
@@ -776,28 +649,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     opacity: 0.6,
   },
-  evidenceRequirement: {
-    marginBottom: 16,
-  },
-  completedEvidence: {
-    opacity: 0.7,
-  },
-  pendingEvidence: {
-    // Estilo normal
-  },
-  completedChip: {
-    alignSelf: 'center',
-  },
   evidenceActionButton: {
     alignSelf: 'center',
   },
-  completedEvidenceItem: {
-    marginLeft: 16,
-    marginTop: 8,
-  },
-  completedEvidenceSubitem: {
-    paddingLeft: 16,
-    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   commentItem: {
     marginBottom: 16,
@@ -872,10 +726,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 6,
   },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
+  reportButton: {
+    marginTop: 16,
   },
   backButton: {
     marginRight: 8,
@@ -908,15 +760,6 @@ const styles = StyleSheet.create({
   evidenceInfo: {
     marginTop: 8,
     paddingHorizontal: 16,
-  },
-  evidenceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  evidenceTitle: {
-    marginLeft: 8,
-    fontWeight: '500',
   },
   evidenceCompletedButton: {
     alignSelf: 'center',
