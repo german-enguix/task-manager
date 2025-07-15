@@ -538,25 +538,17 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                       </Text>
                     </View>
                     
-                    <Text variant="bodySmall" style={styles.evidenceDescription}>
-                      {subtask.evidenceRequirement.description}
-                    </Text>
-                    
-                    {/* Estado de la evidencia */}
+                    {/* CTA de evidencia */}
                     {subtask.evidence ? (
-                      <View style={styles.evidenceCompleted}>
-                        <Chip 
-                          mode="flat"
-                          icon="check-circle"
-                          style={styles.evidenceCompletedChip}
-                          textStyle={{ color: theme.colors.tertiary }}
-                        >
-                          Evidencia completada
-                        </Chip>
-                        <Text variant="bodySmall" style={styles.evidenceCompletedInfo}>
-                          {subtask.evidence.title} - {subtask.evidence.createdAt.toLocaleDateString('es-ES')}
-                        </Text>
-                      </View>
+                      <Button 
+                        mode="outlined"
+                        icon="check-circle"
+                        disabled={true}
+                        style={styles.evidenceCompletedButton}
+                        labelStyle={styles.evidenceCompletedButtonText}
+                      >
+                        Evidencia completada
+                      </Button>
                     ) : (
                       <Button 
                         mode={subtask.evidenceRequirement.isRequired ? "contained" : "outlined"}
@@ -926,20 +918,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: '500',
   },
-  evidenceDescription: {
-    color: '#666',
-    marginBottom: 8,
-  },
-  evidenceCompleted: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  evidenceCompletedButton: {
+    alignSelf: 'center',
     marginTop: 8,
   },
-  evidenceCompletedChip: {
-    marginRight: 8,
-  },
-  evidenceCompletedInfo: {
-    color: '#666',
+  evidenceCompletedButtonText: {
     fontSize: 12,
   },
 }); 
