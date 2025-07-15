@@ -652,7 +652,6 @@ const styles = StyleSheet.create({
   evidenceActionButton: {
     alignSelf: 'center',
   },
-  },
   commentItem: {
     marginBottom: 16,
     padding: 12,
