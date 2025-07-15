@@ -114,6 +114,10 @@ export interface Task {
   dueDate?: Date;
   estimatedDuration?: number; // En minutos
   
+  // Información del proyecto y ubicación
+  projectName: string;
+  location: string;
+  
   // Subtareas
   subtasks: TaskSubtask[];
   
@@ -206,10 +210,8 @@ export interface WorkDay {
   status: DayStatus;
   
   // Información del día
-  site: string;
   startTime: Date;
   endTime?: Date;
-  projectName?: string;
   
   // Fichaje independiente
   timesheet: Timesheet;

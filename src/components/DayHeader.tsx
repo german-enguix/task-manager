@@ -119,17 +119,7 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
           />
         </View>
 
-        {/* Información del sitio */}
-        <View style={styles.infoRow}>
-          <Icon 
-            source="map-marker" 
-            size={20} 
-            color={theme.colors.onSurfaceVariant} 
-          />
-          <Text variant="bodyLarge" style={styles.siteText}>
-            {workDay.site}
-          </Text>
-        </View>
+        {/* Información del sitio - Removido: ahora está en cada tarea */}
 
         {/* Hora de inicio y fin */}
         <View style={styles.infoRow}>
@@ -144,19 +134,7 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
           </Text>
         </View>
 
-        {/* Proyecto actual */}
-        {workDay.projectName && (
-          <View style={styles.infoRow}>
-            <Icon 
-              source="folder-outline" 
-              size={20} 
-              color={theme.colors.onSurfaceVariant} 
-            />
-            <Text variant="bodyMedium" style={styles.projectText}>
-              {workDay.projectName}
-            </Text>
-          </View>
-        )}
+        {/* Proyecto actual - Removido: ahora está en cada tarea */}
 
         {/* Resumen del día completado */}
         {isCompleted && workDay.summary && (

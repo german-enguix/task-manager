@@ -17,7 +17,8 @@ import {
   FAB, 
   Divider,
   ProgressBar,
-  useTheme 
+  useTheme,
+  Icon
 } from 'react-native-paper';
 import { Task, TaskStatus, EvidenceType, CommentType, RequiredEvidence } from '@/types';
 import { getTaskById, updateTask, completeRequiredEvidence } from '@/utils/mockData';
@@ -297,6 +298,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           <Card.Title title="Descripción" />
           <Card.Content>
             <Text variant="bodyMedium">{task.description}</Text>
+            
+            {/* Información del proyecto y ubicación */}
+            <View style={styles.taskMeta}>
+              <View style={styles.taskMetaRow}>
+                <Icon source="folder" size={16} color="#2196F3" />
+                <Text variant="bodySmall" style={styles.taskProject}>
+                  Proyecto: {task.projectName}
+                </Text>
+              </View>
+              <View style={styles.taskMetaRow}>
+                <Icon source="map-marker" size={16} color="#4CAF50" />
+                <Text variant="bodySmall" style={styles.taskLocation}>
+                  Ubicación: {task.location}
+                </Text>
+              </View>
+            </View>
+            
             {task.dueDate && (
               <Text variant="bodySmall" style={styles.dueDate}>
                 Fecha límite: {task.dueDate.toLocaleDateString('es-ES')}
@@ -636,6 +654,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.6,
     marginVertical: 16,
+  },
+  taskMeta: {
+    marginTop: 16,
+    marginBottom: 8,
+    gap: 8,
+  },
+  taskMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  taskProject: {
+    color: '#2196F3',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  taskLocation: {
+    color: '#4CAF50',
+    fontWeight: '500',
+    marginLeft: 6,
   },
   fab: {
     position: 'absolute',

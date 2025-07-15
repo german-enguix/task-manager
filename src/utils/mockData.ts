@@ -30,6 +30,10 @@ export const mockTasks: Task[] = [
     dueDate: new Date('2025-01-15T18:00:00'),
     estimatedDuration: 120, // 2 horas
     
+    // Información del proyecto y ubicación
+    projectName: 'Modernización Línea de Producción A',
+    location: 'Planta Industrial Norte - Área Principal',
+    
     // Subtareas
     subtasks: [
       {
@@ -232,6 +236,10 @@ export const mockTasks: Task[] = [
     dueDate: new Date('2025-01-20T16:00:00'),
     estimatedDuration: 240, // 4 horas
     
+    // Información del proyecto y ubicación
+    projectName: 'Modernización Línea de Producción A',
+    location: 'Planta Industrial Norte - Área de Maquinaria',
+    
     subtasks: [
       {
         id: 'subtask-5',
@@ -313,6 +321,10 @@ export const mockTasks: Task[] = [
     priority: 'low',
     dueDate: new Date('2025-01-10T14:00:00'),
     estimatedDuration: 90, // 1.5 horas
+    
+    // Información del proyecto y ubicación
+    projectName: 'Modernización Línea de Producción A',
+    location: 'Planta Industrial Norte - Línea 2',
     
     subtasks: [
       {
@@ -530,10 +542,8 @@ export const mockWorkDays: WorkDay[] = [
     status: DayStatus.COMPLETED,
     
     // Información del día
-    site: 'Planta Industrial Norte',
     startTime: new Date('2025-01-11T08:00:00'),
     endTime: new Date('2025-01-11T17:00:00'),
-    projectName: 'Modernización Línea de Producción A',
     
     // Fichaje completado
     timesheet: {
@@ -624,16 +634,14 @@ export const mockWorkDays: WorkDay[] = [
     status: DayStatus.ACTIVE,
     
     // Información del día
-    site: 'Planta Industrial Norte',
     startTime: new Date('2025-01-12T08:00:00'),
     endTime: undefined, // Aún no finalizado
-    projectName: 'Modernización Línea de Producción A',
     
     // Fichaje independiente
     timesheet: {
       id: 'timesheet-2025-01-12',
       status: TimesheetStatus.IN_PROGRESS,
-      totalDuration: 14400, // 4 horas
+      totalDuration: 15071, // 4 horas 11 minutos 11 segundos
       currentSessionStart: new Date('2025-01-12T13:00:00'),
       sessions: [
         {
@@ -673,10 +681,8 @@ export const mockWorkDays: WorkDay[] = [
     status: DayStatus.ACTIVE,
     
     // Información del día
-    site: 'Planta Industrial Norte',
     startTime: new Date('2025-01-13T08:00:00'),
     endTime: undefined,
-    projectName: 'Modernización Línea de Producción A',
     
     // Fichaje no iniciado
     timesheet: {

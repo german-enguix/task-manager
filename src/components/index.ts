@@ -11,6 +11,7 @@ export { DayHeader } from './DayHeader';
 export { TimesheetWidget } from './TimesheetWidget';
 export { NotificationsSection } from './NotificationsSection';
 export { NotificationsBell } from './NotificationsBell';
+export { DayTimeCard } from './DayTimeCard';
 
 // Navigation components
 export { NavBar } from './NavBar';
