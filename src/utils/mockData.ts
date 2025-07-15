@@ -11,7 +11,11 @@ import {
   WorkDay,
   DayStatus,
   TimesheetStatus,
-  NotificationType
+  NotificationType,
+  Project,
+  ProjectStatus,
+  ProjectPriority,
+  SupervisorObservation
 } from '@/types';
 
 // Datos mockeados para tareas
@@ -789,4 +793,284 @@ export const markNotificationAsRead = (notificationId: string): WorkDay => {
     mockWorkDays[currentSelectedDayIndex].updatedAt = new Date();
   }
   return mockWorkDays[currentSelectedDayIndex];
+}; 
+
+// Datos mockeados para proyectos
+export const mockProjects: Project[] = [
+  {
+    id: 'project-1',
+    name: 'Modernización Línea de Producción A',
+    description: 'Actualización completa de la línea de producción A incluyendo inspección de seguridad, mantenimiento preventivo y calibración de sensores para mejorar la eficiencia y seguridad.',
+    status: ProjectStatus.IN_PROGRESS,
+    priority: ProjectPriority.HIGH,
+    
+    // Lugar y fechas
+    location: 'Planta Industrial Norte',
+    startDate: new Date('2025-01-10T08:00:00'),
+    endDate: new Date('2025-01-20T17:00:00'),
+    estimatedDuration: 10, // 10 días
+    actualDuration: undefined,
+    
+    // Tareas del proyecto
+    taskIds: ['task-1', 'task-2', 'task-3'], // Todas las tareas mockeadas
+    totalTasks: 3,
+    completedTasks: 1,
+    
+    // Supervisor y observaciones
+    supervisorName: 'María González',
+    supervisorEmail: 'maria.gonzalez@empresa.com',
+    observations: [
+      {
+        id: 'obs-1',
+        supervisorName: 'María González',
+        supervisorRole: 'Supervisora de Producción',
+        observation: 'El progreso en la inspección de seguridad va según lo planificado. Se recomienda prestar especial atención al estado de los extintores en el área 3.',
+        date: new Date('2025-01-11T16:00:00'),
+        priority: ProjectPriority.MEDIUM,
+        isResolved: true,
+        resolvedAt: new Date('2025-01-11T17:30:00'),
+        resolvedBy: 'Juan Pérez',
+        resolution: 'Extintores del área 3 revisados y actualizados correctamente.',
+      },
+      {
+        id: 'obs-2',
+        supervisorName: 'María González',
+        supervisorRole: 'Supervisora de Producción',
+        observation: 'Es necesario coordinar mejor los tiempos del mantenimiento preventivo para no interferir con la producción del turno de tarde.',
+        date: new Date('2025-01-12T10:00:00'),
+        priority: ProjectPriority.HIGH,
+        isResolved: false,
+      },
+      {
+        id: 'obs-3',
+        supervisorName: 'María González',
+        supervisorRole: 'Supervisora de Producción',
+        observation: 'Excelente trabajo en la documentación de evidencias. La calidad de las fotos y audios facilitará la revisión posterior.',
+        date: new Date('2025-01-12T14:00:00'),
+        priority: ProjectPriority.LOW,
+        isResolved: true,
+        resolvedAt: new Date('2025-01-12T14:05:00'),
+        resolvedBy: 'Juan Pérez',
+        resolution: 'Agradecimiento reconocido.',
+      },
+    ],
+    
+    // Progreso
+    completionPercentage: 35,
+    
+    // Equipos y recursos
+    assignedTeam: ['Juan Pérez', 'Carlos Ruiz', 'Ana Martín'],
+    requiredResources: [
+      'Equipo de inspección de seguridad',
+      'Herramientas de mantenimiento',
+      'Dispositivos de calibración',
+      'EPIs completos',
+      'Documentación técnica',
+    ],
+    
+    // Metadatos
+    createdAt: new Date('2025-01-08T09:00:00'),
+    updatedAt: new Date('2025-01-12T15:00:00'),
+    createdBy: 'admin',
+    assignedTo: 'Juan Pérez',
+  },
+  
+  {
+    id: 'project-2',
+    name: 'Implementación Sistema de Monitoreo IoT',
+    description: 'Instalación y configuración de sensores IoT para monitoreo en tiempo real de temperatura, humedad y presión en todas las líneas de producción.',
+    status: ProjectStatus.PROGRAMMED,
+    priority: ProjectPriority.MEDIUM,
+    
+    // Lugar y fechas
+    location: 'Planta Industrial Sur',
+    startDate: new Date('2025-01-25T08:00:00'),
+    endDate: new Date('2025-02-15T17:00:00'),
+    estimatedDuration: 21, // 21 días
+    actualDuration: undefined,
+    
+    // Tareas del proyecto
+    taskIds: [], // Tareas aún no asignadas
+    totalTasks: 0,
+    completedTasks: 0,
+    
+    // Supervisor y observaciones
+    supervisorName: 'Roberto Silva',
+    supervisorEmail: 'roberto.silva@empresa.com',
+    observations: [
+      {
+        id: 'obs-4',
+        supervisorName: 'Roberto Silva',
+        supervisorRole: 'Supervisor de Tecnología',
+        observation: 'Se debe coordinar con el equipo de IT para asegurar la conectividad de red antes del inicio del proyecto.',
+        date: new Date('2025-01-10T11:00:00'),
+        priority: ProjectPriority.HIGH,
+        isResolved: false,
+      },
+      {
+        id: 'obs-5',
+        supervisorName: 'Roberto Silva',
+        supervisorRole: 'Supervisor de Tecnología',
+        observation: 'Los sensores han llegado completos. Se recomienda revisar las especificaciones técnicas con el equipo antes de la instalación.',
+        date: new Date('2025-01-15T09:30:00'),
+        priority: ProjectPriority.MEDIUM,
+        isResolved: true,
+        resolvedAt: new Date('2025-01-15T16:00:00'),
+        resolvedBy: 'Elena Torres',
+        resolution: 'Especificaciones revisadas y aprobadas por el equipo técnico.',
+      },
+    ],
+    
+    // Progreso
+    completionPercentage: 0,
+    
+    // Equipos y recursos
+    assignedTeam: ['Elena Torres', 'Miguel Santos', 'Laura Jiménez'],
+    requiredResources: [
+      'Sensores IoT (50 unidades)',
+      'Gateway de comunicación',
+      'Cables de red',
+      'Herramientas de instalación',
+      'Software de configuración',
+    ],
+    
+    // Metadatos
+    createdAt: new Date('2025-01-05T10:00:00'),
+    updatedAt: new Date('2025-01-15T16:00:00'),
+    createdBy: 'admin',
+    assignedTo: 'Elena Torres',
+  },
+  
+  {
+    id: 'project-3',
+    name: 'Renovación Sistema de Ventilación',
+    description: 'Proyecto completado de renovación del sistema de ventilación en las áreas de producción principales, incluyendo instalación de nuevos extractores y filtros.',
+    status: ProjectStatus.COMPLETED,
+    priority: ProjectPriority.HIGH,
+    
+    // Lugar y fechas
+    location: 'Planta Industrial Norte',
+    startDate: new Date('2024-12-01T08:00:00'),
+    endDate: new Date('2024-12-20T17:00:00'),
+    estimatedDuration: 20, // 20 días
+    actualDuration: 19, // Se completó un día antes
+    
+    // Tareas del proyecto
+    taskIds: [], // Tareas históricas
+    totalTasks: 8,
+    completedTasks: 8,
+    
+    // Supervisor y observaciones
+    supervisorName: 'Carlos Mendoza',
+    supervisorEmail: 'carlos.mendoza@empresa.com',
+    observations: [
+      {
+        id: 'obs-6',
+        supervisorName: 'Carlos Mendoza',
+        supervisorRole: 'Supervisor de Mantenimiento',
+        observation: 'Proyecto finalizado exitosamente. Todos los sistemas funcionan correctamente y se han superado las pruebas de eficiencia.',
+        date: new Date('2024-12-20T16:30:00'),
+        priority: ProjectPriority.LOW,
+        isResolved: true,
+        resolvedAt: new Date('2024-12-20T17:00:00'),
+        resolvedBy: 'Pedro Ramírez',
+        resolution: 'Proyecto cerrado con éxito. Documentación archivada.',
+      },
+      {
+        id: 'obs-7',
+        supervisorName: 'Carlos Mendoza',
+        supervisorRole: 'Supervisor de Mantenimiento',
+        observation: 'Excelente coordinación del equipo. Se logró completar el proyecto un día antes de lo previsto.',
+        date: new Date('2024-12-19T15:00:00'),
+        priority: ProjectPriority.LOW,
+        isResolved: true,
+        resolvedAt: new Date('2024-12-19T15:05:00'),
+        resolvedBy: 'Pedro Ramírez',
+        resolution: 'Reconocimiento al equipo registrado.',
+      },
+    ],
+    
+    // Progreso
+    completionPercentage: 100,
+    
+    // Equipos y recursos
+    assignedTeam: ['Pedro Ramírez', 'Sofia López', 'David García'],
+    requiredResources: [
+      'Extractores industriales (12 unidades)',
+      'Filtros HEPA',
+      'Conductos de ventilación',
+      'Herramientas especializadas',
+      'Andamios y equipos de altura',
+    ],
+    
+    // Metadatos
+    createdAt: new Date('2024-11-15T09:00:00'),
+    updatedAt: new Date('2024-12-20T17:00:00'),
+    createdBy: 'admin',
+    assignedTo: 'Pedro Ramírez',
+  },
+];
+
+// Funciones para manejar proyectos
+export const getAllProjects = (): Project[] => {
+  return mockProjects;
+};
+
+export const getProjectsByStatus = (status: ProjectStatus): Project[] => {
+  return mockProjects.filter(project => project.status === status);
+};
+
+export const getAssignedProjects = (userId: string): Project[] => {
+  return mockProjects.filter(project => 
+    project.assignedTo === userId || project.assignedTeam.includes(userId)
+  );
+};
+
+export const getProjectById = (id: string): Project | undefined => {
+  return mockProjects.find(project => project.id === id);
+};
+
+export const updateProject = (id: string, updates: Partial<Project>): Project | undefined => {
+  const projectIndex = mockProjects.findIndex(project => project.id === id);
+  if (projectIndex === -1) return undefined;
+  
+  mockProjects[projectIndex] = {
+    ...mockProjects[projectIndex],
+    ...updates,
+    updatedAt: new Date(),
+  };
+  
+  return mockProjects[projectIndex];
+};
+
+export const addSupervisorObservation = (projectId: string, observation: Omit<SupervisorObservation, 'id'>): Project | undefined => {
+  const project = getProjectById(projectId);
+  if (!project) return undefined;
+  
+  const newObservation: SupervisorObservation = {
+    ...observation,
+    id: `obs-${Date.now()}`,
+  };
+  
+  project.observations.push(newObservation);
+  project.updatedAt = new Date();
+  
+  return project;
+};
+
+export const resolveObservation = (projectId: string, observationId: string, resolvedBy: string, resolution: string): Project | undefined => {
+  const project = getProjectById(projectId);
+  if (!project) return undefined;
+  
+  const observation = project.observations.find(obs => obs.id === observationId);
+  if (!observation) return undefined;
+  
+  observation.isResolved = true;
+  observation.resolvedAt = new Date();
+  observation.resolvedBy = resolvedBy;
+  observation.resolution = resolution;
+  
+  project.updatedAt = new Date();
+  
+  return project;
 }; 

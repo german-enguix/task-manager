@@ -16,11 +16,7 @@ export type NavigationProps = {
   route: any;
 };
 
-export type RootStackParamList = {
-  Home: undefined;
-  TaskDetail: { taskId: string };
-  Settings: undefined;
-};
+
 
 // Task System Types
 export enum TaskStatus {
@@ -238,3 +234,80 @@ export interface WorkDay {
   updatedAt: Date;
   createdBy: string;
 }
+
+// Project System Types
+export enum ProjectStatus {
+  PROGRAMMED = 'programmed',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+export enum ProjectPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+export interface SupervisorObservation {
+  id: string;
+  supervisorName: string;
+  supervisorRole: string;
+  observation: string;
+  date: Date;
+  priority: ProjectPriority;
+  isResolved: boolean;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  resolution?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  priority: ProjectPriority;
+  
+  // Lugar y fechas
+  location: string;
+  startDate: Date;
+  endDate?: Date;
+  estimatedDuration: number; // En días
+  actualDuration?: number; // En días
+  
+  // Tareas del proyecto
+  taskIds: string[]; // Referencias a las tareas
+  totalTasks: number;
+  completedTasks: number;
+  
+  // Supervisor y observaciones
+  supervisorName: string;
+  supervisorEmail: string;
+  observations: SupervisorObservation[];
+  
+  // Progreso
+  completionPercentage: number;
+  
+  // Equipos y recursos
+  assignedTeam: string[];
+  requiredResources: string[];
+  
+  // Metadatos
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  assignedTo?: string;
+}
+
+// Navigation Types
+export type RootStackParamList = {
+  Home: undefined;
+  Projects: undefined;
+  TaskDetail: { taskId: string };
+  ProjectDetail: { projectId: string };
+  Settings: undefined;
+};
+
+export type NavigationRoute = 'Home' | 'Projects' | 'TaskDetail' | 'ProjectDetail' | 'Settings';

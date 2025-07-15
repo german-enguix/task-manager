@@ -443,6 +443,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   bottomSpacer: {
-    height: 24,
+    height: 80, // Espacio para la navbar
   },
 });

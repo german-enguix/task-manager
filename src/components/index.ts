@@ -10,3 +10,6 @@ export { PaperChip } from './PaperChip';
 export { DayHeader } from './DayHeader';
 export { TimesheetWidget } from './TimesheetWidget';
 export { NotificationsSection } from './NotificationsSection';
+
+// Navigation components
+export { NavBar } from './NavBar';

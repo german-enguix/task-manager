@@ -1,3 +1,4 @@
 // Export all screens from this file
 export { HomeScreen } from './HomeScreen';
-export { TaskDetailScreen } from './TaskDetailScreen';
+export { ProjectsScreen } from './ProjectsScreen';
+export { ProjectDetailScreen } from './ProjectDetailScreen';
