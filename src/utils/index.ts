@@ -25,4 +25,16 @@ export const generateId = (): string => {
 };
 
 // Mock data exports
-export { mockTasks, getTaskById, getAllTasks, updateTask, completeRequiredEvidence } from './mockData';
+export { 
+  mockTasks, 
+  getTaskById, 
+  getAllTasks, 
+  updateTask, 
+  completeRequiredEvidence,
+  getAllNotifications,
+  getUnreadNotifications,
+  getUnreadNotificationsCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  addNotification
+} from './mockData';

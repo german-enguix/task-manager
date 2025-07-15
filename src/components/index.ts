@@ -10,6 +10,7 @@ export { PaperChip } from './PaperChip';
 export { DayHeader } from './DayHeader';
 export { TimesheetWidget } from './TimesheetWidget';
 export { NotificationsSection } from './NotificationsSection';
+export { NotificationsBell } from './NotificationsBell';
 
 // Navigation components
 export { NavBar } from './NavBar';

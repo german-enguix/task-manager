@@ -12,6 +12,7 @@ import {
   DayStatus,
   TimesheetStatus,
   NotificationType,
+  Notification,
   Project,
   ProjectStatus,
   ProjectPriority,
@@ -403,6 +404,70 @@ export const mockTasks: Task[] = [
   },
 ];
 
+// Notificaciones globales mockeadas
+export const mockNotifications: Notification[] = [
+  {
+    id: 'notification-1',
+    type: NotificationType.INFO,
+    title: 'Recordatorio',
+    message: 'No olvides completar la evidencia de firma del supervisor en la tarea de inspección.',
+    isRead: false,
+    createdAt: new Date('2025-01-12T11:00:00'),
+    actionRequired: true,
+    actionLabel: 'Ver tarea',
+    actionData: { taskId: 'task-1' },
+  },
+  {
+    id: 'notification-2',
+    type: NotificationType.WARNING,
+    title: 'Tiempo límite',
+    message: 'La tarea de mantenimiento debe iniciarse antes de las 15:00 para cumplir con el cronograma.',
+    isRead: false,
+    createdAt: new Date('2025-01-12T13:30:00'),
+    actionRequired: true,
+    actionLabel: 'Iniciar tarea',
+    actionData: { taskId: 'task-2' },
+  },
+  {
+    id: 'notification-3',
+    type: NotificationType.SUCCESS,
+    title: 'Evidencia aceptada',
+    message: 'La evidencia de audio del sistema de ventilación ha sido validada correctamente.',
+    isRead: true,
+    createdAt: new Date('2025-01-12T12:15:00'),
+    actionRequired: false,
+  },
+  {
+    id: 'notification-4',
+    type: NotificationType.SUCCESS,
+    title: 'Día finalizado',
+    message: 'Todas las tareas del día han sido completadas exitosamente.',
+    isRead: true,
+    createdAt: new Date('2025-01-11T17:00:00'),
+    actionRequired: false,
+  },
+  {
+    id: 'notification-5',
+    type: NotificationType.INFO,
+    title: 'Día programado',
+    message: 'Tienes programada una calibración de sensores para mañana a las 08:00.',
+    isRead: false,
+    createdAt: new Date('2025-01-12T16:00:00'),
+    actionRequired: false,
+  },
+  {
+    id: 'notification-6',
+    type: NotificationType.ERROR,
+    title: 'Problema reportado',
+    message: 'Se ha detectado un problema en el ventilador 3. Requiere atención inmediata.',
+    isRead: false,
+    createdAt: new Date('2025-01-12T14:20:00'),
+    actionRequired: true,
+    actionLabel: 'Ver reporte',
+    actionData: { problemId: 'problem-1' },
+  },
+];
+
 // Función para obtener una tarea por ID
 export const getTaskById = (id: string): Task | undefined => {
   return mockTasks.find(task => task.id === id);
@@ -534,18 +599,8 @@ export const mockWorkDays: WorkDay[] = [
       },
     ],
     
-    // Notificaciones del día anterior (todas leídas)
-    notifications: [
-      {
-        id: 'notification-completed-1',
-        type: NotificationType.SUCCESS,
-        title: 'Día finalizado',
-        message: 'Todas las tareas del día han sido completadas exitosamente.',
-        isRead: true,
-        createdAt: new Date('2025-01-11T17:00:00'),
-        actionRequired: false,
-      },
-    ],
+    // Notificaciones gestionadas globalmente
+    notifications: [],
     
     // Resumen del día completado
     summary: {
@@ -599,40 +654,8 @@ export const mockWorkDays: WorkDay[] = [
     // Tareas del día actual
     tasks: mockTasks,
     
-    // Notificaciones
-    notifications: [
-      {
-        id: 'notification-1',
-        type: NotificationType.INFO,
-        title: 'Recordatorio',
-        message: 'No olvides completar la evidencia de firma del supervisor en la tarea de inspección.',
-        isRead: false,
-        createdAt: new Date('2025-01-12T11:00:00'),
-        actionRequired: true,
-        actionLabel: 'Ver tarea',
-        actionData: { taskId: 'task-1' },
-      },
-      {
-        id: 'notification-2',
-        type: NotificationType.WARNING,
-        title: 'Tiempo límite',
-        message: 'La tarea de mantenimiento debe iniciarse antes de las 15:00 para cumplir con el cronograma.',
-        isRead: false,
-        createdAt: new Date('2025-01-12T13:30:00'),
-        actionRequired: true,
-        actionLabel: 'Iniciar tarea',
-        actionData: { taskId: 'task-2' },
-      },
-      {
-        id: 'notification-3',
-        type: NotificationType.SUCCESS,
-        title: 'Evidencia aceptada',
-        message: 'La evidencia de audio del sistema de ventilación ha sido validada correctamente.',
-        isRead: true,
-        createdAt: new Date('2025-01-12T12:15:00'),
-        actionRequired: false,
-      },
-    ],
+    // Notificaciones gestionadas globalmente
+    notifications: [],
     
     // Resumen del día (undefined porque aún está activo)
     summary: undefined,
@@ -692,18 +715,8 @@ export const mockWorkDays: WorkDay[] = [
       },
     ],
     
-    // Notificaciones para el día siguiente
-    notifications: [
-      {
-        id: 'notification-tomorrow-1',
-        type: NotificationType.INFO,
-        title: 'Día programado',
-        message: 'Tienes programada una calibración de sensores para mañana a las 08:00.',
-        isRead: false,
-        createdAt: new Date('2025-01-12T16:00:00'),
-        actionRequired: false,
-      },
-    ],
+    // Notificaciones gestionadas globalmente
+    notifications: [],
     
     // Sin resumen aún
     summary: undefined,
@@ -774,25 +787,41 @@ export const updateTimesheet = (updates: Partial<WorkDay['timesheet']>): WorkDay
   return mockWorkDays[currentSelectedDayIndex];
 };
 
-export const addNotification = (notification: Omit<WorkDay['notifications'][0], 'id' | 'createdAt'>): WorkDay => {
-  const newNotification = {
+// Funciones para manejar notificaciones globales
+export const getAllNotifications = (): Notification[] => {
+  return [...mockNotifications].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+};
+
+export const getUnreadNotifications = (): Notification[] => {
+  return mockNotifications.filter(notification => !notification.isRead);
+};
+
+export const getUnreadNotificationsCount = (): number => {
+  return mockNotifications.filter(notification => !notification.isRead).length;
+};
+
+export const markNotificationAsRead = (notificationId: string): void => {
+  const notification = mockNotifications.find(n => n.id === notificationId);
+  if (notification) {
+    notification.isRead = true;
+  }
+};
+
+export const markAllNotificationsAsRead = (): void => {
+  mockNotifications.forEach(notification => {
+    notification.isRead = true;
+  });
+};
+
+export const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>): Notification => {
+  const newNotification: Notification = {
     ...notification,
     id: `notification-${Date.now()}`,
     createdAt: new Date(),
   };
   
-  mockWorkDays[currentSelectedDayIndex].notifications.unshift(newNotification);
-  mockWorkDays[currentSelectedDayIndex].updatedAt = new Date();
-  return mockWorkDays[currentSelectedDayIndex];
-};
-
-export const markNotificationAsRead = (notificationId: string): WorkDay => {
-  const notification = mockWorkDays[currentSelectedDayIndex].notifications.find(n => n.id === notificationId);
-  if (notification) {
-    notification.isRead = true;
-    mockWorkDays[currentSelectedDayIndex].updatedAt = new Date();
-  }
-  return mockWorkDays[currentSelectedDayIndex];
+  mockNotifications.unshift(newNotification);
+  return newNotification;
 }; 
 
 // Datos mockeados para proyectos

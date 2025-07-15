@@ -6,16 +6,19 @@ import {
   getCurrentWorkDay, 
   updateWorkDay, 
   updateTimesheet, 
-  markNotificationAsRead,
   navigateToDay,
   canNavigatePrev,
-  canNavigateNext
+  canNavigateNext,
+  getAllNotifications,
+  getUnreadNotificationsCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
 } from '@/utils/mockData';
 import { TaskStatus, WorkDay, DayStatus } from '@/types';
 import { 
   DayHeader, 
   TimesheetWidget, 
-  NotificationsSection 
+  NotificationsBell 
 } from '@/components';
 
 interface HomeScreenProps {
@@ -31,6 +34,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay>(getCurrentWorkDay());
   const [isNavigating, setIsNavigating] = useState(false);
+  const [notifications, setNotifications] = useState(getAllNotifications());
+  const [unreadCount, setUnreadCount] = useState(getUnreadNotificationsCount());
 
   const isReadOnly = workDay.status === DayStatus.COMPLETED;
 
@@ -55,16 +60,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleNotificationAction = (notificationId: string, actionData?: any) => {
-    if (actionData?.taskId && !isReadOnly) {
+    if (actionData?.taskId) {
       onNavigateToTask(actionData.taskId);
     }
   };
 
   const handleMarkNotificationAsRead = (notificationId: string) => {
-    if (isReadOnly) return;
-    
-    const updatedWorkDay = markNotificationAsRead(notificationId);
-    setWorkDay(updatedWorkDay);
+    markNotificationAsRead(notificationId);
+    setNotifications(getAllNotifications());
+    setUnreadCount(getUnreadNotificationsCount());
+  };
+
+  const handleMarkAllNotificationsAsRead = () => {
+    markAllNotificationsAsRead();
+    setNotifications(getAllNotifications());
+    setUnreadCount(getUnreadNotificationsCount());
   };
 
   const getStatusColor = (status: TaskStatus) => {
@@ -121,12 +131,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <ScrollView style={styles.content}>
         {/* Header integrado */}
         <View style={styles.header}>
-          <Text variant="headlineMedium">
-            Mi Día
-          </Text>
-          <Text variant="bodyMedium">
-            {formatDate(new Date())}
-          </Text>
+          <View style={styles.headerContent}>
+            <View style={styles.headerText}>
+              <Text variant="headlineMedium">
+                Mi Día
+              </Text>
+              <Text variant="bodyMedium">
+                {formatDate(new Date())}
+              </Text>
+            </View>
+            
+            <NotificationsBell
+              notifications={notifications}
+              unreadCount={unreadCount}
+              onNotificationAction={handleNotificationAction}
+              onMarkAsRead={handleMarkNotificationAsRead}
+              onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+            />
+          </View>
         </View>
         {/* Encabezado del día con navegación */}
         <DayHeader 
@@ -176,14 +198,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </Card.Content>
           </Card>
         )}
-
-        {/* Notificaciones */}
-        <NotificationsSection 
-          workDay={workDay}
-          onNotificationAction={handleNotificationAction}
-          onMarkAsRead={handleMarkNotificationAsRead}
-          isReadOnly={isReadOnly}
-        />
 
         {/* Lista de tareas del día */}
         <Card style={styles.card}>
@@ -303,6 +317,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerText: {
+    flex: 1,
   },
 
   content: {
