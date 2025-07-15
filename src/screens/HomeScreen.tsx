@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, Alert, StyleSheet, View } from 'react-native';
-import { Text, Surface, Button, Card, IconButton, Switch, Chip } from 'react-native-paper';
+import { Text, Surface, Button, Card, Chip } from 'react-native-paper';
 import { formatDate } from '@/utils';
 import { 
   getCurrentWorkDay, 
@@ -117,31 +117,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <Surface style={styles.container}>
-      {/* Header with Dark Mode Toggle */}
-      <Surface elevation={2} style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerText}>
-            <Text variant="headlineMedium">
-              Mi Día
-            </Text>
-            <Text variant="bodyMedium">
-              {formatDate(new Date())}
-            </Text>
-          </View>
-          
-          <View style={styles.themeToggle}>
-            <IconButton
-              icon={isDarkMode ? 'weather-sunny' : 'weather-night'}
-              size={24}
-              onPress={toggleTheme}
-            />
-            <Switch value={isDarkMode} onValueChange={toggleTheme} />
-          </View>
-        </View>
-      </Surface>
-
       {/* Main Content */}
       <ScrollView style={styles.content}>
+        {/* Header integrado */}
+        <View style={styles.header}>
+          <Text variant="headlineMedium">
+            Mi Día
+          </Text>
+          <Text variant="bodyMedium">
+            {formatDate(new Date())}
+          </Text>
+        </View>
         {/* Encabezado del día con navegación */}
         <DayHeader 
           workDay={workDay} 
@@ -314,25 +300,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerText: {
-    flex: 1,
-  },
-  themeToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+
   content: {
     flex: 1,
   },
   card: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
   },
   taskCard: {
     marginBottom: 12,

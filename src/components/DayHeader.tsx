@@ -191,6 +191,7 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
+    marginTop: 8,
     marginBottom: 16,
   },
   content: {

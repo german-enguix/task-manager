@@ -225,6 +225,7 @@ export const TimesheetWidget: React.FC<TimesheetWidgetProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
+    marginTop: 8,
     marginBottom: 16,
   },
   content: {

@@ -305,9 +305,10 @@ export interface Project {
 export type RootStackParamList = {
   Home: undefined;
   Projects: undefined;
+  Profile: undefined;
   TaskDetail: { taskId: string };
   ProjectDetail: { projectId: string };
   Settings: undefined;
 };
 
-export type NavigationRoute = 'Home' | 'Projects' | 'TaskDetail' | 'ProjectDetail' | 'Settings';
+export type NavigationRoute = 'Home' | 'Projects' | 'Profile' | 'TaskDetail' | 'ProjectDetail' | 'Settings';

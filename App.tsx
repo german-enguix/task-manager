@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
-import { StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
+import { StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { PaperProvider } from 'react-native-paper';
-import { HomeScreen, ProjectsScreen, ProjectDetailScreen } from '@/screens';
+import { HomeScreen, ProjectsScreen, ProjectDetailScreen, ProfileScreen } from '@/screens';
 import { TaskDetailScreen } from '@/screens/TaskDetailScreen';
 import { NavBar } from '@/components';
 import { lightTheme, darkTheme } from '@/constants';
-import { NavigationRoute } from '@/types';
+import { NavigationRoute, User } from '@/types';
 
-type Screen = 'home' | 'projects' | 'taskDetail' | 'projectDetail';
+type Screen = 'home' | 'projects' | 'profile' | 'taskDetail' | 'projectDetail';
 
 export default function App() {
-  const colorScheme = useColorScheme();
-  const [isDarkMode, setIsDarkMode] = useState(colorScheme === 'dark');
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [user, setUser] = useState<User>({
+    id: '1',
+    name: 'Juan Pérez',
+    email: 'juan.perez@ejemplo.com',
+  });
 
   const theme = isDarkMode ? darkTheme : lightTheme;
 
@@ -45,6 +49,32 @@ export default function App() {
     setSelectedProjectId(null);
   };
 
+  const navigateToProfile = () => {
+    setCurrentScreen('profile');
+    setSelectedTaskId(null);
+    setSelectedProjectId(null);
+  };
+
+  const handleUserUpdate = (updatedUser: User) => {
+    setUser(updatedUser);
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Sesión Cerrada',
+      'Has cerrado sesión exitosamente',
+      [
+        { 
+          text: 'OK', 
+          onPress: () => {
+            // Aquí podrías resetear el estado de la app o navegar a login
+            setCurrentScreen('home');
+          }
+        }
+      ]
+    );
+  };
+
   const handleNavigation = (route: NavigationRoute) => {
     switch (route) {
       case 'Home':
@@ -52,6 +82,9 @@ export default function App() {
         break;
       case 'Projects':
         navigateToProjects();
+        break;
+      case 'Profile':
+        navigateToProfile();
         break;
       default:
         navigateToHome();
@@ -65,6 +98,8 @@ export default function App() {
         return 'Home';
       case 'projects':
         return 'Projects';
+      case 'profile':
+        return 'Profile';
       case 'taskDetail':
         return 'Home'; // TaskDetail está relacionado con Home
       case 'projectDetail':
@@ -74,7 +109,7 @@ export default function App() {
     }
   };
 
-  const showNavBar = currentScreen === 'home' || currentScreen === 'projects';
+  const showNavBar = currentScreen === 'home' || currentScreen === 'projects' || currentScreen === 'profile';
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -90,6 +125,16 @@ export default function App() {
         return (
           <ProjectsScreen 
             onNavigateToProject={navigateToProjectDetail}
+          />
+        );
+      case 'profile':
+        return (
+          <ProfileScreen 
+            isDarkMode={isDarkMode}
+            toggleTheme={toggleTheme}
+            user={user}
+            onUserUpdate={handleUserUpdate}
+            onLogout={handleLogout}
           />
         );
       case 'taskDetail':

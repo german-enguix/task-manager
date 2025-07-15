@@ -107,38 +107,34 @@ export const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
 
   return (
     <Surface style={styles.container}>
-      {/* Header */}
-      <Surface elevation={2} style={styles.header}>
-        <View style={styles.headerContent}>
+      <ScrollView style={styles.content}>
+        {/* Header integrado */}
+        <View style={styles.header}>
           <Text variant="headlineMedium">Mis Proyectos</Text>
           <Text variant="bodyMedium">
             {currentProjects.length} proyecto{currentProjects.length !== 1 ? 's' : ''}
           </Text>
         </View>
-      </Surface>
 
-      {/* Tab Selector */}
-      <View style={styles.tabContainer}>
-        <SegmentedButtons
-          value={selectedTab}
-          onValueChange={setSelectedTab}
-          buttons={[
-            {
-              value: 'assigned',
-              label: 'Asignados',
-              icon: 'account-check',
-            },
-            {
-              value: 'all',
-              label: 'Todos',
-              icon: 'format-list-bulleted',
-            },
-          ]}
-        />
-      </View>
-
-      {/* Projects List */}
-      <ScrollView style={styles.content}>
+        {/* Tab Selector */}
+        <View style={styles.tabContainer}>
+          <SegmentedButtons
+            value={selectedTab}
+            onValueChange={setSelectedTab}
+            buttons={[
+              {
+                value: 'assigned',
+                label: 'Asignados',
+                icon: 'account-check',
+              },
+              {
+                value: 'all',
+                label: 'Todos',
+                icon: 'format-list-bulleted',
+              },
+            ]}
+          />
+        </View>
         {currentProjects.map((project) => (
           <Card 
             key={project.id} 
@@ -273,16 +269,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
   tabContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
   content: {
     flex: 1,

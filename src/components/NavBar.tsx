@@ -8,13 +8,21 @@ interface NavBarProps {
 }
 
 export const NavBar: React.FC<NavBarProps> = ({ currentRoute, onNavigate }) => {
-  const [index, setIndex] = React.useState(
-    currentRoute === 'Home' ? 0 : 1
-  );
+  const getIndexFromRoute = (route: NavigationRoute): number => {
+    switch (route) {
+      case 'Home': return 0;
+      case 'Projects': return 1;
+      case 'Profile': return 2;
+      default: return 0;
+    }
+  };
+
+  const [index, setIndex] = React.useState(getIndexFromRoute(currentRoute));
 
   const routes = [
     { key: 'Home', title: 'Mi día', focusedIcon: 'calendar-today', unfocusedIcon: 'calendar-today' },
     { key: 'Projects', title: 'Mis proyectos', focusedIcon: 'folder-multiple', unfocusedIcon: 'folder-multiple-outline' },
+    { key: 'Profile', title: 'Perfil', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
   ];
 
   const handleIndexChange = (newIndex: number) => {
@@ -25,7 +33,7 @@ export const NavBar: React.FC<NavBarProps> = ({ currentRoute, onNavigate }) => {
 
   // Sincronizar el índice cuando cambia currentRoute externamente
   React.useEffect(() => {
-    const newIndex = currentRoute === 'Home' ? 0 : 1;
+    const newIndex = getIndexFromRoute(currentRoute);
     if (newIndex !== index) {
       setIndex(newIndex);
     }
