@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Card, Chip, ActivityIndicator, Button } from 'react-native-paper';
 import { supabaseService } from '@/services/supabaseService';
+import { supabaseMigration } from '@/utils/migrateToSupabase';
 import { Tag } from '@/types';
 
 export const SupabaseTest: React.FC = () => {
@@ -10,9 +11,12 @@ export const SupabaseTest: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'testing' | 'success' | 'error'>('testing');
   const [creating, setCreating] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState<any>(null);
 
   useEffect(() => {
     testSupabaseConnection();
+    checkMigrationStatus();
   }, []);
 
   const testSupabaseConnection = async () => {
@@ -70,6 +74,36 @@ export const SupabaseTest: React.FC = () => {
     }
   };
 
+  const checkMigrationStatus = async () => {
+    try {
+      const status = await supabaseMigration.checkMigrationStatus();
+      setMigrationStatus(status);
+    } catch (err) {
+      console.warn('Could not check migration status:', err);
+    }
+  };
+
+  const runMigration = async () => {
+    setMigrating(true);
+    try {
+      console.log('🚀 Starting full migration from mock data...');
+      
+      await supabaseMigration.migrateAllData();
+      
+      // Actualizar estado después de la migración
+      await checkMigrationStatus();
+      await testSupabaseConnection();
+      
+      console.log('✅ Migration completed successfully!');
+      
+    } catch (err) {
+      console.error('❌ Migration failed:', err);
+      setError(err instanceof Error ? err.message : 'Migration failed');
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card style={styles.card}>
@@ -111,6 +145,21 @@ export const SupabaseTest: React.FC = () => {
           Supabase está conectado correctamente
         </Text>
         
+        {migrationStatus && (
+          <View style={styles.migrationStatus}>
+            <Text variant="titleSmall" style={styles.statusTitle}>
+              Estado de la base de datos:
+            </Text>
+            <View style={styles.statusGrid}>
+              <Text variant="bodySmall">👤 Usuarios: {migrationStatus.users}</Text>
+              <Text variant="bodySmall">📋 Tareas: {migrationStatus.tasks}</Text>
+              <Text variant="bodySmall">📝 Subtareas: {migrationStatus.subtasks}</Text>
+              <Text variant="bodySmall">🏷️ Tags: {migrationStatus.tags}</Text>
+              <Text variant="bodySmall">🔗 Relaciones: {migrationStatus.taskTags}</Text>
+            </View>
+          </View>
+        )}
+
         <Text variant="titleMedium" style={styles.tagsTitle}>
           Tags encontrados ({tags.length}):
         </Text>
@@ -136,13 +185,26 @@ export const SupabaseTest: React.FC = () => {
         )}
         
         <View style={styles.buttonContainer}>
+          {migrationStatus && migrationStatus.tasks === 0 && (
+            <Button
+              mode="contained"
+              onPress={runMigration}
+              loading={migrating}
+              disabled={migrating}
+              icon="database-import"
+              style={[styles.actionButton, styles.migrationButton]}
+            >
+              {migrating ? 'Migrando datos...' : 'Migrar datos del Mock'}
+            </Button>
+          )}
+          
           <Button
-            mode="contained"
+            mode="outlined"
             onPress={createTestTag}
             loading={creating}
-            disabled={creating}
+            disabled={creating || migrating}
             icon="plus"
-            style={styles.createButton}
+            style={styles.actionButton}
           >
             {creating ? 'Creando...' : 'Crear Tag de Prueba'}
           </Button>
@@ -212,11 +274,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  migrationStatus: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+  },
+  statusTitle: {
+    marginBottom: 8,
+    fontWeight: 'bold',
+  },
+  statusGrid: {
+    flexDirection: 'column',
+    gap: 4,
+  },
   buttonContainer: {
     marginTop: 16,
+    gap: 12,
     alignItems: 'center',
   },
-  createButton: {
+  actionButton: {
     minWidth: 200,
+  },
+  migrationButton: {
+    backgroundColor: '#2196f3',
   },
 }); 
