@@ -80,7 +80,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
   };
 
   const getDayStatusLabel = (): string => {
-    return workDay.status === DayStatus.COMPLETED ? 'Finalizado' : 'Programado';
+    return workDay.status === DayStatus.COMPLETED ? 'Finalizado' : '';
   };
 
   const getDayStatusColor = (): string => {

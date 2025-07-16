@@ -34,39 +34,11 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
     });
   };
 
-  const getStatusInfo = () => {
-    const isToday = workDay.date.toDateString() === new Date().toDateString();
-    const isYesterday = workDay.date.toDateString() === new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
-    const isTomorrow = workDay.date.toDateString() === new Date(Date.now() + 24 * 60 * 60 * 1000).toDateString();
-    
-    if (isToday) {
-      return {
-        label: 'Hoy',
-        color: theme.colors.primary,
-        icon: 'calendar-today',
-      };
-    } else if (isYesterday) {
-      return {
-        label: 'Ayer',
-        color: theme.colors.tertiary,
-        icon: 'calendar-clock',
-      };
-    } else if (isTomorrow) {
-      return {
-        label: 'Mañana',
-        color: theme.colors.secondary,
-        icon: 'calendar-arrow-right',
-      };
-    } else {
-      return {
-        label: workDay.status === DayStatus.COMPLETED ? 'Finalizado' : 'Programado',
-        color: workDay.status === DayStatus.COMPLETED ? theme.colors.tertiary : theme.colors.onSurfaceVariant,
-        icon: workDay.status === DayStatus.COMPLETED ? 'check-circle' : 'clock-outline',
-      };
-    }
-  };
 
-  const statusInfo = getStatusInfo();
+
+  const isToday = workDay.date.toDateString() === new Date().toDateString();
+  const isYesterday = workDay.date.toDateString() === new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
+  const isTomorrow = workDay.date.toDateString() === new Date(Date.now() + 24 * 60 * 60 * 1000).toDateString();
   const isCompleted = workDay.status === DayStatus.COMPLETED;
 
   return (
@@ -84,14 +56,27 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
           
           <View style={styles.dayInfo}>
             <View style={styles.dayLabelRow}>
-              <Chip 
-                icon={statusInfo.icon}
-                mode="outlined"
-                style={[styles.dayChip, { borderColor: statusInfo.color }]}
-                textStyle={{ color: statusInfo.color, fontSize: 12 }}
-              >
-                {statusInfo.label}
-              </Chip>
+              {(isToday || isYesterday || isTomorrow || isCompleted) && (
+                <Chip 
+                  icon={isToday ? 'calendar-today' : isYesterday ? 'calendar-clock' : isTomorrow ? 'calendar-arrow-right' : 'check-circle'}
+                  mode="outlined"
+                  style={[styles.dayChip, { 
+                    borderColor: isToday ? theme.colors.primary : 
+                                isYesterday ? theme.colors.tertiary : 
+                                isTomorrow ? theme.colors.secondary : 
+                                theme.colors.tertiary 
+                  }]}
+                  textStyle={{ 
+                    color: isToday ? theme.colors.primary : 
+                           isYesterday ? theme.colors.tertiary : 
+                           isTomorrow ? theme.colors.secondary : 
+                           theme.colors.tertiary, 
+                    fontSize: 12 
+                  }}
+                >
+                  {isToday ? 'Hoy' : isYesterday ? 'Ayer' : isTomorrow ? 'Mañana' : 'Finalizado'}
+                </Chip>
+              )}
               
               {isCompleted && (
                 <Chip 
