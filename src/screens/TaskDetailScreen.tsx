@@ -21,6 +21,7 @@ import {
 } from 'react-native-paper';
 import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement, Tag } from '@/types';
 import { getTaskById, updateTask } from '@/utils/mockData';
+import { supabaseService } from '@/services/supabaseService';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -36,12 +37,28 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [timerDisplay, setTimerDisplay] = useState('00:00:00');
 
   useEffect(() => {
-    const taskData = getTaskById(taskId);
-    if (taskData) {
-      setTask(taskData);
-      updateTimerDisplay(taskData.timer.totalElapsed);
-    }
+    loadTask();
   }, [taskId]);
+
+  const loadTask = async () => {
+    try {
+      const taskData = await supabaseService.getTaskById(taskId);
+      if (taskData) {
+        setTask(taskData);
+        if (taskData.timer) {
+          updateTimerDisplay(taskData.timer.totalElapsed);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading task:', error);
+      // Fallback al mock data si falla
+      const fallbackTask = getTaskById(taskId);
+      if (fallbackTask) {
+        setTask(fallbackTask);
+        updateTimerDisplay(fallbackTask.timer.totalElapsed);
+      }
+    }
+  };
 
   const updateTimerDisplay = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
