@@ -9,7 +9,6 @@ import {
   Portal,
   Modal,
   Surface,
-  Chip,
   Icon
 } from 'react-native-paper';
 import { DatePickerModal } from 'react-native-paper-dates';
@@ -79,13 +78,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     });
   };
 
-  const getDayStatusLabel = (): string => {
-    return workDay.status === DayStatus.COMPLETED ? 'Finalizado' : '';
-  };
 
-  const getDayStatusColor = (): string => {
-    return workDay.status === DayStatus.COMPLETED ? '#4CAF50' : '#2196F3';
-  };
 
   const today = new Date();
   const isToday = workDay.date.toDateString() === today.toDateString();
@@ -181,7 +174,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     <>
       <Card style={styles.container}>
         <Card.Content style={styles.content}>
-          {/* Selector de fecha y tag de estado */}
+          {/* Selector de fecha */}
           <View style={styles.dateSelector}>
             <View style={styles.dateInfo}>
               <Text variant="headlineSmall" style={styles.dayOfWeek}>
@@ -190,13 +183,6 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
               <Text variant="titleMedium" style={styles.dateText}>
                 {formatDate(displayDate)}
               </Text>
-              <Chip 
-                style={[styles.statusChip, { backgroundColor: getDayStatusColor() + '20' }]}
-                textStyle={[styles.statusChipText, { color: getDayStatusColor() }]}
-                compact
-              >
-                {getDayStatusLabel()}
-              </Chip>
             </View>
             
             <IconButton
@@ -258,16 +244,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   content: {
-    paddingVertical: 20,
+    paddingVertical: 16,
   },
   dateSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    marginBottom: 16,
   },
   dateInfo: {
     flex: 1,
@@ -279,22 +262,14 @@ const styles = StyleSheet.create({
   },
   dateText: {
     opacity: 0.7,
-    marginBottom: 8,
-  },
-  statusChip: {
-    alignSelf: 'flex-start',
-  },
-  statusChipText: {
-    fontSize: 12,
-    fontWeight: '500',
   },
   calendarButton: {
     margin: 0,
   },
   timerSection: {
     alignItems: 'center',
-    marginBottom: 24,
-    paddingVertical: 20,
+    marginBottom: 20,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
   },
