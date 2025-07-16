@@ -17,7 +17,8 @@ import {
   Divider,
   ProgressBar,
   useTheme,
-  Icon
+  Icon,
+  TextInput
 } from 'react-native-paper';
 import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement, Tag } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
@@ -36,6 +37,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [timerDisplay, setTimerDisplay] = useState('00:00:00');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [fallbackMessageShown, setFallbackMessageShown] = useState(false);
+  const [commentText, setCommentText] = useState('');
 
   useEffect(() => {
     loadUserAndTask();
@@ -425,15 +427,28 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     return subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted;
   };
 
-  const addComment = (type: CommentType) => {
+  const addTextComment = () => {
+    if (commentText.trim() === '') return;
+    
+    // TODO: Implementar lógica para agregar comentario de texto
+    console.log('Adding text comment:', commentText);
+    
+    // Limpiar el input después de enviar
+    setCommentText('');
+    
+    Alert.alert('Comentario Agregado', 'Tu comentario de texto ha sido registrado.');
+  };
+
+  const addVoiceComment = () => {
     Alert.alert(
-      'Agregar Comentario',
-      `¿Deseas agregar un comentario de ${type === CommentType.TEXT ? 'texto' : 'voz'}?`,
+      'Comentario de Voz',
+      '¿Deseas grabar un comentario de voz?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Agregar', onPress: () => {
-          // Aquí se implementaría la lógica para agregar comentario
-          console.log(`Adding comment of type: ${type}`);
+        { text: 'Grabar', onPress: () => {
+          // TODO: Implementar lógica para grabar y agregar comentario de voz
+          console.log('Adding voice comment');
+          Alert.alert('Comentario de Voz', 'Se ha simulado la grabación del comentario de voz.');
         }},
       ]
     );
@@ -682,23 +697,32 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
               </Text>
             )}
             
-            <View style={styles.commentButtons}>
-              <Button 
-                mode="outlined" 
-                icon="text" 
-                onPress={() => addComment(CommentType.TEXT)}
-                style={styles.commentButton}
-              >
-                Texto
-              </Button>
-              <Button 
-                mode="outlined" 
-                icon="microphone" 
-                onPress={() => addComment(CommentType.VOICE)}
-                style={styles.commentButton}
-              >
-                Voz
-              </Button>
+            <View style={styles.commentInputContainer}>
+              <TextInput
+                mode="outlined"
+                placeholder="Escribe un comentario..."
+                value={commentText}
+                onChangeText={setCommentText}
+                onSubmitEditing={addTextComment}
+                returnKeyType="send"
+                style={styles.commentInput}
+                right={
+                  <TextInput.Icon 
+                    icon="send" 
+                    onPress={addTextComment}
+                    disabled={commentText.trim() === ''}
+                  />
+                }
+                multiline
+                numberOfLines={1}
+              />
+              <IconButton
+                icon="microphone"
+                mode="contained"
+                onPress={addVoiceComment}
+                style={styles.microphoneButton}
+                size={20}
+              />
             </View>
           </Card.Content>
         </Card>
@@ -829,13 +853,17 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 8,
   },
-  commentButtons: {
+  commentInputContainer: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 8,
     marginTop: 16,
   },
-  commentButton: {
+  commentInput: {
     flex: 1,
+  },
+  microphoneButton: {
+    marginBottom: 4,
   },
   problemItem: {
     marginBottom: 16,
