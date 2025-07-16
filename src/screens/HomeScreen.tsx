@@ -215,6 +215,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     loadWorkDay(date);
   };
 
+  const handlePreviousDay = () => {
+    if (workDay) {
+      const previousDate = new Date(workDay.date);
+      previousDate.setDate(previousDate.getDate() - 1);
+      loadWorkDay(previousDate);
+    }
+  };
+
+  const handleNextDay = () => {
+    if (workDay) {
+      const nextDate = new Date(workDay.date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      loadWorkDay(nextDate);
+    }
+  };
+
   const handleStartTimesheet = async () => {
     console.log('🚀 handleStartTimesheet called');
     console.log('📊 isReadOnly:', isReadOnly);
@@ -467,6 +483,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onStartTimesheet={handleStartTimesheet}
             onPauseTimesheet={handlePauseTimesheet}
             onFinishTimesheet={handleFinishTimesheet}
+            onPreviousDay={handlePreviousDay}
+            onNextDay={handleNextDay}
             currentTime={currentTime}
           />
         ) : (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { 
   Card, 
   Text, 
@@ -20,6 +20,8 @@ interface DayTimeCardProps {
   onStartTimesheet: () => void;
   onPauseTimesheet: () => void;
   onFinishTimesheet: () => void;
+  onPreviousDay: () => void;
+  onNextDay: () => void;
   currentTime: Date;
 }
 
@@ -29,6 +31,8 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
   onStartTimesheet,
   onPauseTimesheet,
   onFinishTimesheet,
+  onPreviousDay,
+  onNextDay,
   currentTime
 }) => {
   const theme = useTheme();
@@ -176,20 +180,34 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
         <Card.Content style={styles.content}>
           {/* Selector de fecha */}
           <View style={styles.dateSelector}>
-            <View style={styles.dateInfo}>
+            <IconButton
+              icon="chevron-left"
+              size={24}
+              onPress={onPreviousDay}
+              style={styles.navButton}
+            />
+            
+            <View style={styles.dateInfoContainer}>
               <Text variant="headlineSmall" style={styles.dayOfWeek}>
                 {formatDayOfWeek(displayDate)}
               </Text>
-              <Text variant="titleMedium" style={styles.dateText}>
-                {formatDate(displayDate)}
-              </Text>
+              <TouchableOpacity 
+                style={styles.dateRow}
+                onPress={() => setDatePickerVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Icon source="calendar" size={20} color={theme.colors.onSurface} />
+                <Text variant="titleMedium" style={styles.dateText}>
+                  {formatDate(displayDate)}
+                </Text>
+              </TouchableOpacity>
             </View>
             
             <IconButton
-              icon="calendar"
+              icon="chevron-right"
               size={24}
-              onPress={() => setDatePickerVisible(true)}
-              style={styles.calendarButton}
+              onPress={onNextDay}
+              style={styles.navButton}
             />
           </View>
 
@@ -249,21 +267,31 @@ const styles = StyleSheet.create({
   dateSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  dateInfo: {
+  dateInfoContainer: {
     flex: 1,
+    alignItems: 'center',
   },
   dayOfWeek: {
     textTransform: 'capitalize',
     fontWeight: '600',
     marginBottom: 4,
+    textAlign: 'center',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   dateText: {
     opacity: 0.7,
   },
-  calendarButton: {
+  navButton: {
     margin: 0,
   },
   timerSection: {
