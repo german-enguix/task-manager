@@ -2,14 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ScrollView, Alert, StyleSheet, View } from 'react-native';
 import { Text, Surface, Button, Card, Chip, Icon } from 'react-native-paper';
 import { formatDate } from '@/utils';
-import { 
-  getCurrentWorkDay, 
-  updateWorkDay, 
-  updateTimesheet, 
-  getWorkDayByDate
-} from '@/utils/mockData';
 import { supabaseService } from '@/services/supabaseService';
-import { TaskStatus, WorkDay, DayStatus } from '@/types';
+import { TaskStatus, WorkDay, DayStatus, TimesheetStatus } from '@/types';
 import { 
   DayTimeCard, 
   NotificationsBell 
@@ -26,33 +20,158 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   toggleTheme,
   onNavigateToTask
 }) => {
-  const [workDay, setWorkDay] = useState<WorkDay>(getCurrentWorkDay());
+  const [workDay, setWorkDay] = useState<WorkDay | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [tasks, setTasks] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
+  const [loadingWorkDay, setLoadingWorkDay] = useState(true);
+  const [userName, setUserName] = useState<string>('Usuario');
+  const [loadingUser, setLoadingUser] = useState(true);
+  
+  // Estado del temporizador en memoria por fecha (temporal hasta que se creen las tablas)
+  const [timerStatesByDate, setTimerStatesByDate] = useState<Record<string, {
+    status: TimesheetStatus;
+    sessionStart: Date | null;
+    totalDuration: number;
+    actualStartTime: Date | null;
+    actualEndTime: Date | null;
+  }>>({});
 
   // Usuario de prueba - en un app real esto vendría del contexto de autenticación
   const currentUserId = '550e8400-e29b-41d4-a716-446655440001';
 
-  const isReadOnly = workDay.status === DayStatus.COMPLETED;
+  // Función para obtener la clave de fecha
+  const getDateKey = (date: Date) => {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  };
 
-  // Actualizar tiempo cada minuto para el cronómetro
+  // Función para obtener el estado del temporizador para una fecha específica
+  const getTimerStateForDate = (date: Date) => {
+    const dateKey = getDateKey(date);
+    return timerStatesByDate[dateKey] || {
+      status: TimesheetStatus.NOT_STARTED,
+      sessionStart: null,
+      totalDuration: 0,
+      actualStartTime: null,
+      actualEndTime: null,
+    };
+  };
+
+  // Función para actualizar el estado del temporizador para una fecha específica
+  const updateTimerStateForDate = (date: Date, newState: Partial<{
+    status: TimesheetStatus;
+    sessionStart: Date | null;
+    totalDuration: number;
+    actualStartTime: Date | null;
+    actualEndTime: Date | null;
+  }>) => {
+    const dateKey = getDateKey(date);
+    const currentState = getTimerStateForDate(date);
+    const updatedState = { ...currentState, ...newState };
+    
+    setTimerStatesByDate(prev => ({
+      ...prev,
+      [dateKey]: updatedState
+    }));
+    
+    return updatedState;
+  };
+
+  const isReadOnly = workDay?.status === DayStatus.COMPLETED;
+
+  // Actualizar tiempo cada segundo para el cronómetro real
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000); // Actualizar cada minuto
+    }, 1000); // Actualizar cada segundo
 
     return () => clearInterval(interval);
   }, []);
 
-  // Cargar tareas y notificaciones desde Supabase
+  // Cargar datos iniciales
   useEffect(() => {
+    loadUserInfo();
+    loadWorkDay();
     loadTasks();
     loadNotifications();
   }, []);
+
+  const loadUserInfo = async () => {
+    try {
+      setLoadingUser(true);
+      const currentUser = await supabaseService.getCurrentUser();
+      
+      if (currentUser && currentUser.profile) {
+        setUserName(currentUser.profile.full_name || currentUser.email || 'Usuario');
+      } else {
+        // Fallback: intentar obtener perfil directamente
+        const userProfile = await supabaseService.getUserProfile(currentUserId);
+        setUserName(userProfile?.name || 'Usuario');
+      }
+      
+      console.log('✅ User info loaded');
+    } catch (error) {
+      console.error('❌ Error loading user info:', error);
+      setUserName('Usuario'); // Fallback si falla
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
+  const loadWorkDay = async (date?: Date) => {
+    try {
+      setLoadingWorkDay(true);
+      // Usar la fecha actual o la fecha proporcionada
+      const targetDate = date || new Date();
+      console.log('🔄 Loading work day for user:', currentUserId, 'date:', targetDate.toDateString());
+      const workDayData = await supabaseService.getOrCreateWorkDay(currentUserId, targetDate);
+      console.log('✅ Work day loaded:', workDayData);
+      
+      // Integrar el estado del temporizador con el workDay
+      const workDayWithTimerState: WorkDay = {
+        ...workDayData,
+        timesheet: {
+          ...workDayData.timesheet,
+          status: getTimerStateForDate(targetDate).status,
+          currentSessionStart: getTimerStateForDate(targetDate).sessionStart,
+          totalDuration: getTimerStateForDate(targetDate).totalDuration,
+        },
+        actualStartTime: getTimerStateForDate(targetDate).actualStartTime,
+        actualEndTime: getTimerStateForDate(targetDate).actualEndTime,
+      };
+      
+      setWorkDay(workDayWithTimerState);
+      console.log('✅ Work day state updated with timer state');
+    } catch (error) {
+      console.error('❌ Error loading work day:', error);
+      // Si falla, crear un workDay básico para que no se rompa la UI
+      const today = new Date();
+      const fallbackWorkDay: WorkDay = {
+        id: `fallback-${currentUserId}-${today.toISOString().split('T')[0]}`,
+        userId: currentUserId,
+        date: date || today,
+        status: getTimerStateForDate(date || today).status === TimesheetStatus.COMPLETED ? DayStatus.COMPLETED : DayStatus.PROGRAMMED,
+        timesheet: {
+          status: getTimerStateForDate(date || today).status,
+          currentSessionStart: getTimerStateForDate(date || today).sessionStart,
+          totalDuration: getTimerStateForDate(date || today).totalDuration,
+          sessions: [],
+        },
+        actualStartTime: getTimerStateForDate(date || today).actualStartTime,
+        actualEndTime: getTimerStateForDate(date || today).actualEndTime,
+        tasks: [],
+        notifications: [],
+        createdAt: today,
+        updatedAt: today,
+      };
+      setWorkDay(fallbackWorkDay);
+    } finally {
+      setLoadingWorkDay(false);
+    }
+  };
 
   const loadTasks = async () => {
     try {
@@ -93,44 +212,123 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleDateChange = (date: Date) => {
-    const newWorkDay = getWorkDayByDate(date);
-    if (newWorkDay) {
-      setWorkDay(newWorkDay);
-    }
+    loadWorkDay(date);
   };
 
-  const handleStartTimesheet = () => {
-    if (isReadOnly) return;
+  const handleStartTimesheet = async () => {
+    console.log('🚀 handleStartTimesheet called');
+    console.log('📊 isReadOnly:', isReadOnly);
+    console.log('📊 workDay:', workDay);
+    console.log('📊 current timerState:', getTimerStateForDate(workDay.date));
+    
+    if (isReadOnly || !workDay) {
+      console.log('❌ Cancelled: isReadOnly or no workDay');
+      return;
+    }
     
     const now = new Date();
-    const updates = {
-      status: 'in_progress' as any,
-      currentSessionStart: now,
+    
+    // Actualizar estado del temporizador en memoria
+    const newTimerState = updateTimerStateForDate(workDay.date, {
+      status: TimesheetStatus.IN_PROGRESS,
+      sessionStart: now,
+      actualStartTime: getTimerStateForDate(workDay.date).status === TimesheetStatus.NOT_STARTED ? now : getTimerStateForDate(workDay.date).actualStartTime,
+    });
+    
+    // Actualizar workDay con el nuevo estado
+    const updatedWorkDay: WorkDay = {
+      ...workDay,
+      timesheet: {
+        ...workDay.timesheet,
+        status: newTimerState.status,
+        currentSessionStart: newTimerState.sessionStart,
+      },
+      actualStartTime: newTimerState.actualStartTime,
     };
-    const updatedWorkDay = updateTimesheet(updates);
+    
     setWorkDay(updatedWorkDay);
+    console.log('✅ Timesheet started successfully (memory mode)');
   };
 
-  const handlePauseTimesheet = () => {
-    if (isReadOnly) return;
+  const handlePauseTimesheet = async () => {
+    console.log('⏸️ handlePauseTimesheet called');
+    console.log('📊 current timerState:', getTimerStateForDate(workDay.date));
     
-    const updates = {
-      status: 'paused' as any,
-      currentSessionStart: undefined,
+    if (isReadOnly || !workDay) {
+      console.log('❌ Cancelled: isReadOnly or no workDay');
+      return;
+    }
+    
+    const now = new Date();
+    
+    // Calcular tiempo de la sesión actual y sumarlo al total
+    let sessionDuration = 0;
+    if (getTimerStateForDate(workDay.date).sessionStart) {
+      sessionDuration = Math.floor((now.getTime() - getTimerStateForDate(workDay.date).sessionStart.getTime()) / 1000);
+    }
+    
+    // Actualizar estado del temporizador en memoria
+    const newTimerState = updateTimerStateForDate(workDay.date, {
+      status: TimesheetStatus.PAUSED,
+      sessionStart: null,
+      totalDuration: getTimerStateForDate(workDay.date).totalDuration + sessionDuration,
+    });
+    
+    // Actualizar workDay con el nuevo estado
+    const updatedWorkDay: WorkDay = {
+      ...workDay,
+      timesheet: {
+        ...workDay.timesheet,
+        status: newTimerState.status,
+        currentSessionStart: undefined,
+        totalDuration: newTimerState.totalDuration,
+      },
     };
-    const updatedWorkDay = updateTimesheet(updates);
+    
     setWorkDay(updatedWorkDay);
+    console.log('✅ Timesheet paused successfully (memory mode). Session duration:', sessionDuration, 'Total duration:', newTimerState.totalDuration);
   };
 
-  const handleFinishTimesheet = () => {
-    if (isReadOnly) return;
+  const handleFinishTimesheet = async () => {
+    console.log('🏁 handleFinishTimesheet called');
+    console.log('📊 current timerState:', getTimerStateForDate(workDay.date));
     
-    const updates = {
-      status: 'completed' as any,
-      currentSessionStart: undefined,
+    if (isReadOnly || !workDay) {
+      console.log('❌ Cancelled: isReadOnly or no workDay');
+      return;
+    }
+    
+    const now = new Date();
+    
+    // Si hay una sesión activa, calcular su duración y sumarla al total
+    let sessionDuration = 0;
+    if (getTimerStateForDate(workDay.date).sessionStart) {
+      sessionDuration = Math.floor((now.getTime() - getTimerStateForDate(workDay.date).sessionStart.getTime()) / 1000);
+    }
+    
+    // Actualizar estado del temporizador en memoria
+    const newTimerState = updateTimerStateForDate(workDay.date, {
+      status: TimesheetStatus.COMPLETED,
+      sessionStart: null,
+      totalDuration: getTimerStateForDate(workDay.date).totalDuration + sessionDuration,
+      actualEndTime: now,
+    });
+    
+    // Actualizar workDay con el nuevo estado
+    const updatedWorkDay: WorkDay = {
+      ...workDay,
+      status: DayStatus.COMPLETED,
+      timesheet: {
+        ...workDay.timesheet,
+        status: newTimerState.status,
+        currentSessionStart: undefined,
+        totalDuration: newTimerState.totalDuration,
+      },
+      actualEndTime: now,
     };
-    const updatedWorkDay = updateTimesheet(updates);
+    
     setWorkDay(updatedWorkDay);
+    console.log('✅ Timesheet finished successfully (memory mode). Final duration:', newTimerState.totalDuration);
   };
 
   const handleNotificationAction = (notificationId: string, actionData?: any) => {
@@ -242,10 +440,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={styles.headerContent}>
             <View style={styles.headerText}>
               <Text variant="headlineMedium">
-                Mi Día
-              </Text>
-              <Text variant="bodyMedium">
-                {formatDate(new Date())}
+                {loadingUser ? 'Cargando...' : `Hola ${userName}`}
               </Text>
             </View>
             
@@ -259,17 +454,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
         {/* Card unificada de día y fichaje */}
-        <DayTimeCard
-          workDay={workDay}
-          onDateChange={handleDateChange}
-          onStartTimesheet={handleStartTimesheet}
-          onPauseTimesheet={handlePauseTimesheet}
-          onFinishTimesheet={handleFinishTimesheet}
-          currentTime={currentTime}
-        />
+        {loadingWorkDay ? (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text>Cargando información del día...</Text>
+            </Card.Content>
+          </Card>
+        ) : workDay ? (
+          <DayTimeCard
+            workDay={workDay}
+            onDateChange={handleDateChange}
+            onStartTimesheet={handleStartTimesheet}
+            onPauseTimesheet={handlePauseTimesheet}
+            onFinishTimesheet={handleFinishTimesheet}
+            currentTime={currentTime}
+          />
+        ) : (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text>Error al cargar la información del día</Text>
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Información del fichaje para días finalizados */}
-        {isReadOnly && workDay.timesheet.status === 'completed' && (
+        {isReadOnly && workDay && workDay.timesheet.status === 'completed' && (
           <Card style={styles.card}>
             <Card.Title 
               title="Fichaje del día" 
@@ -281,17 +490,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <View style={styles.summaryItem}>
                     <Text variant="bodySmall" style={styles.summaryLabel}>Duración total</Text>
                     <Text variant="titleMedium" style={styles.summaryValue}>
-                      {formatDuration(workDay.timesheet.totalDuration)}
+                      {formatDuration(workDay?.timesheet.totalDuration || 0)}
                     </Text>
                   </View>
                   <View style={styles.summaryItem}>
                     <Text variant="bodySmall" style={styles.summaryLabel}>Sesiones</Text>
                     <Text variant="titleMedium" style={styles.summaryValue}>
-                      {workDay.timesheet.sessions.length}
+                      {workDay?.timesheet.sessions.length || 0}
                     </Text>
                   </View>
                 </View>
-                {workDay.timesheet.notes && (
+                {workDay?.timesheet.notes && (
                   <Text variant="bodySmall" style={styles.timesheetNotes}>
                     {workDay.timesheet.notes}
                   </Text>
@@ -307,7 +516,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             Tareas del día
           </Text>
           <Text variant="bodyMedium" style={styles.sectionSubtitle}>
-            {workDay.tasks.length} tareas asignadas
+            {tasks.length} tareas asignadas
           </Text>
         </View>
 

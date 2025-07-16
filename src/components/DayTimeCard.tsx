@@ -49,8 +49,22 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
   };
 
   const getTotalDisplayDuration = (): number => {
-    // Para mock data, mostrar solo el tiempo total sin sumar sesión actual en tiempo real
-    return timesheet.totalDuration;
+    // Si hay una sesión activa, sumar el tiempo de la sesión actual al tiempo total
+    const currentSessionDuration = timesheet.status === TimesheetStatus.IN_PROGRESS ? getCurrentSessionDuration() : 0;
+    const totalDuration = timesheet.totalDuration + currentSessionDuration;
+    
+    // Debug: log the calculation
+    if (timesheet.status === TimesheetStatus.IN_PROGRESS) {
+      console.log('⏰ Timer calculation:', {
+        totalDuration: timesheet.totalDuration,
+        currentSessionDuration,
+        finalTotal: totalDuration,
+        sessionStart: timesheet.currentSessionStart?.toLocaleTimeString(),
+        currentTime: currentTime.toLocaleTimeString()
+      });
+    }
+    
+    return totalDuration;
   };
 
   const formatDayOfWeek = (date: Date): string => {
@@ -73,8 +87,12 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     return workDay.status === DayStatus.COMPLETED ? '#4CAF50' : '#2196F3';
   };
 
-  const isToday = workDay.date.toDateString() === new Date().toDateString();
+  const today = new Date();
+  const isToday = workDay.date.toDateString() === today.toDateString();
   const isCompleted = timesheet.status === TimesheetStatus.COMPLETED;
+  
+  // Usar la fecha actual real si es hoy, sino usar la fecha del workDay
+  const displayDate = isToday ? today : workDay.date;
 
   const handleDateConfirm = (params: any) => {
     if (params.date) {
@@ -167,10 +185,10 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
           <View style={styles.dateSelector}>
             <View style={styles.dateInfo}>
               <Text variant="headlineSmall" style={styles.dayOfWeek}>
-                {formatDayOfWeek(workDay.date)}
+                {formatDayOfWeek(displayDate)}
               </Text>
               <Text variant="titleMedium" style={styles.dateText}>
-                {formatDate(workDay.date)}
+                {formatDate(displayDate)}
               </Text>
               <Chip 
                 style={[styles.statusChip, { backgroundColor: getDayStatusColor() + '20' }]}
@@ -191,9 +209,19 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
 
           {/* Cronómetro */}
           <View style={styles.timerSection}>
-            <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
-              {formatDuration(getTotalDisplayDuration())}
-            </Text>
+            <View style={styles.timerContainer}>
+              <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
+                {formatDuration(getTotalDisplayDuration())}
+              </Text>
+              {timesheet.status === TimesheetStatus.IN_PROGRESS && (
+                <View style={styles.runningIndicator}>
+                  <Icon source="play-circle" size={16} color={theme.colors.primary} />
+                  <Text variant="bodySmall" style={[styles.runningText, { color: theme.colors.primary }]}>
+                    En marcha
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text variant="bodySmall" style={styles.timerLabel}>
               Tiempo total trabajado
             </Text>
@@ -270,9 +298,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
   },
+  timerContainer: {
+    alignItems: 'center',
+  },
   timerDisplay: {
     fontWeight: '700',
     textAlign: 'center',
+  },
+  runningIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  runningText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   timerLabel: {
     opacity: 0.7,
