@@ -39,6 +39,14 @@ export enum CommentType {
   VOICE = 'voice',
 }
 
+// Tag para categorización de tareas
+export interface Tag {
+  id: string;
+  name: string;
+  color: string; // Color hexadecimal para el badge
+  category?: string; // Categoría opcional para agrupar tags
+}
+
 // Configuración de evidencia para subtareas
 export interface SubtaskEvidenceRequirement {
   type: EvidenceType;
@@ -158,6 +166,9 @@ export interface Task {
   // Información del proyecto y ubicación
   projectName: string;
   location: string;
+  
+  // Tags asignados por el admin
+  tags: Tag[];
   
   // Subtareas
   subtasks: TaskSubtask[];

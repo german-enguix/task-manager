@@ -18,8 +18,25 @@ import {
   ProjectPriority,
   SupervisorObservation,
   SubtaskEvidenceRequirement,
-  SubtaskEvidence
+  SubtaskEvidence,
+  Tag
 } from '@/types';
+
+// Tags mockeados para categorización
+export const mockTags: Tag[] = [
+  { id: 'tag-safety', name: 'Seguridad', color: '#ff5722', category: 'Operaciones' },
+  { id: 'tag-urgent', name: 'Urgente', color: '#f44336', category: 'Prioridad' },
+  { id: 'tag-maintenance', name: 'Mantenimiento', color: '#2196f3', category: 'Operaciones' },
+  { id: 'tag-inspection', name: 'Inspección', color: '#9c27b0', category: 'Calidad' },
+  { id: 'tag-quality', name: 'Control de Calidad', color: '#4caf50', category: 'Calidad' },
+  { id: 'tag-training', name: 'Capacitación', color: '#ff9800', category: 'RRHH' },
+  { id: 'tag-equipment', name: 'Equipamiento', color: '#607d8b', category: 'Operaciones' },
+  { id: 'tag-compliance', name: 'Cumplimiento', color: '#795548', category: 'Legal' },
+  { id: 'tag-documentation', name: 'Documentación', color: '#3f51b5', category: 'Administración' },
+  { id: 'tag-environmental', name: 'Ambiental', color: '#8bc34a', category: 'Sostenibilidad' },
+  { id: 'tag-security', name: 'Seguridad Industrial', color: '#e91e63', category: 'Operaciones' },
+  { id: 'tag-routine', name: 'Rutina', color: '#9e9e9e', category: 'Frecuencia' },
+];
 
 // Datos mockeados para tareas
 export const mockTasks: Task[] = [
@@ -35,6 +52,13 @@ export const mockTasks: Task[] = [
     // Información del proyecto y ubicación
     projectName: 'Modernización Línea de Producción A',
     location: 'Planta Industrial Norte - Área Principal',
+    
+    // Tags asignados por el admin
+    tags: [
+      mockTags.find(tag => tag.id === 'tag-safety')!,
+      mockTags.find(tag => tag.id === 'tag-inspection')!,
+      mockTags.find(tag => tag.id === 'tag-urgent')!,
+    ],
     
     // Subtareas con diferentes tipos de evidencias
     subtasks: [
@@ -334,6 +358,13 @@ export const mockTasks: Task[] = [
     projectName: 'Modernización Línea de Producción A',
     location: 'Planta Industrial Norte - Área de Maquinaria',
     
+    // Tags asignados por el admin
+    tags: [
+      mockTags.find(tag => tag.id === 'tag-maintenance')!,
+      mockTags.find(tag => tag.id === 'tag-equipment')!,
+      mockTags.find(tag => tag.id === 'tag-routine')!,
+    ],
+    
     subtasks: [
       {
         id: 'subtask-6',
@@ -443,6 +474,12 @@ export const mockTasks: Task[] = [
     // Información del proyecto y ubicación
     projectName: 'Modernización Línea de Producción A',
     location: 'Planta Industrial Norte - Línea 2',
+    
+    // Tags asignados por el admin
+    tags: [
+      mockTags.find(tag => tag.id === 'tag-quality')!,
+      mockTags.find(tag => tag.id === 'tag-equipment')!,
+    ],
     
     subtasks: [
       {

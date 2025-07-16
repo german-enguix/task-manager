@@ -19,7 +19,7 @@ import {
   useTheme,
   Icon
 } from 'react-native-paper';
-import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement } from '@/types';
+import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement, Tag } from '@/types';
 import { getTaskById, updateTask } from '@/utils/mockData';
 
 interface TaskDetailScreenProps {
@@ -372,6 +372,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           <Text variant="bodyMedium" style={styles.taskDescription}>
             {task.description}
           </Text>
+          
+          {/* Tags */}
+          {task.tags && task.tags.length > 0 && (
+            <View style={styles.tagsContainer}>
+              {task.tags.map((tag) => (
+                <Chip
+                  key={tag.id}
+                  mode="flat"
+                  style={[styles.tagChip, { backgroundColor: tag.color + '20' }]}
+                  textStyle={[styles.tagText, { color: tag.color }]}
+                  compact
+                >
+                  {tag.name}
+                </Chip>
+              ))}
+            </View>
+          )}
           
           {/* Información del proyecto y ubicación */}
           <View style={styles.taskMeta}>
@@ -766,5 +783,21 @@ const styles = StyleSheet.create({
   },
   evidenceCompletedButtonText: {
     fontSize: 12,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  tagChip: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
 }); 
