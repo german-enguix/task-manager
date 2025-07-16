@@ -44,11 +44,28 @@ export class SupabaseService {
   
   async getCurrentUser(): Promise<any> {
     try {
+      console.log('🔄 Getting current user from Supabase...');
+      
       const { data: { user }, error } = await supabase.auth.getUser();
       
-      if (error) throw error;
+      console.log('📊 Auth response:', { 
+        hasUser: !!user, 
+        userId: user?.id, 
+        email: user?.email,
+        hasError: !!error 
+      });
       
-      if (!user) return null;
+      if (error) {
+        console.error('❌ Auth error:', error);
+        throw error;
+      }
+      
+      if (!user) {
+        console.log('❌ No authenticated user found');
+        return null;
+      }
+      
+      console.log('✅ User authenticated:', user.email);
       
       // Obtener información adicional del usuario desde la tabla profiles
       const { data: userProfile, error: profileError } = await supabase
@@ -58,15 +75,18 @@ export class SupabaseService {
         .single();
       
       if (profileError && profileError.code !== 'PGRST116') {
+        console.error('❌ Profile error:', profileError);
         throw profileError;
       }
+      
+      console.log('✅ User profile loaded:', userProfile?.full_name || 'No profile');
       
       return {
         ...user,
         profile: userProfile || null,
       };
     } catch (error) {
-      console.error('Error getting current user:', error);
+      console.error('❌ Error getting current user:', error);
       throw error;
     }
   }
@@ -207,6 +227,140 @@ export class SupabaseService {
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
+    }
+  }
+
+  async checkAuthStatus(): Promise<{
+    isAuthenticated: boolean;
+    user: any | null;
+    sessionValid: boolean;
+    message: string;
+  }> {
+    try {
+      console.log('🔍 Checking detailed authentication status...');
+      
+      // 1. Verificar si hay sesión activa
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('📊 Session check:', {
+        hasSession: !!session,
+        sessionUser: session?.user?.email,
+        expiresAt: session?.expires_at,
+        sessionError: !!sessionError
+      });
+
+      if (sessionError) {
+        console.error('❌ Session error:', sessionError);
+        return {
+          isAuthenticated: false,
+          user: null,
+          sessionValid: false,
+          message: `Error de sesión: ${sessionError.message}`
+        };
+      }
+
+      if (!session) {
+        console.log('❌ No active session found');
+        return {
+          isAuthenticated: false,
+          user: null,
+          sessionValid: false,
+          message: 'No hay sesión activa - necesitas hacer login'
+        };
+      }
+
+      // 2. Verificar que el usuario sea válido
+      const user = session.user;
+      if (!user) {
+        console.log('❌ Session exists but no user');
+        return {
+          isAuthenticated: false,
+          user: null,
+          sessionValid: false,
+          message: 'Sesión corrupta - necesitas hacer login de nuevo'
+        };
+      }
+
+      // 3. Verificar que la sesión no esté expirada
+      const now = Math.floor(Date.now() / 1000);
+      const expiresAt = session.expires_at || 0;
+      const isExpired = now > expiresAt;
+      
+      console.log('⏰ Session expiry check:', {
+        now,
+        expiresAt,
+        isExpired,
+        remainingMinutes: Math.floor((expiresAt - now) / 60)
+      });
+
+      if (isExpired) {
+        console.log('❌ Session expired');
+        return {
+          isAuthenticated: false,
+          user: null,
+          sessionValid: false,
+          message: 'Sesión expirada - necesitas hacer login de nuevo'
+        };
+      }
+
+      // 4. Verificar acceso a la base de datos
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        console.log('✅ Database access OK, profile:', profile?.full_name || 'Sin perfil');
+      } catch (dbError) {
+        console.error('❌ Database access failed:', dbError);
+        return {
+          isAuthenticated: true,
+          user: user,
+          sessionValid: false,
+          message: 'Usuario válido pero sin acceso a base de datos - revisa permisos'
+        };
+      }
+
+      console.log('✅ Authentication fully valid');
+      return {
+        isAuthenticated: true,
+        user: user,
+        sessionValid: true,
+        message: `Usuario autenticado: ${user.email}`
+      };
+
+    } catch (error) {
+      console.error('❌ Auth status check failed:', error);
+      return {
+        isAuthenticated: false,
+        user: null,
+        sessionValid: false,
+        message: `Error verificando autenticación: ${error}`
+      };
+    }
+  }
+
+  async refreshSession(): Promise<boolean> {
+    try {
+      console.log('🔄 Refreshing Supabase session...');
+      
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('❌ Session refresh failed:', error);
+        return false;
+      }
+
+      if (data.session) {
+        console.log('✅ Session refreshed successfully');
+        return true;
+      }
+
+      console.log('❌ No session to refresh');
+      return false;
+    } catch (error) {
+      console.error('❌ Session refresh error:', error);
+      return false;
     }
   }
 

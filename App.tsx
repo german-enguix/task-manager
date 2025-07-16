@@ -29,31 +29,60 @@ export default function App() {
 
   const checkAuthStatus = async () => {
     try {
-      const currentUser = await supabaseService.getCurrentUser();
-      if (currentUser && currentUser.id) {
+      console.log('🚀 Starting authentication check...');
+      
+      const authStatus = await supabaseService.checkAuthStatus();
+      
+      console.log('📊 Auth status result:', authStatus);
+      
+      if (authStatus.isAuthenticated && authStatus.sessionValid && authStatus.user) {
         // Obtener perfil del usuario
         const { data: profile } = await supabaseService.supabase
           .from('profiles')
           .select('id, full_name, role, avatar_url')
-          .eq('id', currentUser.id)
+          .eq('id', authStatus.user.id)
           .single();
 
         const userWithProfile = {
-          id: currentUser.id,
-          email: currentUser.email,
-          name: profile?.full_name || currentUser.email,
+          id: authStatus.user.id,
+          email: authStatus.user.email,
+          name: profile?.full_name || authStatus.user.email,
           role: profile?.role,
           avatar_url: profile?.avatar_url,
         };
 
         setUser(userWithProfile);
         setIsAuthenticated(true);
+        console.log('✅ User authenticated and profile loaded:', userWithProfile.name);
       } else {
+        console.log('❌ Authentication failed:', authStatus.message);
+        
+        // Si el usuario no está autenticado pero creemos que debería estar,
+        // intentar refrescar la sesión
+        if (!authStatus.sessionValid) {
+          console.log('🔄 Attempting to refresh session...');
+          const refreshed = await supabaseService.refreshSession();
+          
+          if (refreshed) {
+            console.log('✅ Session refreshed, retrying...');
+            // Intentar de nuevo después del refresh
+            const retryAuthStatus = await supabaseService.checkAuthStatus();
+            if (retryAuthStatus.isAuthenticated && retryAuthStatus.sessionValid) {
+              console.log('✅ Authentication successful after refresh');
+              // Recursively call checkAuthStatus to set user
+              await checkAuthStatus();
+              return;
+            }
+          }
+        }
+        
         setIsAuthenticated(false);
+        setUser(null);
       }
     } catch (error) {
-      console.error('Error verificando autenticación:', error);
+      console.error('❌ Error verificando autenticación:', error);
       setIsAuthenticated(false);
+      setUser(null);
     } finally {
       setIsCheckingAuth(false);
     }
@@ -122,13 +151,14 @@ export default function App() {
   // Función de logout sin confirmación (para ProfileScreen)
   const performLogout = async () => {
     try {
+      console.log('🚪 Logging out user...');
       await supabaseService.signOut();
       setUser(null);
       setIsAuthenticated(false);
       setCurrentScreen('home');
       console.log('✅ User logged out successfully');
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
+      console.error('❌ Error during logout:', error);
       // Aún así limpiar el estado local
       setUser(null);
       setIsAuthenticated(false);
