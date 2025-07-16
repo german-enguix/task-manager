@@ -17,6 +17,7 @@ import {
   DayTimeCard, 
   NotificationsBell 
 } from '@/components';
+import { SupabaseTest } from '@/components/SupabaseTest';
 
 interface HomeScreenProps {
   isDarkMode: boolean;
@@ -156,6 +157,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <Surface style={styles.container}>
       {/* Main Content */}
       <ScrollView style={styles.content}>
+        {/* Prueba temporal de Supabase */}
+        <SupabaseTest />
+        
         {/* Header integrado */}
         <View style={styles.header}>
           <View style={styles.headerContent}>

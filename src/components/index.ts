@@ -15,3 +15,6 @@ export { DayTimeCard } from './DayTimeCard';
 
 // Navigation components
 export { NavBar } from './NavBar';
+
+// Test components
+export { SupabaseTest } from './SupabaseTest';
