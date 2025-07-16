@@ -141,6 +141,7 @@ export interface TaskComment {
   filePath?: string; // Para comentarios de voz
   createdAt: Date;
   author: string;
+  userId: string; // ID del usuario que creó el comentario
 }
 
 export interface TaskTimer {

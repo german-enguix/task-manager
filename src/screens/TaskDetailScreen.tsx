@@ -20,7 +20,7 @@ import {
   Icon,
   TextInput
 } from 'react-native-paper';
-import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement, Tag } from '@/types';
+import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement, Tag, TaskComment } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
 
 interface TaskDetailScreenProps {
@@ -516,6 +516,57 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     );
   };
 
+  const deleteComment = async (commentId: string, commentContent: string) => {
+    Alert.alert(
+      'Borrar Comentario',
+      `¿Estás seguro de que quieres borrar este comentario?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Borrar', style: 'destructive', onPress: async () => {
+          try {
+            console.log('🗑️ Deleting comment:', commentId);
+            
+            // Borrar comentario de la base de datos
+            await supabaseService.deleteTaskComment(commentId);
+            
+            // Actualizar estado local - remover el comentario borrado
+            if (task) {
+              const updatedTask = {
+                ...task,
+                comments: task.comments.filter(comment => comment.id !== commentId)
+              };
+              setTask(updatedTask);
+            }
+            
+            console.log('✅ Comment deleted successfully');
+            Alert.alert('Éxito', 'Comentario borrado correctamente');
+          } catch (error) {
+            console.error('❌ Error deleting comment:', error);
+            Alert.alert('Error', `No se pudo borrar el comentario: ${error.message || error}`);
+          }
+        }},
+      ]
+    );
+  };
+
+  const isCommentAuthor = (comment: TaskComment): boolean => {
+    if (!currentUserId) {
+      console.log('⚠️ No current user ID available for comment ownership check');
+      return false;
+    }
+    
+    const isAuthor = comment.userId === currentUserId;
+    console.log('🔍 Comment ownership check:', {
+      commentId: comment.id,
+      commentUserId: comment.userId,
+      currentUserId: currentUserId,
+      isAuthor: isAuthor,
+      author: comment.author
+    });
+    
+    return isAuthor;
+  };
+
   const reportProblem = () => {
     Alert.alert(
       'Reportar Problema',
@@ -738,12 +789,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
               task.comments.map((comment) => (
                 <View key={comment.id} style={styles.commentItem}>
                   <View style={styles.commentHeader}>
-                    <Text variant="bodySmall" style={styles.commentAuthor}>
-                      {comment.author}
-                    </Text>
-                    <Text variant="bodySmall" style={styles.commentDate}>
-                      {comment.createdAt.toLocaleDateString('es-ES')}
-                    </Text>
+                    <View style={styles.commentHeaderLeft}>
+                      <Text variant="bodySmall" style={styles.commentAuthor}>
+                        {comment.author}
+                      </Text>
+                      <Text variant="bodySmall" style={styles.commentDate}>
+                        {comment.createdAt.toLocaleDateString('es-ES')}
+                      </Text>
+                    </View>
+                    {isCommentAuthor(comment) && (
+                      <IconButton
+                        icon="delete"
+                        size={18}
+                        iconColor={theme.colors.error}
+                        onPress={() => deleteComment(comment.id, comment.content)}
+                        style={styles.deleteButton}
+                      />
+                    )}
                   </View>
                   <Text variant="bodyMedium">{comment.content}</Text>
                   {comment.type === CommentType.VOICE && (
@@ -903,13 +965,22 @@ const styles = StyleSheet.create({
   commentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 4,
+  },
+  commentHeaderLeft: {
+    flex: 1,
   },
   commentAuthor: {
     fontWeight: 'bold',
   },
   commentDate: {
     opacity: 0.6,
+  },
+  deleteButton: {
+    margin: 0,
+    marginTop: -8,
+    marginRight: -8,
   },
   voiceChip: {
     alignSelf: 'flex-start',

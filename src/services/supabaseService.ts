@@ -888,6 +888,7 @@ export class SupabaseService {
           filePath: row.file_path,
           createdAt: new Date(row.created_at),
           author: authorName,
+          userId: row.user_id,
         };
         
         console.log('✅ Mapped comment:', mappedComment.id, 'by', mappedComment.author);
@@ -959,6 +960,7 @@ export class SupabaseService {
         filePath: data.file_path,
         createdAt: new Date(data.created_at),
         author: profile?.full_name || user.email || 'Usuario',
+        userId: user.id,
       };
 
       console.log('✅ Mapped comment:', comment);
@@ -1007,6 +1009,7 @@ export class SupabaseService {
         filePath: data.file_path,
         createdAt: new Date(data.created_at),
         author: authorName,
+        userId: data.user_id,
       };
     } catch (error) {
       console.error('Error updating task comment:', error);
@@ -1016,14 +1019,50 @@ export class SupabaseService {
 
   async deleteTaskComment(commentId: string): Promise<void> {
     try {
+      console.log('🗑️ Deleting comment:', commentId);
+      
+      // Verificar que el usuario actual es el autor del comentario
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // Verificar que el comentario pertenece al usuario actual
+      const { data: comment, error: fetchError } = await supabase
+        .from('task_comments')
+        .select('user_id, content')
+        .eq('id', commentId)
+        .single();
+
+      if (fetchError) {
+        console.error('❌ Error fetching comment for deletion:', fetchError);
+        throw fetchError;
+      }
+
+      if (!comment) {
+        throw new Error('Comentario no encontrado');
+      }
+
+      if (comment.user_id !== currentUser.id) {
+        throw new Error('Solo puedes borrar tus propios comentarios');
+      }
+
+      console.log('✅ User authorized to delete comment:', comment.content.substring(0, 30) + '...');
+
+      // Proceder con el borrado
       const { error } = await supabase
         .from('task_comments')
         .delete()
         .eq('id', commentId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error deleting comment:', error);
+        throw error;
+      }
+
+      console.log('✅ Comment deleted successfully:', commentId);
     } catch (error) {
-      console.error('Error deleting task comment:', error);
+      console.error('❌ Error deleting task comment:', error);
       throw error;
     }
   }
