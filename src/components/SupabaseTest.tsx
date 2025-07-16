@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Chip, ActivityIndicator, Button } from 'react-native-paper';
 import { supabaseService } from '@/services/supabaseService';
 import { Tag } from '@/types';
 
@@ -9,6 +9,7 @@ export const SupabaseTest: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'testing' | 'success' | 'error'>('testing');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     testSupabaseConnection();
@@ -33,6 +34,39 @@ export const SupabaseTest: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Unknown error');
       setConnectionStatus('error');
       setLoading(false);
+    }
+  };
+
+  const createTestTag = async () => {
+    setCreating(true);
+    try {
+      const randomColors = ['#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
+      const randomColor = randomColors[Math.floor(Math.random() * randomColors.length)];
+      const timestamp = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      
+      const newTag: Omit<Tag, 'id'> = {
+        name: `Test Tag ${timestamp}`,
+        color: randomColor,
+        category: 'Prueba'
+      };
+
+      console.log('🏷️ Creating new tag:', newTag);
+      
+      const createdTag = await supabaseService.createTag(newTag);
+      
+      console.log('✅ Tag created successfully:', createdTag);
+      
+      // Actualizar la lista de tags
+      const updatedTags = await supabaseService.getTags();
+      setTags(updatedTags);
+      
+      console.log(`📊 Updated tags list: ${updatedTags.length} tags`);
+      
+    } catch (err) {
+      console.error('❌ Error creating tag:', err);
+      setError(err instanceof Error ? err.message : 'Error creating tag');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -100,6 +134,19 @@ export const SupabaseTest: React.FC = () => {
             No se encontraron tags. Ejecuta el script de inserción de datos de ejemplo.
           </Text>
         )}
+        
+        <View style={styles.buttonContainer}>
+          <Button
+            mode="contained"
+            onPress={createTestTag}
+            loading={creating}
+            disabled={creating}
+            icon="plus"
+            style={styles.createButton}
+          >
+            {creating ? 'Creando...' : 'Crear Tag de Prueba'}
+          </Button>
+        </View>
       </Card.Content>
     </Card>
   );
@@ -164,5 +211,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: 'center',
     marginTop: 16,
+  },
+  buttonContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  createButton: {
+    minWidth: 200,
   },
 }); 
