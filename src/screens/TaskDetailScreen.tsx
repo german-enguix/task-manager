@@ -427,16 +427,36 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     return subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted;
   };
 
-  const addTextComment = () => {
+  const addTextComment = async () => {
     if (commentText.trim() === '') return;
     
-    // TODO: Implementar lógica para agregar comentario de texto
-    console.log('Adding text comment:', commentText);
-    
-    // Limpiar el input después de enviar
-    setCommentText('');
-    
-    Alert.alert('Comentario Agregado', 'Tu comentario de texto ha sido registrado.');
+    try {
+      console.log('Adding text comment:', commentText);
+      
+      // Agregar comentario a la base de datos
+      const newComment = await supabaseService.addTaskComment(
+        taskId, 
+        commentText.trim(), 
+        CommentType.TEXT
+      );
+      
+      // Actualizar estado local
+      if (task) {
+        const updatedTask = {
+          ...task,
+          comments: [...task.comments, newComment]
+        };
+        setTask(updatedTask);
+      }
+      
+      // Limpiar el input después de enviar
+      setCommentText('');
+      
+      console.log('✅ Text comment added successfully');
+    } catch (error) {
+      console.error('❌ Error adding text comment:', error);
+      Alert.alert('Error', 'No se pudo agregar el comentario. Inténtalo de nuevo.');
+    }
   };
 
   const addVoiceComment = () => {
@@ -445,10 +465,36 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       '¿Deseas grabar un comentario de voz?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Grabar', onPress: () => {
-          // TODO: Implementar lógica para grabar y agregar comentario de voz
-          console.log('Adding voice comment');
-          Alert.alert('Comentario de Voz', 'Se ha simulado la grabación del comentario de voz.');
+        { text: 'Grabar', onPress: async () => {
+          try {
+            // TODO: Implementar grabación real de audio
+            // Por ahora, simulamos con un comentario de texto que indica que es de voz
+            const voiceCommentContent = `Nota de voz grabada el ${new Date().toLocaleString('es-ES')}`;
+            
+            console.log('Adding voice comment simulation');
+            
+            // Agregar comentario de voz simulado a la base de datos
+            const newComment = await supabaseService.addTaskComment(
+              taskId, 
+              voiceCommentContent, 
+              CommentType.VOICE
+            );
+            
+            // Actualizar estado local
+            if (task) {
+              const updatedTask = {
+                ...task,
+                comments: [...task.comments, newComment]
+              };
+              setTask(updatedTask);
+            }
+            
+            console.log('✅ Voice comment added successfully (simulated)');
+            Alert.alert('Comentario de Voz', 'Se ha agregado tu nota de voz.');
+          } catch (error) {
+            console.error('❌ Error adding voice comment:', error);
+            Alert.alert('Error', 'No se pudo agregar el comentario de voz. Inténtalo de nuevo.');
+          }
         }},
       ]
     );

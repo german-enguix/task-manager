@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { Task, Tag, Project, SupervisorObservation, WorkDay, TimesheetStatus, DayStatus } from '@/types'
+import { Task, Tag, Project, SupervisorObservation, WorkDay, TimesheetStatus, DayStatus, TaskComment, CommentType } from '@/types'
 import { Database } from '@/types/supabase'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
@@ -12,6 +12,28 @@ type WorkDayRow = Database['public']['Tables']['work_days']['Row']
 type WorkDayInsert = Database['public']['Tables']['work_days']['Insert']
 type WorkSessionRow = Database['public']['Tables']['work_sessions']['Row']
 type WorkNotificationRow = Database['public']['Tables']['work_notifications']['Row']
+type TaskCommentRow = {
+  id: string
+  task_id: string
+  user_id: string
+  type: 'text' | 'voice'
+  content: string
+  file_path: string | null
+  file_url: string | null
+  created_at: string
+  updated_at: string
+}
+type TaskCommentInsert = {
+  id?: string
+  task_id: string
+  user_id: string
+  type: 'text' | 'voice'
+  content: string
+  file_path?: string | null
+  file_url?: string | null
+  created_at?: string
+  updated_at?: string
+}
 
 export class SupabaseService {
   
@@ -258,7 +280,16 @@ export class SupabaseService {
 
       if (error) throw error
       
-      return data ? this.transformTaskFromSupabase(data) : null
+      if (!data) return null;
+
+      // Cargar comentarios por separado
+      const comments = await this.getTaskComments(taskId);
+      
+      // Transformar la tarea y agregar los comentarios
+      const task = this.transformTaskFromSupabase(data);
+      task.comments = comments;
+      
+      return task;
     } catch (error) {
       console.error('Error fetching task:', error)
       throw error
@@ -578,6 +609,126 @@ export class SupabaseService {
       console.error('Error creating tag:', error)
       throw error
     }
+  }
+
+  // ========== TASK COMMENTS ==========
+  
+  async getTaskComments(taskId: string): Promise<TaskComment[]> {
+    try {
+      const { data, error } = await supabase
+        .from('task_comments')
+        .select(`
+          *,
+          user:auth.users!task_comments_user_id_fkey(
+            id,
+            email
+          ),
+          profile:profiles!task_comments_user_id_fkey(
+            full_name
+          )
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      return (data || []).map(this.mapTaskCommentRowToTaskComment);
+    } catch (error) {
+      console.error('Error getting task comments:', error);
+      throw error;
+    }
+  }
+
+  async addTaskComment(taskId: string, content: string, type: CommentType = CommentType.TEXT, filePath?: string): Promise<TaskComment> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const commentData: TaskCommentInsert = {
+        task_id: taskId,
+        user_id: user.id,
+        type: type,
+        content: content,
+        file_path: filePath || null,
+      };
+
+      const { data, error } = await supabase
+        .from('task_comments')
+        .insert(commentData)
+        .select(`
+          *,
+          user:auth.users!task_comments_user_id_fkey(
+            id,
+            email
+          ),
+          profile:profiles!task_comments_user_id_fkey(
+            full_name
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      return this.mapTaskCommentRowToTaskComment(data);
+    } catch (error) {
+      console.error('Error adding task comment:', error);
+      throw error;
+    }
+  }
+
+  async updateTaskComment(commentId: string, content: string): Promise<TaskComment> {
+    try {
+      const { data, error } = await supabase
+        .from('task_comments')
+        .update({ 
+          content: content,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', commentId)
+        .select(`
+          *,
+          user:auth.users!task_comments_user_id_fkey(
+            id,
+            email
+          ),
+          profile:profiles!task_comments_user_id_fkey(
+            full_name
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      return this.mapTaskCommentRowToTaskComment(data);
+    } catch (error) {
+      console.error('Error updating task comment:', error);
+      throw error;
+    }
+  }
+
+  async deleteTaskComment(commentId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('task_comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting task comment:', error);
+      throw error;
+    }
+  }
+
+  private mapTaskCommentRowToTaskComment(data: any): TaskComment {
+    return {
+      id: data.id,
+      type: data.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
+      content: data.content,
+      filePath: data.file_path,
+      createdAt: new Date(data.created_at),
+      author: data.profile?.full_name || data.user?.email || 'Usuario desconocido',
+    };
   }
 
   // ========== TIMESHEET & WORK DAYS ==========
