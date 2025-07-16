@@ -255,8 +255,10 @@ export class SupabaseService {
       // Transformar datos de Supabase a nuestros tipos
       return data?.map((task) => this.transformTaskFromSupabase(task)) || []
     } catch (error) {
-      console.error('Error fetching tasks:', error)
-      throw error
+      console.error('Error fetching tasks from database:', error)
+      
+      // Si hay error, devolver array vacío para mostrar mensaje apropiado
+      return [];
     }
   }
 
@@ -291,8 +293,10 @@ export class SupabaseService {
       
       return task;
     } catch (error) {
-      console.error('Error fetching task:', error)
-      throw error
+      console.error('Error fetching task from database:', error)
+      
+      // Si hay error, devolver null para mostrar mensaje de "tarea no encontrada"
+      return null;
     }
   }
 
@@ -634,8 +638,10 @@ export class SupabaseService {
 
       return (data || []).map(this.mapTaskCommentRowToTaskComment);
     } catch (error) {
-      console.error('Error getting task comments:', error);
-      throw error;
+      console.error('Error getting task comments from database:', error);
+      
+      // Si hay error, devolver array vacío
+      return [];
     }
   }
 
