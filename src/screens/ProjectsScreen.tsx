@@ -17,17 +17,42 @@ export const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Usuario de prueba - en un app real esto vendría del contexto de autenticación
-  const currentUserId = '550e8400-e29b-41d4-a716-446655440001';
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   const currentProjects = selectedTab === 'assigned' ? assignedProjects : allProjects;
 
   useEffect(() => {
-    loadProjects();
+    loadCurrentUser();
   }, []);
 
+  useEffect(() => {
+    if (currentUserId) {
+      loadProjects();
+    }
+  }, [currentUserId]);
+
+  const loadCurrentUser = async () => {
+    try {
+      const currentUser = await supabaseService.getCurrentUser();
+      if (currentUser) {
+        setCurrentUserId(currentUser.id);
+        console.log('✅ Current user loaded in projects:', currentUser.id);
+      } else {
+        console.error('❌ No authenticated user found in projects');
+        setCurrentUserId(null);
+      }
+    } catch (error) {
+      console.error('❌ Error loading current user in projects:', error);
+      setCurrentUserId(null);
+    }
+  };
+
   const loadProjects = async () => {
+    if (!currentUserId) {
+      console.log('❌ Cannot load projects: no authenticated user');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

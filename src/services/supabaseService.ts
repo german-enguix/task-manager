@@ -211,7 +211,11 @@ export class SupabaseService {
         .from('tasks')
         .select(`
           *,
-          subtasks(*),
+          subtasks(
+            *,
+            subtask_evidence_requirements(*),
+            subtask_evidences(*)
+          ),
           task_tags(
             tags(*)
           )
@@ -240,7 +244,11 @@ export class SupabaseService {
         .from('tasks')
         .select(`
           *,
-          subtasks(*),
+          subtasks(
+            *,
+            subtask_evidence_requirements(*),
+            subtask_evidences(*)
+          ),
           task_tags(
             tags(*)
           )
@@ -669,6 +677,98 @@ export class SupabaseService {
     return;
   }
 
+  // ========== TASK TIMER ==========
+  
+  async startTaskTimer(taskId: string, userId: string): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('start_task_timer', {
+        p_task_id: taskId,
+        p_user_id: userId
+      });
+
+      if (error) throw error;
+      
+      console.log('✅ Task timer started:', taskId);
+      return data; // Retorna el session_id
+    } catch (error) {
+      console.error('Error starting task timer:', error);
+      throw error;
+    }
+  }
+
+  async stopTaskTimer(taskId: string, userId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('stop_task_timer', {
+        p_task_id: taskId,
+        p_user_id: userId
+      });
+
+      if (error) throw error;
+      
+      console.log('✅ Task timer stopped:', taskId, 'Total elapsed:', data);
+      return data; // Retorna el total_elapsed en segundos
+    } catch (error) {
+      console.error('Error stopping task timer:', error);
+      throw error;
+    }
+  }
+
+  async getTaskTimerStats(taskId: string, userId: string): Promise<{
+    totalElapsed: number;
+    isRunning: boolean;
+    currentSessionStart?: Date;
+    sessionCount: number;
+  }> {
+    try {
+      const { data, error } = await supabase.rpc('get_task_timer_stats', {
+        p_task_id: taskId,
+        p_user_id: userId
+      });
+
+      if (error) throw error;
+      
+      const stats = data && data.length > 0 ? data[0] : null;
+      
+      return {
+        totalElapsed: stats?.total_elapsed || 0,
+        isRunning: stats?.is_running || false,
+        currentSessionStart: stats?.current_session_start ? new Date(stats.current_session_start) : undefined,
+        sessionCount: stats?.session_count || 0,
+      };
+    } catch (error) {
+      console.error('Error getting task timer stats:', error);
+      throw error;
+    }
+  }
+
+  async getTaskTimerSessions(taskId: string, userId: string): Promise<Array<{
+    id: string;
+    startTime: Date;
+    endTime?: Date;
+    duration: number;
+  }>> {
+    try {
+      const { data, error } = await supabase
+        .from('task_timer_sessions')
+        .select('*')
+        .eq('task_id', taskId)
+        .eq('user_id', userId)
+        .order('start_time', { ascending: false });
+
+      if (error) throw error;
+      
+      return data?.map(session => ({
+        id: session.id,
+        startTime: new Date(session.start_time),
+        endTime: session.end_time ? new Date(session.end_time) : undefined,
+        duration: session.duration || 0,
+      })) || [];
+    } catch (error) {
+      console.error('Error getting task timer sessions:', error);
+      throw error;
+    }
+  }
+
   // ========== HELPERS ==========
   
   private transformTaskFromSupabase(data: any): Task {
@@ -691,13 +791,33 @@ export class SupabaseService {
         order: subtask.order,
         createdAt: new Date(subtask.created_at),
         completedAt: subtask.completed_at ? new Date(subtask.completed_at) : undefined,
+        // Mapear evidencias si existen
+        evidenceRequirement: subtask.subtask_evidence_requirements?.[0] ? {
+          type: subtask.subtask_evidence_requirements[0].type,
+          isRequired: subtask.subtask_evidence_requirements[0].is_required,
+          title: subtask.subtask_evidence_requirements[0].title,
+          description: subtask.subtask_evidence_requirements[0].description,
+          config: subtask.subtask_evidence_requirements[0].config || {},
+        } : undefined,
+        evidence: subtask.subtask_evidences?.[0] ? {
+          id: subtask.subtask_evidences[0].id,
+          subtaskId: subtask.subtask_evidences[0].subtask_id,
+          type: subtask.subtask_evidences[0].type,
+          title: subtask.subtask_evidences[0].title,
+          description: subtask.subtask_evidences[0].description,
+          filePath: subtask.subtask_evidences[0].file_path,
+          data: subtask.subtask_evidences[0].data,
+          createdAt: new Date(subtask.subtask_evidences[0].created_at),
+          completedBy: subtask.subtask_evidences[0].completed_by || 'Unknown',
+        } : undefined,
       })) || [],
       tags: data.task_tags?.map((tt: any) => this.transformTagFromSupabase(tt.tags)) || [],
-      // Temporal: mantenemos campos que aún no hemos migrado
+      // Timer con datos reales de la base de datos (fallback si no existen los campos)
       timer: {
-        totalElapsed: 0,
-        isRunning: false,
-        sessions: [],
+        totalElapsed: data.timer_total_elapsed ?? 0,
+        isRunning: data.timer_is_running ?? false,
+        currentSessionStart: data.timer_current_session_start ? new Date(data.timer_current_session_start) : undefined,
+        sessions: [], // Se cargarán por separado si se necesitan
       },
       requiredEvidences: [],
       evidences: [],

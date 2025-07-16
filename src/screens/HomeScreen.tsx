@@ -40,8 +40,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     actualEndTime: Date | null;
   }>>({});
 
-  // Usuario de prueba - en un app real esto vendría del contexto de autenticación
-  const currentUserId = '550e8400-e29b-41d4-a716-446655440001';
+  // Estado para el usuario autenticado real
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Función para obtener la clave de fecha
   const getDateKey = (date: Date) => {
@@ -94,34 +94,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   // Cargar datos iniciales
   useEffect(() => {
     loadUserInfo();
-    loadWorkDay();
-    loadTasks();
-    loadNotifications();
   }, []);
+
+  // Cargar datos del usuario cuando currentUserId esté disponible
+  useEffect(() => {
+    if (currentUserId) {
+      loadWorkDay(); // loadTasks se llama automáticamente dentro de loadWorkDay
+      loadNotifications();
+    }
+  }, [currentUserId]);
 
   const loadUserInfo = async () => {
     try {
       setLoadingUser(true);
       const currentUser = await supabaseService.getCurrentUser();
       
-      if (currentUser && currentUser.profile) {
-        setUserName(currentUser.profile.full_name || currentUser.email || 'Usuario');
+      if (currentUser) {
+        // Establecer el ID del usuario autenticado
+        setCurrentUserId(currentUser.id);
+        
+        if (currentUser.profile) {
+          setUserName(currentUser.profile.full_name || currentUser.email || 'Usuario');
+        } else {
+          // Fallback: intentar obtener perfil directamente
+          const userProfile = await supabaseService.getUserProfile(currentUser.id);
+          setUserName(userProfile?.name || 'Usuario');
+        }
+        
+        console.log('✅ User info loaded, ID:', currentUser.id);
       } else {
-        // Fallback: intentar obtener perfil directamente
-        const userProfile = await supabaseService.getUserProfile(currentUserId);
-        setUserName(userProfile?.name || 'Usuario');
+        console.error('❌ No authenticated user found');
+        setUserName('Usuario');
+        setCurrentUserId(null);
       }
-      
-      console.log('✅ User info loaded');
     } catch (error) {
       console.error('❌ Error loading user info:', error);
       setUserName('Usuario'); // Fallback si falla
+      setCurrentUserId(null);
     } finally {
       setLoadingUser(false);
     }
   };
 
   const loadWorkDay = async (date?: Date) => {
+    if (!currentUserId) {
+      console.log('❌ Cannot load work day: no authenticated user');
+      return;
+    }
+
     try {
       setLoadingWorkDay(true);
       // Usar la fecha actual o la fecha proporcionada
@@ -145,6 +165,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       
       setWorkDay(workDayWithTimerState);
       console.log('✅ Work day state updated with timer state');
+      
+      // Cargar tareas para esta fecha específica
+      await loadTasks(targetDate);
     } catch (error) {
       console.error('❌ Error loading work day:', error);
       // Si falla, crear un workDay básico para que no se rompa la UI
@@ -168,17 +191,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         updatedAt: today,
       };
       setWorkDay(fallbackWorkDay);
+      
+      // Cargar tareas para esta fecha específica
+      await loadTasks(date || today);
     } finally {
       setLoadingWorkDay(false);
     }
   };
 
-  const loadTasks = async () => {
+  const loadTasks = async (date?: Date) => {
+    if (!currentUserId) {
+      console.log('❌ Cannot load tasks: no authenticated user');
+      return;
+    }
+
     try {
       setLoadingTasks(true);
+      const targetDate = date || new Date();
       const tasksFromDb = await supabaseService.getTasks(currentUserId);
-      setTasks(tasksFromDb);
-      console.log('✅ Tasks loaded from Supabase:', tasksFromDb.length);
+      
+      // Filtrar tareas que vencen en la fecha específica
+      const tasksForDate = tasksFromDb.filter(task => {
+        if (!task.dueDate) return false;
+        
+        const taskDueDate = new Date(task.dueDate);
+        const targetDateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const taskDueDateStr = taskDueDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        return taskDueDateStr === targetDateStr;
+      });
+      
+      setTasks(tasksForDate);
+      console.log('✅ Tasks loaded from Supabase:', tasksFromDb.length, 'filtered for date:', targetDate.toDateString(), 'result:', tasksForDate.length);
     } catch (error) {
       console.error('❌ Error loading tasks:', error);
       // Fallback a datos mock si falla
@@ -189,6 +233,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const loadNotifications = async () => {
+    if (!currentUserId) {
+      console.log('❌ Cannot load notifications: no authenticated user');
+      return;
+    }
+
     try {
       setLoadingNotifications(true);
       const notificationsFromDb = await supabaseService.getWorkNotifications(currentUserId);

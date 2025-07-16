@@ -43,6 +43,10 @@ export interface Database {
           location: string
           assigned_to: string | null
           project_id: string | null
+          timer_total_elapsed: number
+          timer_is_running: boolean
+          timer_current_session_start: string | null
+          timer_last_session_end: string | null
           created_at: string
           updated_at: string
         }
@@ -424,6 +428,41 @@ export interface Database {
           task_id?: string
           tag_id?: string
           created_at?: string
+        }
+      }
+      task_timer_sessions: {
+        Row: {
+          id: string
+          task_id: string
+          user_id: string
+          start_time: string
+          end_time: string | null
+          duration: number | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          user_id: string
+          start_time: string
+          end_time?: string | null
+          duration?: number | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          user_id?: string
+          start_time?: string
+          end_time?: string | null
+          duration?: number | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
     }

@@ -20,7 +20,6 @@ import {
   Icon
 } from 'react-native-paper';
 import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement, Tag } from '@/types';
-// Nota: getTaskById del mock data ya no se usa, se usa supabaseService.getTaskById
 import { supabaseService } from '@/services/supabaseService';
 
 interface TaskDetailScreenProps {
@@ -35,28 +34,57 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const theme = useTheme();
   const [task, setTask] = useState<Task | null>(null);
   const [timerDisplay, setTimerDisplay] = useState('00:00:00');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [fallbackMessageShown, setFallbackMessageShown] = useState(false);
 
   useEffect(() => {
-    loadTask();
+    loadUserAndTask();
   }, [taskId]);
+
+  // Efecto para actualizar el timer en tiempo real cuando está corriendo
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (task?.timer.isRunning && task.timer.currentSessionStart) {
+      interval = setInterval(() => {
+        const now = new Date();
+        const currentSessionDuration = Math.floor((now.getTime() - task.timer.currentSessionStart!.getTime()) / 1000);
+        const totalElapsed = task.timer.totalElapsed + currentSessionDuration;
+        updateTimerDisplay(totalElapsed);
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [task?.timer.isRunning, task?.timer.currentSessionStart, task?.timer.totalElapsed]);
+
+  const loadUserAndTask = async () => {
+    try {
+      // Cargar usuario actual
+      const user = await supabaseService.getCurrentUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+      
+      // Cargar tarea
+      await loadTask();
+    } catch (error) {
+      console.error('Error loading user and task:', error);
+    }
+  };
 
   const loadTask = async () => {
     try {
       const taskData = await supabaseService.getTaskById(taskId);
       if (taskData) {
         setTask(taskData);
-        if (taskData.timer) {
-          updateTimerDisplay(taskData.timer.totalElapsed);
-        }
+        updateTimerDisplay(taskData.timer.totalElapsed);
       }
     } catch (error) {
       console.error('Error loading task:', error);
-      // Fallback al mock data si falla
-      const fallbackTask = getTaskById(taskId);
-      if (fallbackTask) {
-        setTask(fallbackTask);
-        updateTimerDisplay(fallbackTask.timer.totalElapsed);
-      }
     }
   };
 
@@ -211,39 +239,114 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           
           const updatedTask = { ...task, subtasks: updatedSubtasks };
           setTask(updatedTask);
-          updateTask(taskId, { subtasks: updatedSubtasks });
         }}
       ]
     );
   };
 
-  const toggleTimer = () => {
-    if (!task) return;
+  const toggleTimer = async () => {
+    console.log('🔄 toggleTimer called - task:', !!task, 'currentUserId:', currentUserId);
     
-    const newTimer = { ...task.timer };
-    
-    if (newTimer.isRunning) {
-      // Pausar timer
-      if (newTimer.currentSessionStart) {
-        const sessionDuration = Math.floor((new Date().getTime() - newTimer.currentSessionStart.getTime()) / 1000);
-        newTimer.sessions.push({
-          startTime: newTimer.currentSessionStart,
-          endTime: new Date(),
-          duration: sessionDuration,
-        });
-        newTimer.totalElapsed += sessionDuration;
-        newTimer.currentSessionStart = undefined;
-      }
-      newTimer.isRunning = false;
-    } else {
-      // Iniciar timer
-      newTimer.isRunning = true;
-      newTimer.currentSessionStart = new Date();
+    if (!task || !currentUserId) {
+      console.log('❌ Missing task or currentUserId');
+      Alert.alert('Error', 'No se pudo identificar la tarea o el usuario. Recarga la pantalla.');
+      return;
     }
     
-    const updatedTask = { ...task, timer: newTimer };
-    setTask(updatedTask);
-    updateTask(taskId, { timer: newTimer });
+    try {
+      console.log('🎯 Timer state before toggle:', task.timer.isRunning);
+      
+      if (task.timer.isRunning) {
+        console.log('⏸️ Trying to stop timer...');
+        
+        try {
+          // Intentar usar la función de base de datos
+          const totalElapsed = await supabaseService.stopTaskTimer(taskId, currentUserId);
+          console.log('✅ Timer stopped via DB, total elapsed:', totalElapsed);
+          
+          // Actualizar estado local
+          setTask(prevTask => prevTask ? {
+            ...prevTask,
+            timer: {
+              ...prevTask.timer,
+              isRunning: false,
+              currentSessionStart: undefined,
+              totalElapsed: totalElapsed,
+            }
+          } : null);
+          
+          updateTimerDisplay(totalElapsed);
+        } catch (dbError) {
+          console.warn('⚠️ DB functions not available yet. Using local mode.');
+          console.log('💡 To enable full persistence, execute: scripts/add_timer_fields_to_tasks.sql');
+          
+          // Fallback local completo - funciona sin base de datos
+          const sessionDuration = task.timer.currentSessionStart 
+            ? Math.floor((new Date().getTime() - task.timer.currentSessionStart.getTime()) / 1000)
+            : 0;
+          const totalElapsed = task.timer.totalElapsed + sessionDuration;
+          
+          setTask(prevTask => prevTask ? {
+            ...prevTask,
+            timer: {
+              ...prevTask.timer,
+              isRunning: false,
+              currentSessionStart: undefined,
+              totalElapsed: totalElapsed,
+            }
+          } : null);
+          
+          updateTimerDisplay(totalElapsed);
+          console.log('✅ Timer stopped via local fallback, total elapsed:', totalElapsed);
+        }
+      } else {
+        console.log('▶️ Trying to start timer...');
+        
+        try {
+          // Intentar usar la función de base de datos
+          await supabaseService.startTaskTimer(taskId, currentUserId);
+          console.log('✅ Timer started via DB');
+          
+          const now = new Date();
+          setTask(prevTask => prevTask ? {
+            ...prevTask,
+            timer: {
+              ...prevTask.timer,
+              isRunning: true,
+              currentSessionStart: now,
+            }
+          } : null);
+        } catch (dbError) {
+          console.warn('⚠️ DB functions not available yet. Using local mode.');
+          console.log('💡 To enable full persistence, execute: scripts/add_timer_fields_to_tasks.sql');
+          
+          // Fallback local completo - funciona sin base de datos
+          const now = new Date();
+          setTask(prevTask => prevTask ? {
+            ...prevTask,
+            timer: {
+              ...prevTask.timer,
+              isRunning: true,
+              currentSessionStart: now,
+            }
+          } : null);
+          console.log('✅ Timer started via local fallback');
+          
+          // Mostrar mensaje informativo solo la primera vez
+          if (!fallbackMessageShown) {
+            setFallbackMessageShown(true);
+            Alert.alert(
+              'Modo Local Activado',
+              'El temporizador funciona en modo local. Para persistencia completa, ejecuta el script: scripts/add_timer_fields_to_tasks.sql en Supabase.',
+              [{ text: 'Entendido' }]
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Critical error in toggleTimer:', error);
+      Alert.alert('Error', 'No se pudo actualizar el temporizador. Inténtalo de nuevo.');
+    }
   };
 
 
