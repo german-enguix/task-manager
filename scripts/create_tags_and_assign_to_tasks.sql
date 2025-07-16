@@ -5,40 +5,64 @@
 -- 1. INSERTAR TAGS DEL SISTEMA
 -- ===============================
 
--- Insertar todas las tags disponibles en el sistema
-INSERT INTO tags (id, name, color, category, created_at) VALUES 
-  ('tag-safety', 'Seguridad', '#ff5722', 'Operaciones', NOW()),
-  ('tag-urgent', 'Urgente', '#f44336', 'Prioridad', NOW()),
-  ('tag-maintenance', 'Mantenimiento', '#2196f3', 'Operaciones', NOW()),
-  ('tag-inspection', 'Inspección', '#9c27b0', 'Calidad', NOW()),
-  ('tag-quality', 'Control de Calidad', '#4caf50', 'Calidad', NOW()),
-  ('tag-training', 'Capacitación', '#ff9800', 'RRHH', NOW()),
-  ('tag-equipment', 'Equipamiento', '#607d8b', 'Operaciones', NOW()),
-  ('tag-compliance', 'Cumplimiento', '#795548', 'Legal', NOW()),
-  ('tag-documentation', 'Documentación', '#3f51b5', 'Administración', NOW()),
-  ('tag-environmental', 'Ambiental', '#8bc34a', 'Sostenibilidad', NOW()),
-  ('tag-security', 'Seguridad Industrial', '#e91e63', 'Operaciones', NOW()),
-  ('tag-routine', 'Rutina', '#9e9e9e', 'Frecuencia', NOW()),
-  ('tag-cleaning', 'Limpieza', '#00bcd4', 'Operaciones', NOW()),
-  ('tag-facility', 'Instalaciones', '#795548', 'Infraestructura', NOW()),
-  ('tag-delivery', 'Entrega', '#ff5722', 'Logística', NOW()),
-  ('tag-event', 'Evento', '#e91e63', 'Actividades', NOW())
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  color = EXCLUDED.color,
-  category = EXCLUDED.category,
-  updated_at = NOW();
-
--- ===============================
--- 2. ASIGNAR TAGS A TAREAS EXISTENTES
--- ===============================
-
--- Función para asignar tags a tareas según su contenido
+-- Crear y asignar IDs consistentes para las tags
 DO $$
 DECLARE
-  task_record RECORD;
-  tag_id_to_assign TEXT;
+  tag_safety_id UUID := gen_random_uuid();
+  tag_urgent_id UUID := gen_random_uuid();
+  tag_maintenance_id UUID := gen_random_uuid();
+  tag_inspection_id UUID := gen_random_uuid();
+  tag_quality_id UUID := gen_random_uuid();
+  tag_training_id UUID := gen_random_uuid();
+  tag_equipment_id UUID := gen_random_uuid();
+  tag_compliance_id UUID := gen_random_uuid();
+  tag_documentation_id UUID := gen_random_uuid();
+  tag_environmental_id UUID := gen_random_uuid();
+  tag_security_id UUID := gen_random_uuid();
+  tag_routine_id UUID := gen_random_uuid();
+  tag_cleaning_id UUID := gen_random_uuid();
+  tag_facility_id UUID := gen_random_uuid();
+  tag_delivery_id UUID := gen_random_uuid();
+  tag_event_id UUID := gen_random_uuid();
 BEGIN
+  -- Primero, eliminar tags existentes para evitar conflictos
+  DELETE FROM task_tags;
+  DELETE FROM tags;
+  
+  -- Insertar todas las tags del sistema con UUIDs válidos
+  INSERT INTO tags (id, name, color, category, created_at) VALUES 
+    (tag_safety_id, 'Seguridad', '#ff5722', 'Operaciones', NOW()),
+    (tag_urgent_id, 'Urgente', '#f44336', 'Prioridad', NOW()),
+    (tag_maintenance_id, 'Mantenimiento', '#2196f3', 'Operaciones', NOW()),
+    (tag_inspection_id, 'Inspección', '#9c27b0', 'Calidad', NOW()),
+    (tag_quality_id, 'Control de Calidad', '#4caf50', 'Calidad', NOW()),
+    (tag_training_id, 'Capacitación', '#ff9800', 'RRHH', NOW()),
+    (tag_equipment_id, 'Equipamiento', '#607d8b', 'Operaciones', NOW()),
+    (tag_compliance_id, 'Cumplimiento', '#795548', 'Legal', NOW()),
+    (tag_documentation_id, 'Documentación', '#3f51b5', 'Administración', NOW()),
+    (tag_environmental_id, 'Ambiental', '#8bc34a', 'Sostenibilidad', NOW()),
+    (tag_security_id, 'Seguridad Industrial', '#e91e63', 'Operaciones', NOW()),
+    (tag_routine_id, 'Rutina', '#9e9e9e', 'Frecuencia', NOW()),
+    (tag_cleaning_id, 'Limpieza', '#00bcd4', 'Operaciones', NOW()),
+    (tag_facility_id, 'Instalaciones', '#795548', 'Infraestructura', NOW()),
+    (tag_delivery_id, 'Entrega', '#ff5722', 'Logística', NOW()),
+    (tag_event_id, 'Evento', '#e91e63', 'Actividades', NOW());
+  
+  RAISE NOTICE 'Tags creadas con UUIDs válidos';
+  
+  -- ===============================
+  -- 2. ASIGNAR TAGS A TAREAS EXISTENTES
+  -- ===============================
+  
+  RAISE NOTICE 'Iniciando asignación de tags a tareas...';
+  
+  -- Recorrer todas las tareas existentes y asignar tags apropiadas
+  FOR task_record IN 
+    SELECT id, title, description, location, project_name 
+    FROM tasks 
+    ORDER BY created_at
+  LOOP
+    RAISE NOTICE 'Procesando tarea: %', task_record.title;
   -- Recorrer todas las tareas existentes y asignar tags apropiadas
   FOR task_record IN 
     SELECT id, title, description, location, project_name 
