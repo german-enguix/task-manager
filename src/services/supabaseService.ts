@@ -623,7 +623,10 @@ export class SupabaseService {
       
       const { data, error } = await supabase
         .from('task_comments')
-        .select('*')
+        .select(`
+          *,
+          profiles!task_comments_user_id_fkey(full_name)
+        `)
         .eq('task_id', taskId)
         .order('created_at', { ascending: true });
 
@@ -641,7 +644,7 @@ export class SupabaseService {
         content: row.content,
         filePath: row.file_path,
         createdAt: new Date(row.created_at),
-        author: 'Usuario', // Por ahora, usar un valor genérico
+        author: row.profiles?.full_name || 'Usuario',
       }));
 
       console.log('✅ Mapped comments:', comments);
@@ -683,14 +686,23 @@ export class SupabaseService {
 
       console.log('✅ Raw comment data from DB:', data);
 
-      // Crear el objeto comentario con datos básicos
+      // Obtener el nombre del usuario desde profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      console.log('✅ User profile:', profile);
+
+      // Crear el objeto comentario con el nombre del perfil
       const comment: TaskComment = {
         id: data.id,
         type: data.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
         content: data.content,
         filePath: data.file_path,
         createdAt: new Date(data.created_at),
-        author: user.email || 'Usuario actual', // Usar email del usuario como fallback
+        author: profile?.full_name || user.email || 'Usuario',
       };
 
       console.log('✅ Mapped comment:', comment);
