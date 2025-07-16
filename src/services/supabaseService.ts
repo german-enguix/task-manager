@@ -619,26 +619,36 @@ export class SupabaseService {
   
   async getTaskComments(taskId: string): Promise<TaskComment[]> {
     try {
+      console.log('🔄 Getting comments for task:', taskId);
+      
       const { data, error } = await supabase
         .from('task_comments')
-        .select(`
-          *,
-          user:auth.users!task_comments_user_id_fkey(
-            id,
-            email
-          ),
-          profile:profiles!task_comments_user_id_fkey(
-            full_name
-          )
-        `)
+        .select('*')
         .eq('task_id', taskId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error getting comments:', error);
+        throw error;
+      }
 
-      return (data || []).map(this.mapTaskCommentRowToTaskComment);
+      console.log('✅ Raw comments from DB:', data);
+
+      // Mapear los comentarios a objetos TaskComment
+      const comments = (data || []).map(row => ({
+        id: row.id,
+        type: row.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
+        content: row.content,
+        filePath: row.file_path,
+        createdAt: new Date(row.created_at),
+        author: 'Usuario', // Por ahora, usar un valor genérico
+      }));
+
+      console.log('✅ Mapped comments:', comments);
+      return comments;
+
     } catch (error) {
-      console.error('Error getting task comments from database:', error);
+      console.error('❌ Error getting task comments from database:', error);
       
       // Si hay error, devolver array vacío
       return [];
@@ -658,26 +668,36 @@ export class SupabaseService {
         file_path: filePath || null,
       };
 
+      console.log('🔄 Inserting comment data:', commentData);
+
       const { data, error } = await supabase
         .from('task_comments')
         .insert(commentData)
-        .select(`
-          *,
-          user:auth.users!task_comments_user_id_fkey(
-            id,
-            email
-          ),
-          profile:profiles!task_comments_user_id_fkey(
-            full_name
-          )
-        `)
+        .select('*')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw error;
+      }
 
-      return this.mapTaskCommentRowToTaskComment(data);
+      console.log('✅ Raw comment data from DB:', data);
+
+      // Crear el objeto comentario con datos básicos
+      const comment: TaskComment = {
+        id: data.id,
+        type: data.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
+        content: data.content,
+        filePath: data.file_path,
+        createdAt: new Date(data.created_at),
+        author: user.email || 'Usuario actual', // Usar email del usuario como fallback
+      };
+
+      console.log('✅ Mapped comment:', comment);
+      return comment;
+
     } catch (error) {
-      console.error('Error adding task comment:', error);
+      console.error('❌ Error adding task comment:', error);
       throw error;
     }
   }

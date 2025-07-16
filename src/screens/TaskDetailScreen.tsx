@@ -428,10 +428,19 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const addTextComment = async () => {
-    if (commentText.trim() === '') return;
+    console.log('🔄 addTextComment called');
+    console.log('📝 Comment text:', commentText);
+    console.log('📝 Comment text trimmed:', commentText.trim());
+    console.log('📝 Comment text length:', commentText.trim().length);
+    
+    if (commentText.trim() === '') {
+      console.log('❌ Comment text is empty, returning');
+      return;
+    }
     
     try {
-      console.log('Adding text comment:', commentText);
+      console.log('🚀 Adding text comment:', commentText);
+      console.log('🎯 Task ID:', taskId);
       
       // Agregar comentario a la base de datos
       const newComment = await supabaseService.addTaskComment(
@@ -440,6 +449,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         CommentType.TEXT
       );
       
+      console.log('✅ Comment added to DB:', newComment);
+      
       // Actualizar estado local
       if (task) {
         const updatedTask = {
@@ -447,15 +458,20 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           comments: [...task.comments, newComment]
         };
         setTask(updatedTask);
+        console.log('✅ Local state updated');
+      } else {
+        console.log('❌ No task in state to update');
       }
       
       // Limpiar el input después de enviar
       setCommentText('');
+      console.log('✅ Input cleared');
       
       console.log('✅ Text comment added successfully');
+      Alert.alert('Éxito', 'Comentario agregado correctamente');
     } catch (error) {
       console.error('❌ Error adding text comment:', error);
-      Alert.alert('Error', 'No se pudo agregar el comentario. Inténtalo de nuevo.');
+      Alert.alert('Error', `No se pudo agregar el comentario: ${error.message || error}`);
     }
   };
 
@@ -752,14 +768,15 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 onSubmitEditing={addTextComment}
                 returnKeyType="send"
                 style={styles.commentInput}
-                right={
-                  <TextInput.Icon 
-                    icon="send" 
-                    onPress={addTextComment}
-                    disabled={commentText.trim() === ''}
-                  />
-                }
                 dense
+              />
+              <IconButton
+                icon="send"
+                mode="contained"
+                onPress={addTextComment}
+                disabled={commentText.trim() === ''}
+                style={styles.sendButton}
+                size={20}
               />
               <IconButton
                 icon="microphone"
@@ -906,6 +923,9 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
+  },
+  sendButton: {
+    marginBottom: 4,
   },
   microphoneButton: {
     marginBottom: 4,
