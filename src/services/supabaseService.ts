@@ -418,6 +418,8 @@ export class SupabaseService {
 
   async getTaskById(taskId: string): Promise<Task | null> {
     try {
+      console.log('🔄 getTaskById called for:', taskId);
+      
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -436,14 +438,28 @@ export class SupabaseService {
 
       if (error) throw error
       
-      if (!data) return null;
+      if (!data) {
+        console.log('❌ No task found with id:', taskId);
+        return null;
+      }
+
+      console.log('✅ Task data loaded:', data.title);
 
       // Cargar comentarios por separado
+      console.log('🔄 Loading comments for task...');
       const comments = await this.getTaskComments(taskId);
+      console.log('✅ Comments loaded:', comments.length, 'comments');
       
       // Transformar la tarea y agregar los comentarios
       const task = this.transformTaskFromSupabase(data);
       task.comments = comments;
+      
+      console.log('✅ Final task object:', {
+        id: task.id,
+        title: task.title,
+        commentsCount: task.comments.length,
+        comments: task.comments.map(c => ({ id: c.id, author: c.author, preview: c.content.substring(0, 20) + '...' }))
+      });
       
       return task;
     } catch (error) {
@@ -774,15 +790,26 @@ export class SupabaseService {
   async getTaskComments(taskId: string): Promise<TaskComment[]> {
     try {
       console.log('🔄 Getting comments for task:', taskId);
+      console.log('🔍 TaskId type:', typeof taskId, 'value:', taskId);
       
+      // Verificar autenticación primero
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('👤 Current user in getTaskComments:', user?.email || 'No user');
+      
+      // Usar consulta simple sin JOINs complejos para evitar errores de relaciones
       const { data, error } = await supabase
         .from('task_comments')
-        .select(`
-          *,
-          profiles!task_comments_user_id_fkey(full_name)
-        `)
+        .select('*')
         .eq('task_id', taskId)
         .order('created_at', { ascending: true });
+
+      console.log('📋 Query executed for task_id:', taskId);
+      console.log('📊 Raw Supabase response:', { 
+        hasData: !!data, 
+        dataLength: data?.length || 0,
+        hasError: !!error,
+        errorMessage: error?.message 
+      });
 
       if (error) {
         console.error('❌ Error getting comments:', error);
@@ -795,7 +822,21 @@ export class SupabaseService {
         
         // Si es error de tabla no existe, dar más información
         if (error.message?.includes('relation "task_comments" does not exist')) {
-          console.error('💡 SOLUCIÓN: La tabla task_comments no existe. Ejecuta scripts/create_task_comments_table.sql en Supabase');
+          console.error('🚨 TABLA TASK_COMMENTS NO EXISTE');
+          console.error('💡 SOLUCIÓN: Ejecuta scripts/fix_task_comments_final.sql en Supabase');
+          console.error('📋 O ve al SQL Editor en Supabase Dashboard y pega ese script');
+          
+          // Devolver array vacío en lugar de lanzar error para no romper la UI
+          console.log('⚠️ Returning empty comments array - table does not exist');
+          return [];
+        }
+        
+        // Si es error de relaciones/foreign keys, también manejar graciosamente
+        if (error.message?.includes('relationship') || error.message?.includes('foreign key')) {
+          console.error('🚨 ERROR DE RELACIONES EN BASE DE DATOS');
+          console.error('💡 SOLUCIÓN: Ejecuta scripts/fix_task_comments_final.sql en Supabase');
+          console.log('⚠️ Returning empty comments array - relationship errors');
+          return [];
         }
         
         throw error;
@@ -804,28 +845,71 @@ export class SupabaseService {
       console.log('✅ Raw comments from DB:', data);
       console.log('📊 Comments count:', data?.length || 0);
 
-      // Mapear los comentarios a objetos TaskComment
-      const comments = (data || []).map(row => {
-        console.log('📝 Mapping comment:', row.id, 'content:', row.content.substring(0, 50) + '...');
-        return {
+      // Si no hay comentarios, devolver array vacío directamente
+      if (!data || data.length === 0) {
+        console.log('💡 No comments found for task:', taskId);
+        console.log('🔍 This could mean: 1) No comments exist, 2) RLS policy blocking access, 3) Wrong task_id');
+        return [];
+      }
+
+      // Mapear los comentarios obteniendo nombres de usuarios por separado
+      console.log('🔄 Mapping', data.length, 'comments...');
+      const comments = await Promise.all((data || []).map(async (row, index) => {
+        console.log(`📝 Mapping comment ${index + 1}/${data.length}:`, {
+          id: row.id,
+          user_id: row.user_id,
+          content_preview: row.content.substring(0, 30) + '...',
+          created_at: row.created_at
+        });
+        
+        // Obtener nombre del usuario por separado para evitar errores de JOIN
+        let authorName = 'Usuario';
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', row.user_id)
+            .single();
+          
+          if (profile?.full_name) {
+            authorName = profile.full_name;
+            console.log('✅ Found profile for user:', row.user_id, '->', authorName);
+          } else {
+            console.log('⚠️ No profile found for user:', row.user_id);
+          }
+        } catch (profileError) {
+          console.log('⚠️ Could not get profile for user:', row.user_id, profileError);
+        }
+        
+        const mappedComment = {
           id: row.id,
           type: row.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
           content: row.content,
           filePath: row.file_path,
           createdAt: new Date(row.created_at),
-          author: row.profiles?.full_name || 'Usuario',
+          author: authorName,
         };
-      });
+        
+        console.log('✅ Mapped comment:', mappedComment.id, 'by', mappedComment.author);
+        return mappedComment;
+      }));
 
-      console.log('✅ Mapped comments:', comments.length, 'total');
+      console.log('✅ All comments mapped successfully:', comments.length, 'total');
+      console.log('📋 Final comments array:', comments.map(c => ({ 
+        id: c.id, 
+        author: c.author, 
+        contentPreview: c.content.substring(0, 30) + '...' 
+      })));
+      
       return comments;
 
     } catch (error) {
       console.error('❌ Error getting task comments from database:', error);
-      console.error('💡 Para diagnosticar el problema, ejecuta scripts/diagnose_comments_issue.sql en Supabase');
+      console.error('💡 SOLUCIÓN DEFINITIVA: Ejecuta scripts/fix_task_comments_final.sql en Supabase');
+      console.error('📋 Este script crea la tabla y configura todos los permisos necesarios');
       
       // Si hay error, devolver array vacío pero con log informativo
-      console.log('⚠️ Returning empty comments array due to error');
+      console.log('⚠️ Returning empty comments array due to error - app will continue working');
       return [];
     }
   }
@@ -895,21 +979,35 @@ export class SupabaseService {
           updated_at: new Date().toISOString()
         })
         .eq('id', commentId)
-        .select(`
-          *,
-          user:auth.users!task_comments_user_id_fkey(
-            id,
-            email
-          ),
-          profile:profiles!task_comments_user_id_fkey(
-            full_name
-          )
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
 
-      return this.mapTaskCommentRowToTaskComment(data);
+      // Obtener información del usuario por separado
+      let authorName = 'Usuario';
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', data.user_id)
+          .single();
+        
+        if (profile?.full_name) {
+          authorName = profile.full_name;
+        }
+      } catch (profileError) {
+        console.log('⚠️ Could not get profile for user:', data.user_id);
+      }
+
+      return {
+        id: data.id,
+        type: data.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
+        content: data.content,
+        filePath: data.file_path,
+        createdAt: new Date(data.created_at),
+        author: authorName,
+      };
     } catch (error) {
       console.error('Error updating task comment:', error);
       throw error;
@@ -930,16 +1028,7 @@ export class SupabaseService {
     }
   }
 
-  private mapTaskCommentRowToTaskComment(data: any): TaskComment {
-    return {
-      id: data.id,
-      type: data.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
-      content: data.content,
-      filePath: data.file_path,
-      createdAt: new Date(data.created_at),
-      author: data.profile?.full_name || data.user?.email || 'Usuario desconocido',
-    };
-  }
+
 
   // ========== TIMESHEET & WORK DAYS ==========
   
