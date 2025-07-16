@@ -632,28 +632,46 @@ export class SupabaseService {
 
       if (error) {
         console.error('❌ Error getting comments:', error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        
+        // Si es error de tabla no existe, dar más información
+        if (error.message?.includes('relation "task_comments" does not exist')) {
+          console.error('💡 SOLUCIÓN: La tabla task_comments no existe. Ejecuta scripts/create_task_comments_table.sql en Supabase');
+        }
+        
         throw error;
       }
 
       console.log('✅ Raw comments from DB:', data);
+      console.log('📊 Comments count:', data?.length || 0);
 
       // Mapear los comentarios a objetos TaskComment
-      const comments = (data || []).map(row => ({
-        id: row.id,
-        type: row.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
-        content: row.content,
-        filePath: row.file_path,
-        createdAt: new Date(row.created_at),
-        author: row.profiles?.full_name || 'Usuario',
-      }));
+      const comments = (data || []).map(row => {
+        console.log('📝 Mapping comment:', row.id, 'content:', row.content.substring(0, 50) + '...');
+        return {
+          id: row.id,
+          type: row.type === 'text' ? CommentType.TEXT : CommentType.VOICE,
+          content: row.content,
+          filePath: row.file_path,
+          createdAt: new Date(row.created_at),
+          author: row.profiles?.full_name || 'Usuario',
+        };
+      });
 
-      console.log('✅ Mapped comments:', comments);
+      console.log('✅ Mapped comments:', comments.length, 'total');
       return comments;
 
     } catch (error) {
       console.error('❌ Error getting task comments from database:', error);
+      console.error('💡 Para diagnosticar el problema, ejecuta scripts/diagnose_comments_issue.sql en Supabase');
       
-      // Si hay error, devolver array vacío
+      // Si hay error, devolver array vacío pero con log informativo
+      console.log('⚠️ Returning empty comments array due to error');
       return [];
     }
   }
