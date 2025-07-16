@@ -12,6 +12,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead
 } from '@/utils/mockData';
+import { supabaseService } from '@/services/supabaseService';
 import { TaskStatus, WorkDay, DayStatus } from '@/types';
 import { 
   DayTimeCard, 
@@ -34,6 +35,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [notifications, setNotifications] = useState(getAllNotifications());
   const [unreadCount, setUnreadCount] = useState(getUnreadNotificationsCount());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
 
   const isReadOnly = workDay.status === DayStatus.COMPLETED;
 
@@ -45,6 +48,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
     return () => clearInterval(interval);
   }, []);
+
+  // Cargar tareas desde Supabase
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  const loadTasks = async () => {
+    try {
+      setLoadingTasks(true);
+      const tasksFromDb = await supabaseService.getTasks('550e8400-e29b-41d4-a716-446655440001'); // Usuario de prueba
+      setTasks(tasksFromDb);
+      console.log('✅ Tasks loaded from Supabase:', tasksFromDb.length);
+    } catch (error) {
+      console.error('❌ Error loading tasks:', error);
+      // Fallback a datos mock si falla
+      setTasks([]);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
 
   const handleDateChange = (date: Date) => {
     const newWorkDay = getWorkDayByDate(date);
@@ -136,9 +159,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const getTaskProgress = (task: any) => {
-    if (task.requiredEvidences.length === 0) return 0;
-    const completedEvidences = task.requiredEvidences.filter((e: any) => e.isCompleted).length;
-    return (completedEvidences / task.requiredEvidences.length) * 100;
+    if (!task.subtasks || task.subtasks.length === 0) return 0;
+    const completedSubtasks = task.subtasks.filter((subtask: any) => subtask.isCompleted).length;
+    return (completedSubtasks / task.subtasks.length) * 100;
   };
 
   const formatDuration = (seconds: number): string => {
@@ -234,7 +257,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Text>
         </View>
 
-        {workDay.tasks.map((task) => (
+        {loadingTasks ? (
+          <Card style={styles.taskCard}>
+            <Card.Content>
+              <Text>Cargando tareas...</Text>
+            </Card.Content>
+          </Card>
+        ) : (
+          tasks.map((task) => (
           <Card 
             key={task.id} 
             style={[
@@ -274,7 +304,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <View style={styles.taskInfoGrid}>
                 {/* Fila superior: cronómetro y progreso */}
                 <View style={styles.taskInfoRow}>
-                  {task.timer.totalElapsed > 0 && (
+                  {task.timer && task.timer.totalElapsed > 0 && (
                     <View style={styles.taskInfoItem}>
                       <View style={styles.taskInfoItemRow}>
                         <Icon source="timer" size={14} color="#2196F3" />
@@ -301,14 +331,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 {/* Fila inferior: asignado, fecha y estado */}
                 <View style={styles.taskFooterRow}>
                   <View style={styles.taskFooterLeft}>
-                    {task.assignedTo && (
-                      <View style={styles.taskInfoItemRow}>
-                        <Icon source="account" size={14} color="#666" />
-                        <Text variant="bodySmall" style={[styles.taskInfoText, { color: '#666' }]}>
-                          {task.assignedTo}
-                        </Text>
-                      </View>
-                    )}
+                    <View style={styles.taskInfoItemRow}>
+                      <Icon source="account" size={14} color="#666" />
+                      <Text variant="bodySmall" style={[styles.taskInfoText, { color: '#666' }]}>
+                        Usuario de Prueba
+                      </Text>
+                    </View>
                     
                     {task.dueDate && (
                       <View style={styles.taskInfoItemRow}>
@@ -331,13 +359,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </View>
               </View>
 
-              {/* Progreso de evidencias (si existen) */}
-              {task.requiredEvidences.length > 0 && (
+              {/* Progreso de subtareas */}
+              {task.subtasks && task.subtasks.length > 0 && (
                 <View style={styles.evidenceProgress}>
                   <View style={styles.evidenceProgressRow}>
-                    <Icon source="attachment" size={14} color="#666" />
+                    <Icon source="check-circle" size={14} color="#666" />
                     <Text variant="bodySmall" style={styles.evidenceProgressText}>
-                      Evidencias: {task.requiredEvidences.filter(e => e.isCompleted).length}/{task.requiredEvidences.length}
+                      Progreso: {task.subtasks.filter((s: any) => s.isCompleted).length}/{task.subtasks.length} subtareas
                     </Text>
                   </View>
                   <View style={styles.progressBar}>
@@ -364,9 +392,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               )}
             </Card.Content>
           </Card>
-        ))}
+          ))
+        )}
         
-        {workDay.tasks.length === 0 && (
+        {!loadingTasks && tasks.length === 0 && (
           <View style={styles.emptyState}>
             <Text variant="bodyMedium" style={styles.emptyStateText}>
               {isReadOnly ? 'No hubo tareas asignadas este día' : 'No hay tareas asignadas para hoy'}
