@@ -706,6 +706,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 onSubmitEditing={addTextComment}
                 returnKeyType="send"
                 style={styles.commentInput}
+                contentStyle={styles.commentInputContent}
                 right={
                   <TextInput.Icon 
                     icon="send" 
@@ -713,8 +714,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                     disabled={commentText.trim() === ''}
                   />
                 }
-                multiline
-                numberOfLines={1}
+                dense
               />
               <IconButton
                 icon="microphone"
@@ -855,15 +855,19 @@ const styles = StyleSheet.create({
   },
   commentInputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 8,
     marginTop: 16,
   },
   commentInput: {
     flex: 1,
+    minHeight: 48,
+  },
+  commentInputContent: {
+    paddingVertical: 8,
   },
   microphoneButton: {
-    marginBottom: 4,
+    margin: 0,
   },
   problemItem: {
     marginBottom: 16,
