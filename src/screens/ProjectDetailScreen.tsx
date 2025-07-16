@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Text, Surface, Card, Chip, IconButton, ProgressBar, Divider, Icon } from 'react-native-paper';
-import { getProjectById, getTaskById } from '@/utils/mockData';
+import { Text, Surface, Card, Chip, IconButton, ProgressBar, Divider, Icon, ActivityIndicator } from 'react-native-paper';
+import { supabaseService } from '@/services/supabaseService';
 import { Project, ProjectStatus, ProjectPriority, SupervisorObservation } from '@/types';
 
 interface ProjectDetailScreenProps {
@@ -15,17 +15,83 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
   onNavigateBack,
   onNavigateToTask
 }) => {
-  const project = getProjectById(projectId);
-  
-  if (!project) {
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadProject();
+  }, [projectId]);
+
+  const loadProject = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const projectData = await supabaseService.getProjectById(projectId);
+      setProject(projectData);
+      
+      if (projectData) {
+        console.log('✅ Project loaded from Supabase:', projectData.name);
+      } else {
+        setError('Proyecto no encontrado');
+      }
+    } catch (err) {
+      console.error('❌ Error loading project:', err);
+      setError(err instanceof Error ? err.message : 'Error loading project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Loading State
+  if (loading) {
     return (
       <Surface style={styles.container}>
         <Surface elevation={2} style={styles.header}>
           <View style={styles.headerContent}>
             <IconButton icon="arrow-left" onPress={onNavigateBack} />
-            <Text variant="headlineMedium">Proyecto no encontrado</Text>
+            <Text variant="headlineMedium">Cargando proyecto...</Text>
           </View>
         </Surface>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" />
+          <Text variant="bodyLarge" style={styles.loadingText}>
+            Cargando información del proyecto...
+          </Text>
+        </View>
+      </Surface>
+    );
+  }
+
+  // Error State
+  if (error || !project) {
+    return (
+      <Surface style={styles.container}>
+        <Surface elevation={2} style={styles.header}>
+          <View style={styles.headerContent}>
+            <IconButton icon="arrow-left" onPress={onNavigateBack} />
+            <Text variant="headlineMedium">Error</Text>
+          </View>
+        </Surface>
+        <Card style={[styles.card, styles.errorCard]}>
+          <Card.Content>
+            <Text variant="headlineSmall" style={styles.errorTitle}>
+              ❌ {error || 'Proyecto no encontrado'}
+            </Text>
+            <Text variant="bodyMedium" style={styles.errorText}>
+              No se pudo cargar la información del proyecto.
+            </Text>
+            <IconButton
+              icon="refresh"
+              mode="contained"
+              onPress={loadProject}
+              style={styles.retryButton}
+            >
+              Reintentar
+            </IconButton>
+          </Card.Content>
+        </Card>
       </Surface>
     );
   }
@@ -313,38 +379,105 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
         </Card>
 
         {/* Tasks */}
-        {project.taskIds.length > 0 && (
+        {(project.tasks && project.tasks.length > 0) && (
           <Card style={styles.card}>
             <Card.Title title="Tareas del proyecto" />
             <Card.Content>
-              {project.taskIds.map((taskId) => {
-                const task = getTaskById(taskId);
-                if (!task) return null;
+              {project.tasks.map((task) => {
+                const getStatusColor = (status: string) => {
+                  switch (status) {
+                    case 'not_started': return '#9E9E9E';
+                    case 'in_progress': return '#2196F3';
+                    case 'paused': return '#FF9800';
+                    case 'completed': return '#4CAF50';
+                    default: return '#9E9E9E';
+                  }
+                };
+
+                const getStatusText = (status: string) => {
+                  switch (status) {
+                    case 'not_started': return 'Sin empezar';
+                    case 'in_progress': return 'En progreso';
+                    case 'paused': return 'Pausada';
+                    case 'completed': return 'Finalizada';
+                    default: return status;
+                  }
+                };
+
+                const getPriorityColor = (priority: string) => {
+                  switch (priority) {
+                    case 'high': return '#F44336';
+                    case 'medium': return '#FF9800';
+                    case 'low': return '#4CAF50';
+                    default: return '#9E9E9E';
+                  }
+                };
+
+                const completedSubtasks = task.subtasks?.filter(sub => sub.isCompleted).length || 0;
+                const totalSubtasks = task.subtasks?.length || 0;
+                const progress = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
                 
                 return (
                   <Card 
-                    key={taskId} 
+                    key={task.id} 
                     style={styles.taskCard}
-                    onPress={() => onNavigateToTask(taskId)}
+                    onPress={() => onNavigateToTask(task.id)}
                   >
                     <Card.Content>
-                      <Text variant="titleSmall" numberOfLines={1}>
-                        {task.title}
-                      </Text>
-                      <Text variant="bodySmall" style={styles.taskDescription}>
+                      <View style={styles.taskHeader}>
+                        <Text variant="titleSmall" numberOfLines={1} style={styles.taskTitle}>
+                          {task.title}
+                        </Text>
+                        <View style={styles.taskChips}>
+                          <Chip 
+                            mode="outlined" 
+                            style={[styles.taskStatusChip, { borderColor: getStatusColor(task.status) }]}
+                            textStyle={[styles.chipText, { color: getStatusColor(task.status) }]}
+                            compact
+                          >
+                            {getStatusText(task.status)}
+                          </Chip>
+                          <Chip 
+                            mode="outlined" 
+                            style={[styles.taskPriorityChip, { borderColor: getPriorityColor(task.priority) }]}
+                            textStyle={[styles.chipText, { color: getPriorityColor(task.priority) }]}
+                            compact
+                          >
+                            {task.priority.toUpperCase()}
+                          </Chip>
+                        </View>
+                      </View>
+                      
+                      <Text variant="bodySmall" style={styles.taskDescription} numberOfLines={2}>
                         {task.description}
                       </Text>
+                      
+                      {totalSubtasks > 0 && (
+                        <View style={styles.progressSection}>
+                          <View style={styles.progressHeader}>
+                            <Text variant="bodySmall" style={styles.progressLabel}>
+                              Subtareas: {completedSubtasks}/{totalSubtasks}
+                            </Text>
+                            <Text variant="bodySmall" style={styles.progressPercentage}>
+                              {Math.round(progress)}%
+                            </Text>
+                          </View>
+                          <ProgressBar progress={progress / 100} style={styles.progressBar} />
+                        </View>
+                      )}
+                      
                       <View style={styles.taskFooter}>
-                        <Text variant="bodySmall" style={styles.taskAssignee}>
-                          Asignado a: {task.assignedTo}
-                        </Text>
-                        <Chip 
-                          mode="outlined" 
-                          style={styles.taskStatusChip}
-                          textStyle={{ fontSize: 10 }}
-                        >
-                          {task.status}
-                        </Chip>
+                        <View style={styles.taskLocation}>
+                          <Icon source="map-marker" size={14} color="#666" />
+                          <Text variant="bodySmall" style={styles.taskLocationText}>
+                            {task.location}
+                          </Text>
+                        </View>
+                        {task.dueDate && (
+                          <Text variant="bodySmall" style={styles.taskDueDate}>
+                            {new Date(task.dueDate).toLocaleDateString('es-ES')}
+                          </Text>
+                        )}
                       </View>
                     </Card.Content>
                   </Card>
@@ -577,6 +710,89 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 80,
+  },
+  centerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    flex: 1,
+  },
+  loadingText: {
+    marginTop: 16,
+    opacity: 0.7,
+  },
+  errorCard: {
+    margin: 16,
+    borderColor: '#F44336',
+    borderWidth: 1,
+  },
+  errorTitle: {
+    color: '#F44336',
+    marginBottom: 8,
+  },
+  errorText: {
+    marginBottom: 16,
+    opacity: 0.7,
+  },
+  retryButton: {
+    alignSelf: 'center',
+  },
+  taskHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  taskTitle: {
+    flex: 1,
+    marginRight: 8,
+    fontWeight: '500',
+  },
+  taskChips: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  taskPriorityChip: {
+    alignSelf: 'flex-start',
+  },
+  chipText: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  progressSection: {
+    marginVertical: 8,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  progressLabel: {
+    fontWeight: '500',
+    fontSize: 12,
+  },
+  progressPercentage: {
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  progressBar: {
+    height: 4,
+    borderRadius: 2,
+  },
+  taskLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  taskLocationText: {
+    marginLeft: 4,
+    opacity: 0.7,
+    fontSize: 12,
+  },
+  taskDueDate: {
+    opacity: 0.7,
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

@@ -20,7 +20,7 @@ import {
   Icon
 } from 'react-native-paper';
 import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement, Tag } from '@/types';
-import { getTaskById, updateTask } from '@/utils/mockData';
+// Nota: getTaskById del mock data ya no se usa, se usa supabaseService.getTaskById
 import { supabaseService } from '@/services/supabaseService';
 
 interface TaskDetailScreenProps {
@@ -113,7 +113,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
   };
 
-  const toggleSubtask = (subtaskId: string) => {
+  const toggleSubtask = async (subtaskId: string) => {
     if (!task) return;
     
     const subtask = task.subtasks.find(s => s.id === subtaskId);
@@ -132,20 +132,39 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       return;
     }
     
-    const updatedSubtasks = task.subtasks.map(s => {
-      if (s.id === subtaskId) {
-        return {
-          ...s,
-          isCompleted: !s.isCompleted,
-          completedAt: !s.isCompleted ? new Date() : undefined,
-        };
-      }
-      return s;
-    });
-    
-    const updatedTask = { ...task, subtasks: updatedSubtasks };
-    setTask(updatedTask);
-    updateTask(taskId, { subtasks: updatedSubtasks });
+    try {
+      const newCompletedState = !subtask.isCompleted;
+      const completedAt = newCompletedState ? new Date() : undefined;
+      
+      // Actualizar en Supabase
+      await supabaseService.updateSubtask(subtaskId, {
+        isCompleted: newCompletedState,
+        completedAt: completedAt
+      });
+      
+      // Actualizar estado local
+      const updatedSubtasks = task.subtasks.map(s => {
+        if (s.id === subtaskId) {
+          return {
+            ...s,
+            isCompleted: newCompletedState,
+            completedAt: completedAt,
+          };
+        }
+        return s;
+      });
+      
+      const updatedTask = { ...task, subtasks: updatedSubtasks };
+      setTask(updatedTask);
+      
+      console.log('✅ Subtask toggled successfully');
+      
+      // Opcional: Recargar la tarea completa para sincronizar con la base de datos
+      // await loadTask();
+    } catch (error) {
+      console.error('❌ Error updating subtask:', error);
+      Alert.alert('Error', 'No se pudo actualizar la subtarea. Inténtalo de nuevo.');
+    }
   };
 
   const handleSubtaskEvidence = (subtask: TaskSubtask) => {

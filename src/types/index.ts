@@ -333,6 +333,7 @@ export interface Project {
   
   // Tareas del proyecto
   taskIds: string[]; // Referencias a las tareas
+  tasks?: Task[]; // Tareas completas (opcional, cargadas desde DB)
   totalTasks: number;
   completedTasks: number;
   

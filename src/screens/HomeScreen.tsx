@@ -6,11 +6,7 @@ import {
   getCurrentWorkDay, 
   updateWorkDay, 
   updateTimesheet, 
-  getWorkDayByDate,
-  getAllNotifications,
-  getUnreadNotificationsCount,
-  markNotificationAsRead,
-  markAllNotificationsAsRead
+  getWorkDayByDate
 } from '@/utils/mockData';
 import { supabaseService } from '@/services/supabaseService';
 import { TaskStatus, WorkDay, DayStatus } from '@/types';
@@ -31,11 +27,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToTask
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay>(getCurrentWorkDay());
-  const [notifications, setNotifications] = useState(getAllNotifications());
-  const [unreadCount, setUnreadCount] = useState(getUnreadNotificationsCount());
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [tasks, setTasks] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
+
+  // Usuario de prueba - en un app real esto vendría del contexto de autenticación
+  const currentUserId = '550e8400-e29b-41d4-a716-446655440001';
 
   const isReadOnly = workDay.status === DayStatus.COMPLETED;
 
@@ -48,15 +48,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Cargar tareas desde Supabase
+  // Cargar tareas y notificaciones desde Supabase
   useEffect(() => {
     loadTasks();
+    loadNotifications();
   }, []);
 
   const loadTasks = async () => {
     try {
       setLoadingTasks(true);
-      const tasksFromDb = await supabaseService.getTasks('550e8400-e29b-41d4-a716-446655440001'); // Usuario de prueba
+      const tasksFromDb = await supabaseService.getTasks(currentUserId);
       setTasks(tasksFromDb);
       console.log('✅ Tasks loaded from Supabase:', tasksFromDb.length);
     } catch (error) {
@@ -65,6 +66,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setTasks([]);
     } finally {
       setLoadingTasks(false);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const notificationsFromDb = await supabaseService.getWorkNotifications(currentUserId);
+      const unreadNotificationsFromDb = await supabaseService.getWorkNotifications(currentUserId, true);
+      
+      setNotifications(notificationsFromDb);
+      setUnreadCount(unreadNotificationsFromDb.length);
+      
+      console.log('✅ Notifications loaded from Supabase:', {
+        total: notificationsFromDb.length,
+        unread: unreadNotificationsFromDb.length
+      });
+    } catch (error) {
+      console.error('❌ Error loading notifications:', error);
+      // Fallback a arrays vacíos si falla
+      setNotifications([]);
+      setUnreadCount(0);
+    } finally {
+      setLoadingNotifications(false);
     }
   };
 
@@ -115,16 +139,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
-  const handleMarkNotificationAsRead = (notificationId: string) => {
-    markNotificationAsRead(notificationId);
-    setNotifications(getAllNotifications());
-    setUnreadCount(getUnreadNotificationsCount());
+  const handleMarkNotificationAsRead = async (notificationId: string) => {
+    try {
+      await supabaseService.markNotificationAsRead(notificationId);
+      
+      // Actualizar estado local
+      const updatedNotifications = notifications.map(notif => 
+        notif.id === notificationId 
+          ? { ...notif, is_read: true, read_at: new Date().toISOString() }
+          : notif
+      );
+      
+      setNotifications(updatedNotifications);
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      console.log('✅ Notification marked as read:', notificationId);
+    } catch (error) {
+      console.error('❌ Error marking notification as read:', error);
+    }
   };
 
-  const handleMarkAllNotificationsAsRead = () => {
-    markAllNotificationsAsRead();
-    setNotifications(getAllNotifications());
-    setUnreadCount(getUnreadNotificationsCount());
+  const handleMarkAllNotificationsAsRead = async () => {
+    try {
+      // Marcar todas las notificaciones no leídas como leídas
+      const unreadNotifications = notifications.filter(notif => !notif.is_read);
+      
+      await Promise.all(
+        unreadNotifications.map(notif => 
+          supabaseService.markNotificationAsRead(notif.id)
+        )
+      );
+      
+      // Actualizar estado local
+      const updatedNotifications = notifications.map(notif => 
+        notif.is_read ? notif : { ...notif, is_read: true, read_at: new Date().toISOString() }
+      );
+      
+      setNotifications(updatedNotifications);
+      setUnreadCount(0);
+      
+      console.log('✅ All notifications marked as read');
+    } catch (error) {
+      console.error('❌ Error marking all notifications as read:', error);
+    }
   };
 
   const getStatusColor = (status: TaskStatus) => {

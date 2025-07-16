@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, Alert } from 'react-native';
 import { 
   Text, 
@@ -13,33 +13,71 @@ import {
   RadioButton,
   Portal,
   Modal,
-  Chip
+  Chip,
+  ActivityIndicator
 } from 'react-native-paper';
 import { User } from '@/types';
+import { supabaseService } from '@/services/supabaseService';
 
 interface ProfileScreenProps {
   isDarkMode: boolean;
   toggleTheme: () => void;
-  user?: User;
-  onUserUpdate?: (user: User) => void;
   onLogout?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ 
   isDarkMode, 
   toggleTheme,
-  user = { id: '1', name: 'Usuario Demo', email: 'usuario@demo.com' },
-  onUserUpdate,
   onLogout
 }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
-  const [editedName, setEditedName] = useState(user.name);
-  const [editedEmail, setEditedEmail] = useState(user.email);
+  const [editedName, setEditedName] = useState('');
+  const [editedEmail, setEditedEmail] = useState('');
+  const [updating, setUpdating] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('es');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [autoSync, setAutoSync] = useState(true);
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Obtener usuario actual
+      const currentUser = await supabaseService.getCurrentUser();
+      
+      if (currentUser && currentUser.profile) {
+        const userProfile: User = {
+          id: currentUser.profile.id,
+          name: currentUser.profile.name,
+          email: currentUser.profile.email,
+        };
+        
+        setUser(userProfile);
+        setEditedName(userProfile.name);
+        setEditedEmail(userProfile.email);
+        
+        console.log('✅ User profile loaded:', userProfile.name);
+      } else {
+        setError('No se pudo cargar el perfil del usuario');
+      }
+    } catch (err) {
+      console.error('❌ Error loading user profile:', err);
+      setError(err instanceof Error ? err.message : 'Error loading profile');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const languages = [
     { value: 'es', label: 'Español', flag: '🇪🇸' },
@@ -48,36 +86,61 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     { value: 'pt', label: 'Português', flag: '🇵🇹' },
   ];
 
-  const handleSaveUserData = () => {
+  const handleSaveUserData = async () => {
+    if (!user) return;
+    
     if (!editedName.trim() || !editedEmail.trim()) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
-    const updatedUser: User = {
-      ...user,
-      name: editedName.trim(),
-      email: editedEmail.trim(),
-    };
-
-    onUserUpdate?.(updatedUser);
-    setIsEditModalVisible(false);
-    Alert.alert('Éxito', 'Datos actualizados correctamente');
+    try {
+      setUpdating(true);
+      
+      // Actualizar perfil en Supabase
+      const updatedProfile = await supabaseService.updateUserProfile(user.id, {
+        name: editedName.trim(),
+        email: editedEmail.trim(),
+      });
+      
+      // Actualizar estado local
+      const updatedUser: User = {
+        id: updatedProfile.id,
+        name: updatedProfile.name,
+        email: updatedProfile.email,
+      };
+      
+      setUser(updatedUser);
+      setIsEditModalVisible(false);
+      
+      Alert.alert('Éxito', 'Datos actualizados correctamente');
+      console.log('✅ User profile updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating user profile:', error);
+      Alert.alert('Error', 'No se pudieron actualizar los datos. Inténtalo de nuevo.');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que quieres cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Cerrar Sesión', 
-          style: 'destructive',
-          onPress: () => onLogout?.()
-        }
-      ]
-    );
+    setIsLogoutModalVisible(true);
+  };
+
+  const confirmLogout = async () => {
+    setIsLogoutModalVisible(false);
+    try {
+      await supabaseService.signOut();
+      onLogout?.();
+      console.log('✅ User logged out successfully');
+    } catch (error) {
+      console.error('❌ Error logging out:', error);
+      Alert.alert('Error', 'No se pudo cerrar sesión. Inténtalo de nuevo.');
+    }
+  };
+
+  const cancelLogout = () => {
+    setIsLogoutModalVisible(false);
   };
 
   const handleLanguageChange = (language: string) => {
@@ -89,6 +152,54 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const getCurrentLanguage = () => {
     return languages.find(l => l.value === selectedLanguage);
   };
+
+  // Loading State
+  if (loading) {
+    return (
+      <Surface style={styles.container}>
+        <View style={styles.header}>
+          <Text variant="headlineMedium">Mi Perfil</Text>
+          <Text variant="bodyMedium">Cargando información...</Text>
+        </View>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" />
+          <Text variant="bodyLarge" style={styles.loadingText}>
+            Cargando perfil del usuario...
+          </Text>
+        </View>
+      </Surface>
+    );
+  }
+
+  // Error State
+  if (error || !user) {
+    return (
+      <Surface style={styles.container}>
+        <View style={styles.header}>
+          <Text variant="headlineMedium">Mi Perfil</Text>
+          <Text variant="bodyMedium">Error al cargar</Text>
+        </View>
+        <Card style={[styles.card, styles.errorCard]}>
+          <Card.Content>
+            <Text variant="headlineSmall" style={styles.errorTitle}>
+              ❌ {error || 'No se pudo cargar el perfil'}
+            </Text>
+            <Text variant="bodyMedium" style={styles.errorText}>
+              No se pudo cargar la información del usuario.
+            </Text>
+            <Button
+              mode="contained"
+              onPress={loadUserProfile}
+              style={styles.retryButton}
+              icon="refresh"
+            >
+              Reintentar
+            </Button>
+          </Card.Content>
+        </Card>
+      </Surface>
+    );
+  }
 
   return (
     <Surface style={styles.container}>
@@ -289,11 +400,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               />
             </Card.Content>
             <Card.Actions>
-              <Button onPress={() => setIsEditModalVisible(false)}>
+              <Button 
+                onPress={() => setIsEditModalVisible(false)}
+                disabled={updating}
+              >
                 Cancelar
               </Button>
-              <Button mode="contained" onPress={handleSaveUserData}>
-                Guardar
+              <Button 
+                mode="contained" 
+                onPress={handleSaveUserData}
+                loading={updating}
+                disabled={updating}
+              >
+                {updating ? 'Guardando...' : 'Guardar'}
               </Button>
             </Card.Actions>
           </Card>
@@ -328,6 +447,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <Card.Actions>
               <Button onPress={() => setIsLanguageModalVisible(false)}>
                 Cancelar
+              </Button>
+            </Card.Actions>
+          </Card>
+        </Modal>
+      </Portal>
+
+      {/* Modal para Confirmar Logout */}
+      <Portal>
+        <Modal 
+          visible={isLogoutModalVisible} 
+          onDismiss={cancelLogout}
+          contentContainerStyle={styles.modalContainer}
+        >
+          <Card>
+            <Card.Title title="Cerrar Sesión" />
+            <Card.Content>
+              <Text>¿Estás seguro de que quieres cerrar sesión?</Text>
+            </Card.Content>
+            <Card.Actions>
+              <Button onPress={cancelLogout}>
+                Cancelar
+              </Button>
+              <Button 
+                mode="contained" 
+                onPress={confirmLogout}
+                buttonColor="#F44336"
+              >
+                Cerrar Sesión
               </Button>
             </Card.Actions>
           </Card>
@@ -402,5 +549,31 @@ const styles = StyleSheet.create({
   },
   languageLabel: {
     fontSize: 16,
+  },
+  centerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 64,
+    flex: 1,
+  },
+  loadingText: {
+    marginTop: 16,
+    opacity: 0.7,
+  },
+  errorCard: {
+    margin: 16,
+    borderColor: '#F44336',
+    borderWidth: 1,
+  },
+  errorTitle: {
+    color: '#F44336',
+    marginBottom: 8,
+  },
+  errorText: {
+    marginBottom: 16,
+    opacity: 0.7,
+  },
+  retryButton: {
+    alignSelf: 'center',
   },
 }); 

@@ -1,12 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Text, Surface, Card, Chip, IconButton, SegmentedButtons, ProgressBar, Icon } from 'react-native-paper';
+import { Text, Surface, Card, Chip, IconButton, SegmentedButtons, ProgressBar, Icon, ActivityIndicator } from 'react-native-paper';
 import { formatDate } from '@/utils';
-import { 
-  getAllProjects, 
-  getAssignedProjects, 
-  getProjectsByStatus 
-} from '@/utils/mockData';
+import { supabaseService } from '@/services/supabaseService';
 import { Project, ProjectStatus, ProjectPriority } from '@/types';
 
 interface ProjectsScreenProps {
@@ -17,11 +13,47 @@ export const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   onNavigateToProject 
 }) => {
   const [selectedTab, setSelectedTab] = useState('assigned');
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  const allProjects = getAllProjects();
-  const assignedProjects = getAssignedProjects('Juan Pérez'); // Usuario actual
+  // Usuario de prueba - en un app real esto vendría del contexto de autenticación
+  const currentUserId = '550e8400-e29b-41d4-a716-446655440001';
   
   const currentProjects = selectedTab === 'assigned' ? assignedProjects : allProjects;
+
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Cargar todos los proyectos
+      const allProjectsData = await supabaseService.getProjects();
+      setAllProjects(allProjectsData);
+      
+      // Cargar proyectos asignados al usuario actual
+      const assignedProjectsData = await supabaseService.getProjects(currentUserId);
+      setAssignedProjects(assignedProjectsData);
+      
+      console.log('✅ Projects loaded from Supabase:', {
+        total: allProjectsData.length,
+        assigned: assignedProjectsData.length
+      });
+    } catch (err) {
+      console.error('❌ Error loading projects:', err);
+      setError(err instanceof Error ? err.message : 'Error loading projects');
+      // Fallback a arrays vacíos si falla
+      setAllProjects([]);
+      setAssignedProjects([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status: ProjectStatus) => {
     switch (status) {
@@ -135,7 +167,61 @@ export const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
             ]}
           />
         </View>
-        {currentProjects.map((project) => (
+
+        {/* Loading State */}
+        {loading && (
+          <Card style={styles.projectCard}>
+            <Card.Content style={styles.centerContent}>
+              <ActivityIndicator size="large" />
+              <Text variant="bodyLarge" style={styles.loadingText}>
+                Cargando proyectos...
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <Card style={[styles.projectCard, styles.errorCard]}>
+            <Card.Content>
+              <Text variant="headlineSmall" style={styles.errorTitle}>
+                ❌ Error al cargar proyectos
+              </Text>
+              <Text variant="bodyMedium" style={styles.errorText}>
+                {error}
+              </Text>
+              <IconButton
+                icon="refresh"
+                mode="contained"
+                onPress={loadProjects}
+                style={styles.retryButton}
+              >
+                Reintentar
+              </IconButton>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && currentProjects.length === 0 && (
+          <Card style={styles.projectCard}>
+            <Card.Content style={styles.centerContent}>
+              <Icon source="folder-outline" size={64} color="#9E9E9E" />
+              <Text variant="titleMedium" style={styles.emptyTitle}>
+                No hay proyectos
+              </Text>
+              <Text variant="bodyMedium" style={styles.emptyText}>
+                {selectedTab === 'assigned' 
+                  ? 'No tienes proyectos asignados actualmente'
+                  : 'No hay proyectos disponibles'
+                }
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Projects List */}
+        {!loading && !error && currentProjects.map((project) => (
           <Card 
             key={project.id} 
             style={styles.projectCard}
@@ -394,6 +480,40 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 80, // Espacio para la navbar
+  },
+  centerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  loadingText: {
+    marginTop: 16,
+    opacity: 0.7,
+  },
+  errorCard: {
+    borderColor: '#F44336',
+    borderWidth: 1,
+  },
+  errorTitle: {
+    color: '#F44336',
+    marginBottom: 8,
+  },
+  errorText: {
+    marginBottom: 16,
+    opacity: 0.7,
+  },
+  retryButton: {
+    alignSelf: 'center',
+  },
+  emptyTitle: {
+    marginTop: 16,
+    marginBottom: 8,
+    opacity: 0.8,
+  },
+  emptyText: {
+    textAlign: 'center',
+    opacity: 0.6,
+    paddingHorizontal: 24,
   },
 });
 
