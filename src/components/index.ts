@@ -18,3 +18,4 @@ export { NavBar } from './NavBar';
 
 // Test components
 export { SupabaseTest } from './SupabaseTest';
+export { ProblemReportDialog } from './ProblemReportDialog';

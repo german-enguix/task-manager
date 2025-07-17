@@ -39,6 +39,94 @@ export enum CommentType {
   VOICE = 'voice',
 }
 
+// Enum para tipos de reportes de problemas
+export enum ProblemReportType {
+  BLOCKING_ISSUE = 'blocking_issue',
+  MISSING_TOOLS = 'missing_tools',
+  UNSAFE_CONDITIONS = 'unsafe_conditions',
+  TECHNICAL_ISSUE = 'technical_issue',
+  ACCESS_DENIED = 'access_denied',
+  MATERIAL_SHORTAGE = 'material_shortage',
+  WEATHER_CONDITIONS = 'weather_conditions',
+  OTHER = 'other',
+}
+
+// Enum para severidad de problemas
+export enum ProblemSeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+// Tipos predefinidos de reportes con su configuración
+export interface ProblemReportTypeConfig {
+  type: ProblemReportType;
+  title: string;
+  description: string;
+  icon: string;
+  suggestedSeverity: ProblemSeverity;
+}
+
+export const PROBLEM_REPORT_TYPES: ProblemReportTypeConfig[] = [
+  {
+    type: ProblemReportType.BLOCKING_ISSUE,
+    title: 'Problema que bloquea la tarea',
+    description: 'No puedo continuar con la tarea debido a este problema',
+    icon: 'block-helper',
+    suggestedSeverity: ProblemSeverity.HIGH,
+  },
+  {
+    type: ProblemReportType.MISSING_TOOLS,
+    title: 'Herramientas faltantes',
+    description: 'Faltan herramientas o equipos necesarios para la tarea',
+    icon: 'toolbox-outline',
+    suggestedSeverity: ProblemSeverity.MEDIUM,
+  },
+  {
+    type: ProblemReportType.UNSAFE_CONDITIONS,
+    title: 'Condiciones inseguras',
+    description: 'Las condiciones de trabajo no son seguras',
+    icon: 'shield-alert-outline',
+    suggestedSeverity: ProblemSeverity.CRITICAL,
+  },
+  {
+    type: ProblemReportType.TECHNICAL_ISSUE,
+    title: 'Problema técnico',
+    description: 'Error técnico o mal funcionamiento de equipos',
+    icon: 'tools',
+    suggestedSeverity: ProblemSeverity.MEDIUM,
+  },
+  {
+    type: ProblemReportType.ACCESS_DENIED,
+    title: 'Acceso denegado',
+    description: 'No tengo acceso a la ubicación o recursos necesarios',
+    icon: 'lock-outline',
+    suggestedSeverity: ProblemSeverity.HIGH,
+  },
+  {
+    type: ProblemReportType.MATERIAL_SHORTAGE,
+    title: 'Falta de materiales',
+    description: 'Materiales insuficientes o faltantes',
+    icon: 'package-variant',
+    suggestedSeverity: ProblemSeverity.MEDIUM,
+  },
+  {
+    type: ProblemReportType.WEATHER_CONDITIONS,
+    title: 'Condiciones climáticas',
+    description: 'El clima impide realizar la tarea de forma segura',
+    icon: 'weather-lightning-rainy',
+    suggestedSeverity: ProblemSeverity.MEDIUM,
+  },
+  {
+    type: ProblemReportType.OTHER,
+    title: 'Otro problema',
+    description: 'Problema no categorizado en las opciones anteriores',
+    icon: 'alert-circle-outline',
+    suggestedSeverity: ProblemSeverity.LOW,
+  },
+];
+
 // Tag para categorización de tareas
 export interface Tag {
   id: string;
@@ -144,6 +232,21 @@ export interface TaskComment {
   userId: string; // ID del usuario que creó el comentario
 }
 
+// Interfaz para reportes de problemas
+export interface TaskProblemReport {
+  id: string;
+  reportType: ProblemReportType;
+  severity: ProblemSeverity;
+  title: string;
+  description: string;
+  reportedAt: Date;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  resolution?: string;
+  userId: string; // ID del usuario que reportó
+  author: string; // Nombre del usuario que reportó
+}
+
 export interface TaskTimer {
   totalElapsed: number; // Tiempo total en segundos
   isRunning: boolean;
@@ -187,15 +290,7 @@ export interface Task {
   comments: TaskComment[];
   
   // Reportes de problemas
-  problemReports: Array<{
-    id: string;
-    title: string;
-    description: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
-    reportedAt: Date;
-    resolvedAt?: Date;
-    resolution?: string;
-  }>;
+  problemReports: TaskProblemReport[];
   
   // Metadatos
   createdAt: Date;

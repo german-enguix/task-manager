@@ -20,8 +20,21 @@ import {
   Icon,
   TextInput
 } from 'react-native-paper';
-import { Task, TaskStatus, EvidenceType, CommentType, TaskSubtask, SubtaskEvidenceRequirement, Tag, TaskComment } from '@/types';
+import { 
+  Task, 
+  TaskStatus, 
+  EvidenceType, 
+  CommentType, 
+  TaskSubtask, 
+  SubtaskEvidenceRequirement, 
+  Tag, 
+  TaskComment,
+  ProblemReportType,
+  ProblemSeverity,
+  TaskProblemReport,
+} from '@/types';
 import { supabaseService } from '@/services/supabaseService';
+import { ProblemReportDialog } from '@/components';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -38,6 +51,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [fallbackMessageShown, setFallbackMessageShown] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [showProblemDialog, setShowProblemDialog] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   useEffect(() => {
     loadUserAndTask();
@@ -568,17 +583,89 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const reportProblem = () => {
-    Alert.alert(
-      'Reportar Problema',
-      '¿Deseas reportar un problema con esta tarea?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Reportar', onPress: () => {
-          // Aquí se implementaría la lógica para reportar problema
-          console.log('Reporting problem');
-        }},
-      ]
-    );
+    setShowProblemDialog(true);
+  };
+
+  const handleSubmitProblemReport = async (
+    reportType: ProblemReportType,
+    severity: ProblemSeverity,
+    title: string,
+    description: string
+  ) => {
+    if (!task) return;
+
+    setIsSubmittingReport(true);
+    
+    try {
+      console.log('🔄 Submitting problem report:', {
+        taskId,
+        reportType,
+        severity,
+        title,
+        description
+      });
+      
+      // Agregar reporte a la base de datos
+      const newReport = await supabaseService.addTaskProblemReport(
+        taskId,
+        reportType,
+        severity,
+        title,
+        description
+      );
+      
+      console.log('✅ Problem report added to DB:', newReport);
+      
+      // Actualizar estado local
+      const updatedTask = {
+        ...task,
+        problemReports: [...task.problemReports, newReport]
+      };
+      setTask(updatedTask);
+      
+      console.log('✅ Local state updated');
+      Alert.alert('Éxito', 'Problema reportado correctamente. El equipo será notificado.');
+      
+    } catch (error) {
+      console.error('❌ Error submitting problem report:', error);
+      Alert.alert('Error', `No se pudo reportar el problema: ${error.message || error}`);
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return theme.colors.error;
+      case 'high': return theme.colors.secondary;
+      case 'medium': return theme.colors.primary;
+      case 'low': return theme.colors.outline;
+      default: return theme.colors.outline;
+    }
+  };
+
+  const getSeverityLabel = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'Crítico';
+      case 'high': return 'Alto';
+      case 'medium': return 'Medio';
+      case 'low': return 'Bajo';
+      default: return severity;
+    }
+  };
+
+  const getReportTypeIcon = (reportType: string) => {
+    switch (reportType) {
+      case 'blocking_issue': return 'block-helper';
+      case 'missing_tools': return 'toolbox-outline';
+      case 'unsafe_conditions': return 'shield-alert-outline';
+      case 'technical_issue': return 'tools';
+      case 'access_denied': return 'lock-outline';
+      case 'material_shortage': return 'package-variant';
+      case 'weather_conditions': return 'weather-lightning-rainy';
+      case 'other': return 'alert-circle-outline';
+      default: return 'alert';
+    }
   };
 
   if (!task) {
@@ -858,18 +945,64 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             {task.problemReports.length > 0 ? (
               task.problemReports.map((problem) => (
                 <View key={problem.id} style={styles.problemItem}>
-                  <Text variant="titleMedium">{problem.title}</Text>
-                  <Text variant="bodyMedium">{problem.description}</Text>
-                  <Chip 
-                    mode="outlined" 
-                    style={[styles.severityChip, { 
-                      borderColor: problem.severity === 'critical' ? theme.colors.error :
-                                   problem.severity === 'high' ? theme.colors.secondary :
-                                   theme.colors.outline
-                    }]}
-                  >
-                    {problem.severity.toUpperCase()}
-                  </Chip>
+                  <View style={styles.problemHeader}>
+                    <View style={styles.problemHeaderLeft}>
+                      <Icon
+                        source={getReportTypeIcon(problem.reportType)}
+                        size={20}
+                        color={getSeverityColor(problem.severity)}
+                      />
+                      <Text variant="titleMedium" style={styles.problemTitle}>
+                        {problem.title}
+                      </Text>
+                    </View>
+                    <Chip 
+                      mode="outlined" 
+                      style={[styles.severityChip, { 
+                        borderColor: getSeverityColor(problem.severity)
+                      }]}
+                      textStyle={[styles.severityChipText, {
+                        color: getSeverityColor(problem.severity)
+                      }]}
+                      compact
+                    >
+                      {getSeverityLabel(problem.severity)}
+                    </Chip>
+                  </View>
+                  
+                  <Text variant="bodyMedium" style={styles.problemDescription}>
+                    {problem.description}
+                  </Text>
+                  
+                  <View style={styles.problemFooter}>
+                    <Text variant="bodySmall" style={styles.problemMeta}>
+                      Reportado por {problem.author} • {problem.reportedAt.toLocaleDateString('es-ES')}
+                    </Text>
+                    
+                    {problem.resolvedAt && (
+                      <View style={styles.resolvedContainer}>
+                        <Icon
+                          source="check-circle"
+                          size={16}
+                          color={theme.colors.primary}
+                        />
+                        <Text variant="bodySmall" style={styles.resolvedText}>
+                          Resuelto el {problem.resolvedAt.toLocaleDateString('es-ES')}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  {problem.resolution && (
+                    <View style={styles.resolutionContainer}>
+                      <Text variant="bodySmall" style={styles.resolutionLabel}>
+                        Resolución:
+                      </Text>
+                      <Text variant="bodySmall" style={styles.resolutionText}>
+                        {problem.resolution}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               ))
             ) : (
@@ -883,12 +1016,21 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
               icon="alert" 
               onPress={reportProblem}
               style={styles.reportButton}
+              disabled={isSubmittingReport}
             >
               Reportar Problema
             </Button>
           </Card.Content>
         </Card>
       </ScrollView>
+
+      {/* Problem Report Dialog */}
+      <ProblemReportDialog
+        visible={showProblemDialog}
+        onDismiss={() => setShowProblemDialog(false)}
+        onSubmit={handleSubmitProblemReport}
+        isSubmitting={isSubmittingReport}
+      />
     </Surface>
   );
 };
@@ -1003,13 +1145,74 @@ const styles = StyleSheet.create({
   },
   problemItem: {
     marginBottom: 16,
-    padding: 12,
+    padding: 16,
     backgroundColor: 'rgba(255,0,0,0.05)',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: 'rgba(255,0,0,0.3)',
+  },
+  problemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  problemHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  problemTitle: {
+    marginLeft: 8,
+    fontWeight: '600',
+    flex: 1,
+  },
+  problemDescription: {
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  problemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  problemMeta: {
+    opacity: 0.7,
+    flex: 1,
+  },
+  resolvedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  resolvedText: {
+    marginLeft: 4,
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  resolutionContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
     borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50',
+  },
+  resolutionLabel: {
+    fontWeight: '600',
+    marginBottom: 4,
+    color: '#4CAF50',
+  },
+  resolutionText: {
+    lineHeight: 18,
   },
   severityChip: {
     alignSelf: 'flex-start',
-    marginTop: 8,
+  },
+  severityChipText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   emptyText: {
     textAlign: 'center',

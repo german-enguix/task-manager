@@ -1,5 +1,18 @@
 import { supabase } from '@/lib/supabase'
-import { Task, Tag, Project, SupervisorObservation, WorkDay, TimesheetStatus, DayStatus, TaskComment, CommentType } from '@/types'
+import { 
+  Task, 
+  Tag, 
+  Project, 
+  SupervisorObservation, 
+  WorkDay, 
+  TimesheetStatus, 
+  DayStatus, 
+  TaskComment, 
+  CommentType,
+  TaskProblemReport,
+  ProblemReportType,
+  ProblemSeverity,
+} from '@/types'
 import { Database } from '@/types/supabase'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
@@ -31,6 +44,39 @@ type TaskCommentInsert = {
   content: string
   file_path?: string | null
   file_url?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+// Tipos para reportes de problemas
+type TaskProblemReportRow = {
+  id: string
+  task_id: string
+  user_id: string
+  report_type: 'blocking_issue' | 'missing_tools' | 'unsafe_conditions' | 'technical_issue' | 'access_denied' | 'material_shortage' | 'weather_conditions' | 'other'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  title: string
+  description: string
+  reported_at: string
+  resolved_at: string | null
+  resolved_by: string | null
+  resolution: string | null
+  created_at: string
+  updated_at: string
+}
+
+type TaskProblemReportInsert = {
+  id?: string
+  task_id: string
+  user_id: string
+  report_type: 'blocking_issue' | 'missing_tools' | 'unsafe_conditions' | 'technical_issue' | 'access_denied' | 'material_shortage' | 'weather_conditions' | 'other'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  title: string
+  description: string
+  reported_at?: string
+  resolved_at?: string | null
+  resolved_by?: string | null
+  resolution?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -445,20 +491,25 @@ export class SupabaseService {
 
       console.log('✅ Task data loaded:', data.title);
 
-      // Cargar comentarios por separado
+      // Cargar comentarios y reportes de problemas por separado
       console.log('🔄 Loading comments for task...');
       const comments = await this.getTaskComments(taskId);
       console.log('✅ Comments loaded:', comments.length, 'comments');
       
-      // Transformar la tarea y agregar los comentarios
+      console.log('🔄 Loading problem reports for task...');
+      const problemReports = await this.getTaskProblemReports(taskId);
+      console.log('✅ Problem reports loaded:', problemReports.length, 'reports');
+      
+      // Transformar la tarea y agregar los comentarios y reportes
       const task = this.transformTaskFromSupabase(data);
       task.comments = comments;
+      task.problemReports = problemReports;
       
       console.log('✅ Final task object:', {
         id: task.id,
         title: task.title,
         commentsCount: task.comments.length,
-        comments: task.comments.map(c => ({ id: c.id, author: c.author, preview: c.content.substring(0, 20) + '...' }))
+        problemReportsCount: task.problemReports.length,
       });
       
       return task;
@@ -1254,6 +1305,292 @@ export class SupabaseService {
       })) || [];
     } catch (error) {
       console.error('Error getting task timer sessions:', error);
+      throw error;
+    }
+  }
+
+  // ========== TASK PROBLEM REPORTS ==========
+  
+  async getTaskProblemReports(taskId: string): Promise<TaskProblemReport[]> {
+    try {
+      console.log('🔄 Getting problem reports for task:', taskId);
+      
+      // Verificar autenticación primero
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('👤 Current user in getTaskProblemReports:', user?.email || 'No user');
+      
+      const { data, error } = await supabase
+        .from('task_problem_reports')
+        .select('*')
+        .eq('task_id', taskId)
+        .order('reported_at', { ascending: false });
+
+      console.log('📋 Query executed for task_id:', taskId);
+
+      if (error) {
+        console.error('❌ Error getting problem reports:', error);
+        
+        // Si la tabla no existe, devolver array vacío
+        if (error.message?.includes('relation "task_problem_reports" does not exist')) {
+          console.error('🚨 TABLA TASK_PROBLEM_REPORTS NO EXISTE');
+          console.error('💡 SOLUCIÓN: Ejecuta scripts/create_problem_reports_table.sql en Supabase');
+          return [];
+        }
+        
+        throw error;
+      }
+
+      console.log('✅ Raw problem reports from DB:', data);
+
+      if (!data || data.length === 0) {
+        console.log('💡 No problem reports found for task:', taskId);
+        return [];
+      }
+
+      // Mapear los reportes obteniendo nombres de usuarios
+      const problemReports = await Promise.all((data || []).map(async (row) => {
+        console.log(`📝 Mapping problem report:`, {
+          id: row.id,
+          user_id: row.user_id,
+          type: row.report_type,
+          severity: row.severity,
+        });
+        
+        // Obtener nombre del usuario
+        let authorName = 'Usuario';
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', row.user_id)
+            .single();
+          
+          if (profile?.full_name) {
+            authorName = profile.full_name;
+          }
+        } catch (profileError) {
+          console.log('⚠️ Could not get profile for user:', row.user_id);
+        }
+        
+        const mappedReport: TaskProblemReport = {
+          id: row.id,
+          reportType: row.report_type as ProblemReportType,
+          severity: row.severity as ProblemSeverity,
+          title: row.title,
+          description: row.description,
+          reportedAt: new Date(row.reported_at),
+          resolvedAt: row.resolved_at ? new Date(row.resolved_at) : undefined,
+          resolvedBy: row.resolved_by || undefined,
+          resolution: row.resolution || undefined,
+          userId: row.user_id,
+          author: authorName,
+        };
+        
+        return mappedReport;
+      }));
+
+      console.log('✅ All problem reports mapped successfully:', problemReports.length);
+      return problemReports;
+
+    } catch (error) {
+      console.error('❌ Error getting task problem reports:', error);
+      throw error;
+    }
+  }
+
+  async addTaskProblemReport(
+    taskId: string,
+    reportType: ProblemReportType,
+    severity: ProblemSeverity,
+    title: string,
+    description: string
+  ): Promise<TaskProblemReport> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const reportData: TaskProblemReportInsert = {
+        task_id: taskId,
+        user_id: user.id,
+        report_type: reportType,
+        severity: severity,
+        title: title,
+        description: description,
+      };
+
+      console.log('🔄 Inserting problem report data:', reportData);
+
+      const { data, error } = await supabase
+        .from('task_problem_reports')
+        .insert(reportData)
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw error;
+      }
+
+      console.log('✅ Raw problem report data from DB:', data);
+
+      // Obtener el nombre del usuario desde profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      console.log('✅ User profile:', profile);
+
+      // Crear el objeto reporte con el nombre del perfil
+      const problemReport: TaskProblemReport = {
+        id: data.id,
+        reportType: data.report_type as ProblemReportType,
+        severity: data.severity as ProblemSeverity,
+        title: data.title,
+        description: data.description,
+        reportedAt: new Date(data.reported_at),
+        resolvedAt: data.resolved_at ? new Date(data.resolved_at) : undefined,
+        resolvedBy: data.resolved_by || undefined,
+        resolution: data.resolution || undefined,
+        userId: user.id,
+        author: profile?.full_name || user.email || 'Usuario',
+      };
+
+      console.log('✅ Mapped problem report:', problemReport);
+      return problemReport;
+
+    } catch (error) {
+      console.error('❌ Error adding task problem report:', error);
+      throw error;
+    }
+  }
+
+  async updateTaskProblemReport(
+    reportId: string,
+    title?: string,
+    description?: string,
+    severity?: ProblemSeverity
+  ): Promise<TaskProblemReport> {
+    try {
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined) updateData.description = description;
+      if (severity !== undefined) updateData.severity = severity;
+
+      const { data, error } = await supabase
+        .from('task_problem_reports')
+        .update(updateData)
+        .eq('id', reportId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      // Obtener información del usuario
+      let authorName = 'Usuario';
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', data.user_id)
+          .single();
+        
+        if (profile?.full_name) {
+          authorName = profile.full_name;
+        }
+      } catch (profileError) {
+        console.log('⚠️ Could not get profile for user:', data.user_id);
+      }
+
+      return {
+        id: data.id,
+        reportType: data.report_type as ProblemReportType,
+        severity: data.severity as ProblemSeverity,
+        title: data.title,
+        description: data.description,
+        reportedAt: new Date(data.reported_at),
+        resolvedAt: data.resolved_at ? new Date(data.resolved_at) : undefined,
+        resolvedBy: data.resolved_by || undefined,
+        resolution: data.resolution || undefined,
+        userId: data.user_id,
+        author: authorName,
+      };
+    } catch (error) {
+      console.error('Error updating task problem report:', error);
+      throw error;
+    }
+  }
+
+  async resolveTaskProblemReport(reportId: string, resolution: string): Promise<TaskProblemReport> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('task_problem_reports')
+        .update({
+          resolved_at: new Date().toISOString(),
+          resolved_by: user.id,
+          resolution: resolution,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reportId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      // Obtener información del usuario que reportó
+      let authorName = 'Usuario';
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', data.user_id)
+          .single();
+        
+        if (profile?.full_name) {
+          authorName = profile.full_name;
+        }
+      } catch (profileError) {
+        console.log('⚠️ Could not get profile for user:', data.user_id);
+      }
+
+      return {
+        id: data.id,
+        reportType: data.report_type as ProblemReportType,
+        severity: data.severity as ProblemSeverity,
+        title: data.title,
+        description: data.description,
+        reportedAt: new Date(data.reported_at),
+        resolvedAt: new Date(data.resolved_at),
+        resolvedBy: data.resolved_by,
+        resolution: data.resolution,
+        userId: data.user_id,
+        author: authorName,
+      };
+    } catch (error) {
+      console.error('Error resolving task problem report:', error);
+      throw error;
+    }
+  }
+
+  async deleteTaskProblemReport(reportId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('task_problem_reports')
+        .delete()
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      console.log('✅ Problem report deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting task problem report:', error);
       throw error;
     }
   }

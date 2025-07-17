@@ -465,6 +465,88 @@ export interface Database {
           updated_at?: string
         }
       }
+      task_comments: {
+        Row: {
+          id: string
+          task_id: string
+          user_id: string
+          type: string
+          content: string
+          file_path: string | null
+          file_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          user_id: string
+          type: string
+          content: string
+          file_path?: string | null
+          file_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          user_id?: string
+          type?: string
+          content?: string
+          file_path?: string | null
+          file_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      task_problem_reports: {
+        Row: {
+          id: string
+          task_id: string
+          user_id: string
+          report_type: 'blocking_issue' | 'missing_tools' | 'unsafe_conditions' | 'technical_issue' | 'access_denied' | 'material_shortage' | 'weather_conditions' | 'other'
+          severity: 'low' | 'medium' | 'high' | 'critical'
+          title: string
+          description: string
+          reported_at: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolution: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          user_id: string
+          report_type: 'blocking_issue' | 'missing_tools' | 'unsafe_conditions' | 'technical_issue' | 'access_denied' | 'material_shortage' | 'weather_conditions' | 'other'
+          severity: 'low' | 'medium' | 'high' | 'critical'
+          title: string
+          description: string
+          reported_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolution?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          user_id?: string
+          report_type?: 'blocking_issue' | 'missing_tools' | 'unsafe_conditions' | 'technical_issue' | 'access_denied' | 'material_shortage' | 'weather_conditions' | 'other'
+          severity?: 'low' | 'medium' | 'high' | 'critical'
+          title?: string
+          description?: string
+          reported_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolution?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
