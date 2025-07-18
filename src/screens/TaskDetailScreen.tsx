@@ -97,8 +97,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     try {
       const taskData = await supabaseService.getTaskById(taskId);
       if (taskData) {
-        // Calcular el estado correcto basándose en las subtareas
-        const calculatedStatus = calculateTaskStatus(taskData.subtasks);
+        // Calcular el estado correcto basándose en las subtareas y el timer
+        const calculatedStatus = calculateTaskStatus(taskData.subtasks, taskData.timer);
         
         // Si el estado calculado es diferente al almacenado, actualizar
         const finalTaskData = {
@@ -134,19 +134,48 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     );
   };
 
-  const calculateTaskStatus = (subtasks: TaskSubtask[]): TaskStatus => {
-    if (subtasks.length === 0) {
-      return TaskStatus.NOT_STARTED;
-    }
-    
+  const calculateTaskStatus = (subtasks: TaskSubtask[], timer?: any): TaskStatus => {
     const completedSubtasks = subtasks.filter(subtask => subtask.isCompleted).length;
     
-    if (completedSubtasks === 0) {
-      return TaskStatus.NOT_STARTED;
-    } else if (completedSubtasks === subtasks.length) {
+    // Si todas las subtareas están completadas → COMPLETED
+    if (subtasks.length > 0 && completedSubtasks === subtasks.length) {
       return TaskStatus.COMPLETED;
-    } else {
+    }
+    
+    // Si el temporizador está corriendo O tiene tiempo registrado O hay subtareas completadas → IN_PROGRESS
+    const hasTimerActivity = timer && (timer.isRunning || timer.totalElapsed > 0);
+    const hasCompletedSubtasks = completedSubtasks > 0;
+    
+    if (hasTimerActivity || hasCompletedSubtasks) {
       return TaskStatus.IN_PROGRESS;
+    }
+    
+    // En cualquier otro caso → NOT_STARTED
+    return TaskStatus.NOT_STARTED;
+  };
+
+  const updateTaskStatusBasedOnTimer = async (updatedTask: any) => {
+    if (!task) return;
+    
+    const newTaskStatus = calculateTaskStatus(updatedTask.subtasks, updatedTask.timer);
+    
+    if (newTaskStatus !== task.status) {
+      try {
+        await supabaseService.updateTask(taskId, { status: newTaskStatus });
+        console.log('✅ Task status updated due to timer change:', newTaskStatus);
+        
+        // Log del cambio de estado
+        const statusText = getStatusText(newTaskStatus);
+        console.log(`🎯 Estado actualizado por timer: ${statusText}`);
+        
+        // Actualizar estado local de la tarea
+        setTask(prevTask => prevTask ? { 
+          ...prevTask, 
+          status: newTaskStatus 
+        } : null);
+      } catch (error) {
+        console.error('❌ Error updating task status:', error);
+      }
     }
   };
 
@@ -234,8 +263,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         return s;
       });
       
-      // Calcular el nuevo estado de la tarea basándose en las subtareas
-      const newTaskStatus = calculateTaskStatus(updatedSubtasks);
+      // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+      const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
       
       const updatedTask = { 
         ...task, 
@@ -311,8 +340,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             return s;
           });
           
-          // Calcular el nuevo estado de la tarea basándose en las subtareas
-          const newTaskStatus = calculateTaskStatus(updatedSubtasks);
+          // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+          const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
           
           const updatedTask = { 
             ...task, 
@@ -360,17 +389,21 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           console.log('✅ Timer stopped via DB, total elapsed:', totalElapsed);
           
           // Actualizar estado local
-          setTask(prevTask => prevTask ? {
-            ...prevTask,
+          const updatedTask = {
+            ...task,
             timer: {
-              ...prevTask.timer,
+              ...task.timer,
               isRunning: false,
               currentSessionStart: undefined,
               totalElapsed: totalElapsed,
             }
-          } : null);
+          };
+          setTask(updatedTask);
           
           updateTimerDisplay(totalElapsed);
+          
+          // Actualizar estado de la tarea basándose en el timer
+          await updateTaskStatusBasedOnTimer(updatedTask);
         } catch (dbError) {
           console.warn('⚠️ DB functions not available yet. Using local mode.');
           console.log('💡 To enable full persistence, execute: scripts/add_timer_fields_to_tasks.sql');
@@ -381,18 +414,22 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             : 0;
           const totalElapsed = task.timer.totalElapsed + sessionDuration;
           
-          setTask(prevTask => prevTask ? {
-            ...prevTask,
+          const updatedTask = {
+            ...task,
             timer: {
-              ...prevTask.timer,
+              ...task.timer,
               isRunning: false,
               currentSessionStart: undefined,
               totalElapsed: totalElapsed,
             }
-          } : null);
+          };
+          setTask(updatedTask);
           
           updateTimerDisplay(totalElapsed);
           console.log('✅ Timer stopped via local fallback, total elapsed:', totalElapsed);
+          
+          // Actualizar estado de la tarea basándose en el timer
+          await updateTaskStatusBasedOnTimer(updatedTask);
         }
       } else {
         console.log('▶️ Trying to start timer...');
@@ -403,29 +440,37 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           console.log('✅ Timer started via DB');
           
           const now = new Date();
-          setTask(prevTask => prevTask ? {
-            ...prevTask,
+          const updatedTask = {
+            ...task,
             timer: {
-              ...prevTask.timer,
+              ...task.timer,
               isRunning: true,
               currentSessionStart: now,
             }
-          } : null);
+          };
+          setTask(updatedTask);
+          
+          // Actualizar estado de la tarea basándose en el timer
+          await updateTaskStatusBasedOnTimer(updatedTask);
         } catch (dbError) {
           console.warn('⚠️ DB functions not available yet. Using local mode.');
           console.log('💡 To enable full persistence, execute: scripts/add_timer_fields_to_tasks.sql');
           
           // Fallback local completo - funciona sin base de datos
           const now = new Date();
-          setTask(prevTask => prevTask ? {
-            ...prevTask,
+          const updatedTask = {
+            ...task,
             timer: {
-              ...prevTask.timer,
+              ...task.timer,
               isRunning: true,
               currentSessionStart: now,
             }
-          } : null);
+          };
+          setTask(updatedTask);
           console.log('✅ Timer started via local fallback');
+          
+          // Actualizar estado de la tarea basándose en el timer
+          await updateTaskStatusBasedOnTimer(updatedTask);
           
           // Mostrar mensaje informativo solo la primera vez
           if (!fallbackMessageShown) {
