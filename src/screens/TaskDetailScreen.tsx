@@ -322,22 +322,85 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     );
   };
 
-  const handleNFCSuccess = () => {
-    if (!currentNFCSubtask) return;
+  const handleNFCSuccess = async () => {
+    if (!currentNFCSubtask || !task) return;
     
     // Cerrar el diálogo NFC
     setShowNFCDialog(false);
     
-    // Simular la captura de evidencia NFC
-    simulateEvidenceCapture(currentNFCSubtask);
-    
-    // Limpiar la subtarea actual
-    setCurrentNFCSubtask(null);
+    try {
+      // Simular la captura de evidencia NFC y marcar como completada
+      await simulateNFCEvidenceCapture(currentNFCSubtask);
+      
+      console.log('✅ NFC evidence captured and subtask completed');
+    } catch (error) {
+      console.error('❌ Error completing NFC evidence:', error);
+      Alert.alert('Error', 'No se pudo completar la evidencia NFC. Inténtalo de nuevo.');
+    } finally {
+      // Limpiar la subtarea actual
+      setCurrentNFCSubtask(null);
+    }
   };
 
   const handleNFCDismiss = () => {
     setShowNFCDialog(false);
     setCurrentNFCSubtask(null);
+  };
+
+  const simulateNFCEvidenceCapture = async (subtask: TaskSubtask) => {
+    if (!task || !subtask.evidenceRequirement) return;
+    
+    // Actualizar en Supabase: marcar subtarea como completada
+    const completedAt = new Date();
+    await supabaseService.updateSubtask(subtask.id, {
+      isCompleted: true,
+      completedAt: completedAt
+    });
+    
+    // Actualizar subtarea con evidencia completada Y marcada como completada
+    const updatedSubtasks = task.subtasks.map(s => {
+      if (s.id === subtask.id) {
+        return {
+          ...s,
+          isCompleted: true,
+          completedAt: completedAt,
+          evidence: {
+            id: `subtask-evidence-${Date.now()}`,
+            subtaskId: subtask.id,
+            type: subtask.evidenceRequirement!.type,
+            title: `${subtask.evidenceRequirement!.title} - Completada`,
+            description: 'Evidencia NFC capturada correctamente',
+            createdAt: new Date(),
+            completedBy: 'Usuario Actual',
+          },
+        };
+      }
+      return s;
+    });
+    
+    // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+    const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
+    
+    const updatedTask = { 
+      ...task, 
+      subtasks: updatedSubtasks,
+      status: newTaskStatus
+    };
+    setTask(updatedTask);
+
+    // Actualizar el estado de la tarea en la base de datos si cambió
+    if (newTaskStatus !== task.status) {
+      try {
+        await supabaseService.updateTask(taskId, { status: newTaskStatus });
+        console.log('✅ Task status updated to:', newTaskStatus);
+        
+        // Log del cambio de estado (visible en consola)
+        const statusText = getStatusText(newTaskStatus);
+        console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+      } catch (error) {
+        console.error('❌ Error updating task status:', error);
+      }
+    }
   };
 
   const simulateEvidenceCapture = (subtask: TaskSubtask) => {

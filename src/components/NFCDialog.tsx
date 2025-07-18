@@ -26,15 +26,18 @@ export const NFCDialog: React.FC<NFCDialogProps> = ({
 }) => {
   const theme = useTheme();
   const [isScanning, setIsScanning] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [scanAnimation] = useState(new Animated.Value(0));
   const [pulseAnimation] = useState(new Animated.Value(1));
 
   useEffect(() => {
     if (visible) {
       setIsScanning(true);
+      setIsSuccess(false);
       startAnimations();
     } else {
       setIsScanning(false);
+      setIsSuccess(false);
       stopAnimations();
     }
   }, [visible]);
@@ -81,16 +84,20 @@ export const NFCDialog: React.FC<NFCDialogProps> = ({
 
   const handleSimulateSuccess = () => {
     setIsScanning(false);
+    setIsSuccess(true);
     stopAnimations();
     
-    // Simular un pequeño delay para que se vea más realista
+    // Mostrar estado de éxito por un momento antes de cerrar
     setTimeout(() => {
       onSuccess();
-    }, 500);
+      // Reset para la próxima vez
+      setIsSuccess(false);
+    }, 1500);
   };
 
   const handleCancel = () => {
     setIsScanning(false);
+    setIsSuccess(false);
     stopAnimations();
     onDismiss();
   };
@@ -146,12 +153,14 @@ export const NFCDialog: React.FC<NFCDialogProps> = ({
                 style={[
                   styles.nfcIcon,
                   {
-                    transform: [{ rotate: rotateInterpolate }],
-                    backgroundColor: theme.colors.primary,
+                    transform: [{ rotate: isSuccess ? '0deg' : rotateInterpolate }],
+                    backgroundColor: isSuccess ? '#4CAF50' : theme.colors.primary,
                   }
                 ]}
               >
-                <Text style={styles.nfcText}>NFC</Text>
+                <Text style={styles.nfcText}>
+                  {isSuccess ? '✓' : 'NFC'}
+                </Text>
               </Animated.View>
             </View>
 
@@ -162,7 +171,11 @@ export const NFCDialog: React.FC<NFCDialogProps> = ({
 
             {/* Indicador de estado */}
             <View style={styles.statusContainer}>
-              {isScanning ? (
+              {isSuccess ? (
+                <Text variant="bodySmall" style={[styles.statusText, { color: '#4CAF50', fontWeight: 'bold' }]}>
+                  ✅ NFC leído correctamente - Evidencia registrada
+                </Text>
+              ) : isScanning ? (
                 <>
                   <ActivityIndicator size="small" color={theme.colors.primary} />
                   <Text variant="bodySmall" style={[styles.statusText, { color: theme.colors.primary }]}>
@@ -179,15 +192,16 @@ export const NFCDialog: React.FC<NFCDialogProps> = ({
         </Dialog.Content>
 
         <Dialog.Actions>
-          <Button onPress={handleCancel}>
+          <Button onPress={handleCancel} disabled={isSuccess}>
             Cancelar
           </Button>
           <Button 
             mode="contained" 
             onPress={handleSimulateSuccess}
             style={styles.simulateButton}
+            disabled={isSuccess}
           >
-            Simular Lectura
+            {isSuccess ? 'Completando...' : 'Simular Lectura'}
           </Button>
         </Dialog.Actions>
       </Dialog>
