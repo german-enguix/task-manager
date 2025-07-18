@@ -260,6 +260,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             ...s,
             isCompleted: newCompletedState,
             completedAt: completedAt,
+            // Si se desmarca la subtarea, también eliminar la evidencia para permitir volver a escanear
+            evidence: newCompletedState ? s.evidence : undefined,
           };
         }
         return s;
@@ -288,6 +290,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           console.error('❌ Error updating task status:', error);
           // No mostramos error al usuario para no interrumpir el flujo
         }
+      }
+      
+      // Log específico para evidencia eliminada
+      if (!newCompletedState && subtask.evidence) {
+        console.log(`🗑️ Evidencia eliminada al desmarcar subtarea: ${subtask.evidence.type}`);
       }
       
       console.log('✅ Subtask toggled successfully');
@@ -412,7 +419,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       `Se ha simulado la captura de evidencia de tipo ${getEvidenceTypeName(subtask.evidenceRequirement.type)}`,
       [
         { text: 'OK', onPress: () => {
-          // Actualizar subtarea con evidencia completada
+          // Actualizar subtarea con evidencia completada (pero no marcar como completada automáticamente)
           const updatedSubtasks = task.subtasks.map(s => {
             if (s.id === subtask.id) {
               return {
