@@ -1,103 +1,16 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
 import {
-  Portal,
   Dialog,
+  Portal,
   Text,
   Button,
-  List,
+  TextInput,
+  Icon,
   Divider,
   useTheme,
-  Icon,
-  TextInput,
-  Chip,
 } from 'react-native-paper';
-
-// Definir tipos directamente aquí para evitar problemas de importación
-enum ProblemReportType {
-  BLOCKING_ISSUE = 'blocking_issue',
-  MISSING_TOOLS = 'missing_tools',
-  UNSAFE_CONDITIONS = 'unsafe_conditions',
-  TECHNICAL_ISSUE = 'technical_issue',
-  ACCESS_DENIED = 'access_denied',
-  MATERIAL_SHORTAGE = 'material_shortage',
-  WEATHER_CONDITIONS = 'weather_conditions',
-  OTHER = 'other',
-}
-
-enum ProblemSeverity {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical',
-}
-
-interface ProblemReportTypeConfig {
-  type: ProblemReportType;
-  title: string;
-  description: string;
-  icon: string;
-  suggestedSeverity: ProblemSeverity;
-}
-
-const PROBLEM_REPORT_TYPES: ProblemReportTypeConfig[] = [
-  {
-    type: ProblemReportType.BLOCKING_ISSUE,
-    title: 'Problema que bloquea la tarea',
-    description: 'No puedo continuar con la tarea debido a este problema',
-    icon: 'block-helper',
-    suggestedSeverity: ProblemSeverity.HIGH,
-  },
-  {
-    type: ProblemReportType.MISSING_TOOLS,
-    title: 'Herramientas faltantes',
-    description: 'Faltan herramientas o equipos necesarios para la tarea',
-    icon: 'toolbox-outline',
-    suggestedSeverity: ProblemSeverity.MEDIUM,
-  },
-  {
-    type: ProblemReportType.UNSAFE_CONDITIONS,
-    title: 'Condiciones inseguras',
-    description: 'Las condiciones de trabajo no son seguras',
-    icon: 'shield-alert-outline',
-    suggestedSeverity: ProblemSeverity.CRITICAL,
-  },
-  {
-    type: ProblemReportType.TECHNICAL_ISSUE,
-    title: 'Problema técnico',
-    description: 'Error técnico o mal funcionamiento de equipos',
-    icon: 'tools',
-    suggestedSeverity: ProblemSeverity.MEDIUM,
-  },
-  {
-    type: ProblemReportType.ACCESS_DENIED,
-    title: 'Acceso denegado',
-    description: 'No tengo acceso a la ubicación o recursos necesarios',
-    icon: 'lock-outline',
-    suggestedSeverity: ProblemSeverity.HIGH,
-  },
-  {
-    type: ProblemReportType.MATERIAL_SHORTAGE,
-    title: 'Falta de materiales',
-    description: 'Materiales insuficientes o faltantes',
-    icon: 'package-variant',
-    suggestedSeverity: ProblemSeverity.MEDIUM,
-  },
-  {
-    type: ProblemReportType.WEATHER_CONDITIONS,
-    title: 'Condiciones climáticas',
-    description: 'El clima impide realizar la tarea de forma segura',
-    icon: 'weather-lightning-rainy',
-    suggestedSeverity: ProblemSeverity.MEDIUM,
-  },
-  {
-    type: ProblemReportType.OTHER,
-    title: 'Otro problema',
-    description: 'Problema no categorizado en las opciones anteriores',
-    icon: 'alert-circle-outline',
-    suggestedSeverity: ProblemSeverity.LOW,
-  },
-];
+import { ScrollView, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { ProblemReportType, ProblemSeverity } from '@/types';
 
 interface ProblemReportDialogProps {
   visible: boolean;
@@ -108,244 +21,280 @@ interface ProblemReportDialogProps {
     title: string,
     description: string
   ) => Promise<void>;
-  isSubmitting?: boolean;
+  isSubmitting: boolean;
 }
 
 export const ProblemReportDialog: React.FC<ProblemReportDialogProps> = ({
   visible,
   onDismiss,
   onSubmit,
-  isSubmitting = false,
+  isSubmitting,
 }) => {
   const theme = useTheme();
-  const [selectedType, setSelectedType] = useState<ProblemReportTypeConfig | null>(null);
-  const [selectedSeverity, setSelectedSeverity] = useState<ProblemSeverity | null>(null);
+  const [step, setStep] = useState(1);
+  const [reportType, setReportType] = useState<ProblemReportType | null>(null);
+  const [severity, setSeverity] = useState<ProblemSeverity | null>(null);
   const [notes, setNotes] = useState('');
-  const [step, setStep] = useState<'type' | 'details'>('type');
 
-  console.log('🔍 ProblemReportDialog rendered, visible:', visible, 'step:', step);
-
-  // Resetear estado al abrir/cerrar el diálogo
-  React.useEffect(() => {
-    if (visible) {
-      setSelectedType(null);
-      setSelectedSeverity(null);
-      setNotes('');
-      setStep('type');
-    }
-  }, [visible]);
-
-  const handleTypeSelection = (typeConfig: ProblemReportTypeConfig) => {
-    console.log('🎯 Type selected:', typeConfig.type);
-    setSelectedType(typeConfig);
-    setSelectedSeverity(typeConfig.suggestedSeverity);
-    setStep('details');
+  const handleClose = () => {
+    // Reset form
+    setStep(1);
+    setReportType(null);
+    setSeverity(null);
+    setNotes('');
+    onDismiss();
   };
 
   const handleSubmit = async () => {
-    if (!selectedType || !selectedSeverity) {
-      console.log('❌ Missing data for submit');
+    if (!reportType || !severity || !notes.trim()) {
       return;
     }
 
-    console.log('📝 Submitting report:', {
-      type: selectedType.type,
-      severity: selectedSeverity,
-      title: selectedType.title,
-      description: notes.trim() || selectedType.description
-    });
-
     try {
-      await onSubmit(
-        selectedType.type,
-        selectedSeverity,
-        selectedType.title,
-        notes.trim() || selectedType.description
-      );
-      onDismiss();
+      await onSubmit(reportType, severity, 'Problema reportado', notes.trim());
+      handleClose();
     } catch (error) {
       console.error('Error submitting problem report:', error);
     }
   };
 
-  const getSeverityColor = (severity: ProblemSeverity) => {
-    switch (severity) {
-      case ProblemSeverity.CRITICAL:
-        return theme.colors.error;
-      case ProblemSeverity.HIGH:
-        return '#FF6B35';
-      case ProblemSeverity.MEDIUM:
-        return theme.colors.primary;
-      case ProblemSeverity.LOW:
-        return theme.colors.outline;
-      default:
-        return theme.colors.outline;
+  const handleNextStep = () => {
+    if (reportType) {
+      setStep(2);
     }
   };
 
-  const getSeverityLabel = (severity: ProblemSeverity) => {
-    switch (severity) {
-      case ProblemSeverity.CRITICAL:
-        return 'Crítico';
-      case ProblemSeverity.HIGH:
-        return 'Alto';
-      case ProblemSeverity.MEDIUM:
-        return 'Medio';
-      case ProblemSeverity.LOW:
-        return 'Bajo';
-      default:
-        return severity;
+  const handleBackStep = () => {
+    setStep(1);
+  };
+
+  const getReportTypeIcon = (type: ProblemReportType) => {
+    switch (type) {
+      case 'blocking_issue': return 'block-helper';
+      case 'missing_tools': return 'toolbox-outline';
+      case 'unsafe_conditions': return 'shield-alert-outline';
+      case 'technical_issue': return 'tools';
+      case 'access_denied': return 'lock-outline';
+      case 'material_shortage': return 'package-variant';
+      case 'weather_conditions': return 'weather-lightning-rainy';
+      case 'other': return 'alert-circle-outline';
+      default: return 'alert';
     }
   };
 
-  const renderTypeSelection = () => (
-    <View>
-      <Text variant="headlineSmall" style={styles.dialogTitle}>
-        ¿Qué tipo de problema quieres reportar?
-      </Text>
-      <Text variant="bodyMedium" style={styles.dialogSubtitle}>
-        Selecciona el tipo que mejor describa tu situación
-      </Text>
-      
-      <ScrollView style={styles.typesList} showsVerticalScrollIndicator={false}>
-        {PROBLEM_REPORT_TYPES.map((typeConfig, index) => (
-          <View key={typeConfig.type}>
-            <List.Item
-              title={typeConfig.title}
-              description={typeConfig.description}
-              onPress={() => handleTypeSelection(typeConfig)}
-              left={(props) => (
-                <View style={styles.iconContainer}>
-                  <Icon
-                    source={typeConfig.icon}
-                    size={24}
-                    color={theme.colors.primary}
-                  />
-                </View>
-              )}
-              right={(props) => (
-                <Icon
-                  source="chevron-right"
-                  size={20}
-                  color={theme.colors.outline}
-                />
-              )}
-              style={styles.typeItem}
-            />
-            {index < PROBLEM_REPORT_TYPES.length - 1 && (
-              <Divider style={styles.typeDivider} />
-            )}
-          </View>
-        ))}
-      </ScrollView>
-    </View>
-  );
+  const reportTypeOptions = [
+    { 
+      value: 'blocking_issue', 
+      label: 'Problema que impide continuar',
+      description: 'No puedo seguir trabajando'
+    },
+    { 
+      value: 'missing_tools', 
+      label: 'Herramientas faltantes',
+      description: 'No tengo las herramientas necesarias'
+    },
+    { 
+      value: 'unsafe_conditions', 
+      label: 'Condiciones inseguras',
+      description: 'Es peligroso continuar'
+    },
+    { 
+      value: 'technical_issue', 
+      label: 'Problema técnico',
+      description: 'Fallo en equipos o sistemas'
+    },
+    { 
+      value: 'access_denied', 
+      label: 'Acceso denegado',
+      description: 'No puedo acceder al área'
+    },
+    { 
+      value: 'material_shortage', 
+      label: 'Falta de materiales',
+      description: 'No hay suficientes materiales'
+    },
+    { 
+      value: 'weather_conditions', 
+      label: 'Condiciones climáticas',
+      description: 'El clima impide trabajar'
+    },
+    { 
+      value: 'other', 
+      label: 'Otro problema',
+      description: 'Algo diferente a lo anterior'
+    },
+  ];
 
-  const renderDetailsForm = () => (
-    <View>
-      <Text variant="headlineSmall" style={styles.dialogTitle}>
-        Detalles del problema
-      </Text>
-      
-      {/* Tipo seleccionado */}
-      <View style={styles.selectedTypeContainer}>
-        <Icon
-          source={selectedType?.icon || 'alert'}
-          size={20}
-          color={theme.colors.primary}
-        />
-        <Text variant="bodyMedium" style={styles.selectedTypeText}>
-          {selectedType?.title}
-        </Text>
-      </View>
-
-      {/* Severidad */}
-      <Text variant="titleSmall" style={styles.fieldLabel}>
-        Nivel de severidad
-      </Text>
-      <View style={styles.severityContainer}>
-        {[
-          ProblemSeverity.LOW,
-          ProblemSeverity.MEDIUM,
-          ProblemSeverity.HIGH,
-          ProblemSeverity.CRITICAL,
-        ].map((severity) => (
-          <Button
-            key={severity}
-            mode={selectedSeverity === severity ? 'contained' : 'outlined'}
-            onPress={() => setSelectedSeverity(severity)}
-            style={[
-              styles.severityButton,
-              selectedSeverity === severity && {
-                backgroundColor: getSeverityColor(severity),
-              }
-            ]}
-            labelStyle={styles.severityButtonText}
-          >
-            {getSeverityLabel(severity)}
-          </Button>
-        ))}
-      </View>
-
-      {/* Campo de notas */}
-      <Text variant="titleSmall" style={styles.fieldLabel}>
-        Notas adicionales (opcional)
-      </Text>
-      <TextInput
-        mode="outlined"
-        placeholder="Describe detalles específicos del problema..."
-        value={notes}
-        onChangeText={setNotes}
-        multiline
-        numberOfLines={4}
-        style={styles.notesInput}
-        maxLength={500}
-      />
-    </View>
-  );
+  const severityOptions = [
+    { 
+      value: 'low', 
+      label: 'Bajo', 
+      color: '#4CAF50',
+      description: 'Puedo continuar con demora'
+    },
+    { 
+      value: 'medium', 
+      label: 'Medio', 
+      color: '#FF9800',
+      description: 'Afecta el progreso normal'
+    },
+    { 
+      value: 'high', 
+      label: 'Alto', 
+      color: '#FF5722',
+      description: 'Problema serio, necesito ayuda'
+    },
+    { 
+      value: 'critical', 
+      label: 'Crítico', 
+      color: '#F44336',
+      description: 'Emergencia, atención inmediata'
+    },
+  ];
 
   return (
     <Portal>
-      <Dialog visible={visible} onDismiss={onDismiss} style={styles.dialog}>
-        <Dialog.Content style={styles.dialogContent}>
-          {step === 'type' ? renderTypeSelection() : renderDetailsForm()}
-        </Dialog.Content>
-        
-        <Dialog.Actions style={styles.dialogActions}>
-          {step === 'details' && (
-            <Button
-              mode="outlined"
-              onPress={() => setStep('type')}
-              disabled={isSubmitting}
-              style={styles.actionButton}
-            >
-              Volver
-            </Button>
-          )}
-          
-          <Button
-            mode="outlined"
-            onPress={onDismiss}
-            disabled={isSubmitting}
-            style={styles.actionButton}
-          >
-            Cancelar
-          </Button>
-          
-          {step === 'details' && (
-            <Button
-              mode="contained"
-              onPress={handleSubmit}
-              disabled={
-                isSubmitting ||
-                !selectedType ||
-                !selectedSeverity
-              }
-              loading={isSubmitting}
-              style={styles.actionButton}
-            >
-              Reportar
-            </Button>
+      <Dialog visible={visible} onDismiss={handleClose} style={styles.dialog}>
+        <Dialog.Title>
+          {step === 1 ? 'Tipo de problema' : 'Severidad del problema'}
+        </Dialog.Title>
+
+        <Dialog.ScrollArea>
+          <ScrollView style={styles.content}>
+            {step === 1 ? (
+              // PASO 1: Tipo de problema
+              <View>
+                <Text variant="bodyMedium" style={styles.subtitle}>
+                  ¿Qué tipo de problema estás experimentando?
+                </Text>
+                
+                <View style={styles.optionsContainer}>
+                  {reportTypeOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.option,
+                        reportType === option.value && styles.selectedOption
+                      ]}
+                      onPress={() => setReportType(option.value as ProblemReportType)}
+                    >
+                      <View style={styles.optionContent}>
+                        <Icon
+                          source={getReportTypeIcon(option.value as ProblemReportType)}
+                          size={24}
+                          color={reportType === option.value ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                        />
+                        <View style={styles.optionText}>
+                          <Text 
+                            variant="bodyLarge" 
+                            style={[
+                              styles.optionLabel,
+                              reportType === option.value && { color: theme.colors.primary }
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                          <Text 
+                            variant="bodySmall" 
+                            style={styles.optionDescription}
+                          >
+                            {option.description}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              // PASO 2: Severidad y notas
+              <View>
+                <Text variant="bodyMedium" style={styles.subtitle}>
+                  ¿Qué tan severo es el problema?
+                </Text>
+                
+                <View style={styles.optionsContainer}>
+                  {severityOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.severityOption,
+                        severity === option.value && [
+                          styles.selectedSeverityOption,
+                          { borderColor: option.color }
+                        ]
+                      ]}
+                      onPress={() => setSeverity(option.value as ProblemSeverity)}
+                    >
+                      <View style={styles.severityContent}>
+                        <View style={[styles.severityIndicator, { backgroundColor: option.color }]} />
+                        <View style={styles.severityText}>
+                          <Text 
+                            variant="bodyLarge" 
+                            style={[
+                              styles.severityLabel,
+                              severity === option.value && { color: option.color }
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                          <Text 
+                            variant="bodySmall" 
+                            style={styles.optionDescription}
+                          >
+                            {option.description}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Divider style={styles.divider} />
+
+                <TextInput
+                  label="Notas"
+                  value={notes}
+                  onChangeText={setNotes}
+                  style={styles.notesInput}
+                  placeholder="Describe el problema con más detalle..."
+                  mode="outlined"
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+            )}
+          </ScrollView>
+        </Dialog.ScrollArea>
+
+        <Dialog.Actions>
+          {step === 1 ? (
+            <>
+              <Button onPress={handleClose} disabled={isSubmitting}>
+                Cancelar
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleNextStep}
+                disabled={!reportType}
+              >
+                Siguiente
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onPress={handleBackStep} disabled={isSubmitting}>
+                Atrás
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleSubmit}
+                disabled={isSubmitting || !severity || !notes.trim()}
+                loading={isSubmitting}
+              >
+                Reportar
+              </Button>
+            </>
           )}
         </Dialog.Actions>
       </Dialog>
@@ -355,76 +304,76 @@ export const ProblemReportDialog: React.FC<ProblemReportDialogProps> = ({
 
 const styles = StyleSheet.create({
   dialog: {
-    marginHorizontal: 20,
     maxHeight: '90%',
   },
-  dialogContent: {
-    paddingBottom: 0,
+  content: {
+    paddingHorizontal: 0,
   },
-  dialogTitle: {
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  dialogSubtitle: {
-    marginBottom: 20,
+  subtitle: {
+    marginBottom: 16,
     textAlign: 'center',
     opacity: 0.7,
   },
-  typesList: {
-    maxHeight: 400,
+  optionsContainer: {
+    gap: 8,
   },
-  typeItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+  option: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.02)',
   },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 40,
+  selectedOption: {
+    borderColor: 'rgb(103, 80, 164)',
+    backgroundColor: 'rgba(103, 80, 164, 0.08)',
   },
-  typeDivider: {
-    marginVertical: 4,
-  },
-  selectedTypeContainer: {
+  optionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 8,
   },
-  selectedTypeText: {
-    marginLeft: 8,
+  optionText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  optionLabel: {
     fontWeight: '500',
+    marginBottom: 2,
   },
-  fieldLabel: {
-    marginBottom: 12,
-    marginTop: 16,
+  optionDescription: {
+    opacity: 0.6,
   },
-  severityContainer: {
+  severityOption: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.02)',
+  },
+  selectedSeverityOption: {
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+  severityContent: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 20,
+    alignItems: 'center',
   },
-  severityButton: {
-    marginRight: 8,
-    marginBottom: 8,
-    minWidth: 80,
+  severityIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
-  severityButtonText: {
-    fontSize: 12,
+  severityText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  severityLabel: {
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  divider: {
+    marginVertical: 20,
   },
   notesInput: {
-    marginBottom: 16,
-    minHeight: 100,
-  },
-  dialogActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingTop: 16,
-  },
-  actionButton: {
-    marginLeft: 8,
-    minWidth: 80,
+    marginTop: 8,
   },
 }); 
