@@ -13,12 +13,14 @@ interface HomeScreenProps {
   isDarkMode: boolean;
   toggleTheme: () => void;
   onNavigateToTask: (taskId: string) => void;
+  taskRefreshTrigger?: number;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
   isDarkMode, 
   toggleTheme,
-  onNavigateToTask
+  onNavigateToTask,
+  taskRefreshTrigger
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -103,6 +105,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       loadNotifications();
     }
   }, [currentUserId]);
+
+  // Efecto para refrescar tareas cuando se actualiza el trigger
+  useEffect(() => {
+    if (taskRefreshTrigger && taskRefreshTrigger > 0 && currentUserId && workDay) {
+      console.log('🔄 Trigger de refresh detectado, recargando tareas...');
+      loadTasks(workDay.date);
+    }
+  }, [taskRefreshTrigger, currentUserId, workDay?.date]);
 
   const loadUserInfo = async () => {
     try {

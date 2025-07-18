@@ -97,8 +97,27 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     try {
       const taskData = await supabaseService.getTaskById(taskId);
       if (taskData) {
-        setTask(taskData);
+        // Calcular el estado correcto basándose en las subtareas
+        const calculatedStatus = calculateTaskStatus(taskData.subtasks);
+        
+        // Si el estado calculado es diferente al almacenado, actualizar
+        const finalTaskData = {
+          ...taskData,
+          status: calculatedStatus
+        };
+        
+        setTask(finalTaskData);
         updateTimerDisplay(taskData.timer.totalElapsed);
+        
+        // Actualizar en la base de datos si el estado cambió (sincronización inicial silenciosa)
+        if (calculatedStatus !== taskData.status) {
+          try {
+            await supabaseService.updateTask(taskId, { status: calculatedStatus });
+            console.log(`🔄 Estado sincronizado: ${getStatusText(calculatedStatus)}`);
+          } catch (error) {
+            console.error('❌ Error synchronizing task status:', error);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading task:', error);
@@ -113,6 +132,22 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setTimerDisplay(
       `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     );
+  };
+
+  const calculateTaskStatus = (subtasks: TaskSubtask[]): TaskStatus => {
+    if (subtasks.length === 0) {
+      return TaskStatus.NOT_STARTED;
+    }
+    
+    const completedSubtasks = subtasks.filter(subtask => subtask.isCompleted).length;
+    
+    if (completedSubtasks === 0) {
+      return TaskStatus.NOT_STARTED;
+    } else if (completedSubtasks === subtasks.length) {
+      return TaskStatus.COMPLETED;
+    } else {
+      return TaskStatus.IN_PROGRESS;
+    }
   };
 
   const getStatusColor = (status: TaskStatus) => {
@@ -199,8 +234,30 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         return s;
       });
       
-      const updatedTask = { ...task, subtasks: updatedSubtasks };
+      // Calcular el nuevo estado de la tarea basándose en las subtareas
+      const newTaskStatus = calculateTaskStatus(updatedSubtasks);
+      
+      const updatedTask = { 
+        ...task, 
+        subtasks: updatedSubtasks,
+        status: newTaskStatus
+      };
       setTask(updatedTask);
+
+      // Actualizar el estado de la tarea en la base de datos si cambió
+      if (newTaskStatus !== task.status) {
+        try {
+          await supabaseService.updateTask(taskId, { status: newTaskStatus });
+          console.log('✅ Task status updated to:', newTaskStatus);
+          
+          // Log del cambio de estado (visible en consola)
+          const statusText = getStatusText(newTaskStatus);
+          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+        } catch (error) {
+          console.error('❌ Error updating task status:', error);
+          // No mostramos error al usuario para no interrumpir el flujo
+        }
+      }
       
       console.log('✅ Subtask toggled successfully');
       
@@ -254,8 +311,29 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             return s;
           });
           
-          const updatedTask = { ...task, subtasks: updatedSubtasks };
+          // Calcular el nuevo estado de la tarea basándose en las subtareas
+          const newTaskStatus = calculateTaskStatus(updatedSubtasks);
+          
+          const updatedTask = { 
+            ...task, 
+            subtasks: updatedSubtasks,
+            status: newTaskStatus
+          };
           setTask(updatedTask);
+
+          // Actualizar el estado de la tarea en la base de datos si cambió
+          if (newTaskStatus !== task.status) {
+            try {
+              supabaseService.updateTask(taskId, { status: newTaskStatus });
+              console.log('✅ Task status updated to:', newTaskStatus);
+              
+              // Log del cambio de estado (visible en consola)
+              const statusText = getStatusText(newTaskStatus);
+              console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+            } catch (error) {
+              console.error('❌ Error updating task status:', error);
+            }
+          }
         }}
       ]
     );

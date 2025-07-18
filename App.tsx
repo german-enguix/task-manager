@@ -19,6 +19,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0);
 
   const theme = isDarkMode ? darkTheme : lightTheme;
 
@@ -109,9 +110,16 @@ export default function App() {
   };
 
   const navigateToHome = () => {
+    const wasInTaskDetail = currentScreen === 'taskDetail';
     setCurrentScreen('home');
     setSelectedTaskId(null);
     setSelectedProjectId(null);
+    
+    // Si venimos del detalle de una tarea, activar el refresh
+    if (wasInTaskDetail) {
+      setTaskRefreshTrigger(prev => prev + 1);
+      console.log('🔄 Activando refresh de tareas desde TaskDetail');
+    }
   };
 
   const navigateToProjects = () => {
@@ -227,6 +235,7 @@ export default function App() {
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
+            taskRefreshTrigger={taskRefreshTrigger}
           />
         );
       case 'projects':
@@ -254,6 +263,7 @@ export default function App() {
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
+            taskRefreshTrigger={taskRefreshTrigger}
           />
         );
       case 'projectDetail':
@@ -274,6 +284,7 @@ export default function App() {
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
+            taskRefreshTrigger={taskRefreshTrigger}
           />
         );
     }
