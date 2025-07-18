@@ -21,3 +21,4 @@ export { SupabaseTest } from './SupabaseTest';
 
 // Dialog components
 export { ProblemReportDialog } from './ProblemReportDialog';
+export { NFCDialog } from './NFCDialog';

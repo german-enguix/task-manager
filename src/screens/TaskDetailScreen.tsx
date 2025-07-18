@@ -34,7 +34,7 @@ import {
   TaskProblemReport,
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
-import { ProblemReportDialog } from '@/components';
+import { ProblemReportDialog, NFCDialog } from '@/components';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -53,6 +53,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [commentText, setCommentText] = useState('');
   const [showProblemDialog, setShowProblemDialog] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [showNFCDialog, setShowNFCDialog] = useState(false);
+  const [currentNFCSubtask, setCurrentNFCSubtask] = useState<TaskSubtask | null>(null);
 
   useEffect(() => {
     loadUserAndTask();
@@ -301,6 +303,14 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const handleSubtaskEvidence = (subtask: TaskSubtask) => {
     if (!subtask.evidenceRequirement) return;
     
+    // Si es evidencia NFC, mostrar el diálogo específico
+    if (subtask.evidenceRequirement.type === EvidenceType.NFC) {
+      setCurrentNFCSubtask(subtask);
+      setShowNFCDialog(true);
+      return;
+    }
+    
+    // Para otros tipos de evidencia, usar el flujo existente
     const actionText = getSubtaskEvidenceActionText(subtask.evidenceRequirement);
     Alert.alert(
       'Proporcionar Evidencia',
@@ -310,6 +320,24 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         { text: actionText, onPress: () => simulateEvidenceCapture(subtask) }
       ]
     );
+  };
+
+  const handleNFCSuccess = () => {
+    if (!currentNFCSubtask) return;
+    
+    // Cerrar el diálogo NFC
+    setShowNFCDialog(false);
+    
+    // Simular la captura de evidencia NFC
+    simulateEvidenceCapture(currentNFCSubtask);
+    
+    // Limpiar la subtarea actual
+    setCurrentNFCSubtask(null);
+  };
+
+  const handleNFCDismiss = () => {
+    setShowNFCDialog(false);
+    setCurrentNFCSubtask(null);
   };
 
   const simulateEvidenceCapture = (subtask: TaskSubtask) => {
@@ -1153,6 +1181,15 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         onDismiss={() => setShowProblemDialog(false)}
         onSubmit={handleSubmitProblemReport}
         isSubmitting={isSubmittingReport}
+      />
+
+      {/* NFC Dialog */}
+      <NFCDialog
+        visible={showNFCDialog}
+        onDismiss={handleNFCDismiss}
+        onSuccess={handleNFCSuccess}
+        title={currentNFCSubtask?.evidenceRequirement?.title || 'Escanear NFC'}
+        description={currentNFCSubtask?.evidenceRequirement?.description || 'Acerca tu dispositivo al tag NFC para registrar la evidencia'}
       />
     </Surface>
   );
