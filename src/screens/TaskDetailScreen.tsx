@@ -34,7 +34,7 @@ import {
   TaskProblemReport,
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
-import { ProblemReportDialog, NFCDialog } from '@/components';
+import { ProblemReportDialog, NFCDialog, SignatureDialog, SignatureViewer } from '@/components';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -55,6 +55,10 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [showNFCDialog, setShowNFCDialog] = useState(false);
   const [currentNFCSubtask, setCurrentNFCSubtask] = useState<TaskSubtask | null>(null);
+  const [showSignatureDialog, setShowSignatureDialog] = useState(false);
+  const [currentSignatureSubtask, setCurrentSignatureSubtask] = useState<TaskSubtask | null>(null);
+  const [showSignatureViewer, setShowSignatureViewer] = useState(false);
+  const [currentSignatureData, setCurrentSignatureData] = useState<string>('');
 
   useEffect(() => {
     loadUserAndTask();
@@ -316,6 +320,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       setShowNFCDialog(true);
       return;
     }
+
+    // Si es evidencia de firma, mostrar el diálogo específico
+    if (subtask.evidenceRequirement.type === EvidenceType.SIGNATURE) {
+      setCurrentSignatureSubtask(subtask);
+      setShowSignatureDialog(true);
+      return;
+    }
     
     // Para otros tipos de evidencia, usar el flujo existente
     const actionText = getSubtaskEvidenceActionText(subtask.evidenceRequirement);
@@ -354,6 +365,43 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setCurrentNFCSubtask(null);
   };
 
+  const handleSignatureSuccess = async (signatureData: string) => {
+    if (!currentSignatureSubtask || !task) return;
+    
+    // Cerrar el diálogo de firma
+    setShowSignatureDialog(false);
+    
+    try {
+      // Simular la captura de evidencia de firma y marcar como completada
+      await simulateSignatureEvidenceCapture(currentSignatureSubtask, signatureData);
+      
+      console.log('✅ Signature evidence captured and subtask completed');
+    } catch (error) {
+      console.error('❌ Error completing signature evidence:', error);
+      Alert.alert('Error', 'No se pudo completar la evidencia de firma. Inténtalo de nuevo.');
+    } finally {
+      // Limpiar la subtarea actual
+      setCurrentSignatureSubtask(null);
+    }
+  };
+
+  const handleSignatureDismiss = () => {
+    setShowSignatureDialog(false);
+    setCurrentSignatureSubtask(null);
+  };
+
+  const handleViewSignature = (subtask: TaskSubtask) => {
+    if (subtask.evidence && subtask.evidence.data) {
+      setCurrentSignatureData(subtask.evidence.data);
+      setShowSignatureViewer(true);
+    }
+  };
+
+  const handleSignatureViewerDismiss = () => {
+    setShowSignatureViewer(false);
+    setCurrentSignatureData('');
+  };
+
   const simulateNFCEvidenceCapture = async (subtask: TaskSubtask) => {
     if (!task || !subtask.evidenceRequirement) return;
     
@@ -379,6 +427,64 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             description: 'Evidencia NFC capturada correctamente',
             createdAt: new Date(),
             completedBy: 'Usuario Actual',
+          },
+        };
+      }
+      return s;
+    });
+    
+    // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+    const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
+    
+    const updatedTask = { 
+      ...task, 
+      subtasks: updatedSubtasks,
+      status: newTaskStatus
+    };
+    setTask(updatedTask);
+
+    // Actualizar el estado de la tarea en la base de datos si cambió
+    if (newTaskStatus !== task.status) {
+      try {
+        await supabaseService.updateTask(taskId, { status: newTaskStatus });
+        console.log('✅ Task status updated to:', newTaskStatus);
+        
+        // Log del cambio de estado (visible en consola)
+        const statusText = getStatusText(newTaskStatus);
+        console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+      } catch (error) {
+        console.error('❌ Error updating task status:', error);
+      }
+         }
+   };
+
+  const simulateSignatureEvidenceCapture = async (subtask: TaskSubtask, signatureData: string) => {
+    if (!task || !subtask.evidenceRequirement) return;
+    
+    // Actualizar en Supabase: marcar subtarea como completada
+    const completedAt = new Date();
+    await supabaseService.updateSubtask(subtask.id, {
+      isCompleted: true,
+      completedAt: completedAt
+    });
+    
+    // Actualizar subtarea con evidencia completada Y marcada como completada
+    const updatedSubtasks = task.subtasks.map(s => {
+      if (s.id === subtask.id) {
+        return {
+          ...s,
+          isCompleted: true,
+          completedAt: completedAt,
+          evidence: {
+            id: `subtask-evidence-${Date.now()}`,
+            subtaskId: subtask.id,
+            type: subtask.evidenceRequirement!.type,
+            title: `${subtask.evidenceRequirement!.title} - Completada`,
+            description: 'Evidencia de firma capturada correctamente',
+            createdAt: new Date(),
+            completedBy: 'Usuario Actual',
+            // Guardar los datos de la firma para poder consultarla
+            data: signatureData,
           },
         };
       }
@@ -1063,11 +1169,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                       <Button 
                         mode="outlined"
                         icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
-                        disabled={true}
+                        disabled={subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE}
+                        onPress={subtask.evidenceRequirement.type === EvidenceType.SIGNATURE ? () => handleViewSignature(subtask) : undefined}
                         style={styles.evidenceCompletedButton}
                         labelStyle={styles.evidenceCompletedButtonText}
                       >
-                        Evidencia completada
+                        {subtask.evidenceRequirement.type === EvidenceType.SIGNATURE ? 'Ver Firma' : 'Evidencia completada'}
                       </Button>
                     ) : (
                       <Button 
@@ -1260,6 +1367,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         onSuccess={handleNFCSuccess}
         title={currentNFCSubtask?.evidenceRequirement?.title || 'Escanear NFC'}
         description={currentNFCSubtask?.evidenceRequirement?.description || 'Acerca tu dispositivo al tag NFC para registrar la evidencia'}
+      />
+
+      {/* Signature Dialog */}
+      <SignatureDialog
+        visible={showSignatureDialog}
+        onDismiss={handleSignatureDismiss}
+        onSuccess={handleSignatureSuccess}
+        title={currentSignatureSubtask?.evidenceRequirement?.title || 'Firma Digital'}
+        description={currentSignatureSubtask?.evidenceRequirement?.description || 'Dibuja tu firma en el cuadro de abajo'}
+      />
+
+      {/* Signature Viewer */}
+      <SignatureViewer
+        visible={showSignatureViewer}
+        onDismiss={handleSignatureViewerDismiss}
+        signatureData={currentSignatureData}
+        title="Firma Digital Capturada"
       />
     </Surface>
   );
