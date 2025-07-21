@@ -35,9 +35,16 @@ export const SignatureViewer: React.FC<SignatureViewerProps> = ({
 
   let parsedData = null;
   try {
-    parsedData = JSON.parse(signatureData);
+    // Validar que signatureData no esté vacío y sea una cadena válida
+    if (!signatureData || typeof signatureData !== 'string' || signatureData.trim() === '') {
+      console.warn('SignatureViewer: signatureData está vacío o no es válido:', signatureData);
+      parsedData = null;
+    } else {
+      parsedData = JSON.parse(signatureData);
+    }
   } catch (error) {
-    console.error('Error parsing signature data:', error);
+    console.error('Error parsing signature data:', error, 'Data received:', signatureData);
+    parsedData = null;
   }
 
   const renderStroke = (points: Point[], strokeIndex: number) => {
@@ -95,7 +102,10 @@ export const SignatureViewer: React.FC<SignatureViewerProps> = ({
                 {!parsedData && (
                   <View style={styles.errorContainer}>
                     <Text variant="bodySmall" style={styles.errorText}>
-                      No se pudo cargar la firma
+                      {!signatureData || signatureData.trim() === '' 
+                        ? 'No hay datos de firma disponibles'
+                        : 'Error al cargar la firma. Los datos pueden estar corruptos.'
+                      }
                     </Text>
                   </View>
                 )}

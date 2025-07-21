@@ -391,9 +391,19 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const handleViewSignature = (subtask: TaskSubtask) => {
-    if (subtask.evidence && subtask.evidence.data) {
+    if (subtask.evidence && 
+        subtask.evidence.data && 
+        typeof subtask.evidence.data === 'string' && 
+        subtask.evidence.data.trim() !== '') {
       setCurrentSignatureData(subtask.evidence.data);
       setShowSignatureViewer(true);
+    } else {
+      console.warn('No se puede mostrar la firma: datos inválidos o vacíos', subtask.evidence?.data);
+      Alert.alert(
+        'Error',
+        'No se pueden mostrar los datos de la firma. Es posible que la firma esté corrupta o vacía.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -460,6 +470,22 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   const simulateSignatureEvidenceCapture = async (subtask: TaskSubtask, signatureData: string) => {
     if (!task || !subtask.evidenceRequirement) return;
+    
+    // Validar que los datos de firma sean válidos antes de guardar
+    if (!signatureData || typeof signatureData !== 'string' || signatureData.trim() === '') {
+      console.error('Error: datos de firma inválidos', signatureData);
+      Alert.alert('Error', 'Los datos de la firma no son válidos. Inténtalo de nuevo.');
+      return;
+    }
+
+    // Validar que los datos sean JSON válido
+    try {
+      JSON.parse(signatureData);
+    } catch (error) {
+      console.error('Error: datos de firma no son JSON válido', error, signatureData);
+      Alert.alert('Error', 'Los datos de la firma están corruptos. Inténtalo de nuevo.');
+      return;
+    }
     
     // Actualizar en Supabase: marcar subtarea como completada
     const completedAt = new Date();
@@ -1169,7 +1195,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                       <Button 
                         mode="outlined"
                         icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
-                        disabled={subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE}
+                        disabled={
+                          subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE ||
+                          !subtask.evidence.data ||
+                          typeof subtask.evidence.data !== 'string' ||
+                          subtask.evidence.data.trim() === ''
+                        }
                         onPress={subtask.evidenceRequirement.type === EvidenceType.SIGNATURE ? () => handleViewSignature(subtask) : undefined}
                         style={styles.evidenceCompletedButton}
                         labelStyle={styles.evidenceCompletedButtonText}
