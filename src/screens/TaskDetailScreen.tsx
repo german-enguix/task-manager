@@ -415,57 +415,83 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const simulateNFCEvidenceCapture = async (subtask: TaskSubtask) => {
     if (!task || !subtask.evidenceRequirement) return;
     
-    // Actualizar en Supabase: marcar subtarea como completada
-    const completedAt = new Date();
-    await supabaseService.updateSubtask(subtask.id, {
-      isCompleted: true,
-      completedAt: completedAt
-    });
-    
-    // Actualizar subtarea con evidencia completada Y marcada como completada
-    const updatedSubtasks = task.subtasks.map(s => {
-      if (s.id === subtask.id) {
-        return {
-          ...s,
-          isCompleted: true,
-          completedAt: completedAt,
-          evidence: {
-            id: `subtask-evidence-${Date.now()}`,
-            subtaskId: subtask.id,
-            type: subtask.evidenceRequirement!.type,
-            title: `${subtask.evidenceRequirement!.title} - Completada`,
-            description: 'Evidencia NFC capturada correctamente',
-            createdAt: new Date(),
-            completedBy: 'Usuario Actual',
-          },
-        };
-      }
-      return s;
-    });
-    
-    // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
-    const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
-    
-    const updatedTask = { 
-      ...task, 
-      subtasks: updatedSubtasks,
-      status: newTaskStatus
-    };
-    setTask(updatedTask);
+    try {
+      // Actualizar en Supabase: marcar subtarea como completada
+      const completedAt = new Date();
+      await supabaseService.updateSubtask(subtask.id, {
+        isCompleted: true,
+        completedAt: completedAt
+      });
 
-    // Actualizar el estado de la tarea en la base de datos si cambió
-    if (newTaskStatus !== task.status) {
-      try {
-        await supabaseService.updateTask(taskId, { status: newTaskStatus });
-        console.log('✅ Task status updated to:', newTaskStatus);
-        
-        // Log del cambio de estado (visible en consola)
-        const statusText = getStatusText(newTaskStatus);
-        console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
-      } catch (error) {
-        console.error('❌ Error updating task status:', error);
+      // Simular datos NFC (en una implementación real, vendría del escáner NFC)
+      const nfcData = {
+        tagId: `NFC_${Date.now()}`,
+        scannedAt: new Date().toISOString(),
+        location: 'equipment_scanner'
+      };
+
+      // Guardar la evidencia en la base de datos
+      await supabaseService.addSubtaskEvidence(
+        subtask.id,
+        subtask.evidenceRequirement.id,
+        subtask.evidenceRequirement.type,
+        `${subtask.evidenceRequirement.title} - Completada`,
+        'Evidencia NFC capturada correctamente',
+        undefined, // filePath
+        nfcData // data
+      );
+      
+      // Actualizar subtarea con evidencia completada Y marcada como completada
+      const updatedSubtasks = task.subtasks.map(s => {
+        if (s.id === subtask.id) {
+          return {
+            ...s,
+            isCompleted: true,
+            completedAt: completedAt,
+            evidence: {
+              id: `subtask-evidence-${Date.now()}`,
+              subtaskId: subtask.id,
+              type: subtask.evidenceRequirement!.type,
+              title: `${subtask.evidenceRequirement!.title} - Completada`,
+              description: 'Evidencia NFC capturada correctamente',
+              createdAt: new Date(),
+              completedBy: 'Usuario Actual',
+              data: nfcData,
+            },
+          };
+        }
+        return s;
+      });
+      
+      // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+      const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
+      
+      const updatedTask = { 
+        ...task, 
+        subtasks: updatedSubtasks,
+        status: newTaskStatus
+      };
+      setTask(updatedTask);
+
+      // Actualizar el estado de la tarea en la base de datos si cambió
+      if (newTaskStatus !== task.status) {
+        try {
+          await supabaseService.updateTask(taskId, { status: newTaskStatus });
+          console.log('✅ Task status updated to:', newTaskStatus);
+          
+          // Log del cambio de estado (visible en consola)
+          const statusText = getStatusText(newTaskStatus);
+          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+        } catch (error) {
+          console.error('❌ Error updating task status:', error);
+        }
       }
-         }
+
+      console.log('✅ NFC evidence saved successfully to database');
+    } catch (error) {
+      console.error('❌ Error saving NFC evidence:', error);
+      Alert.alert('Error', 'No se pudo guardar la evidencia NFC. Inténtalo de nuevo.');
+    }
    };
 
   const simulateSignatureEvidenceCapture = async (subtask: TaskSubtask, signatureData: string) => {
@@ -487,58 +513,76 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       return;
     }
     
-    // Actualizar en Supabase: marcar subtarea como completada
-    const completedAt = new Date();
-    await supabaseService.updateSubtask(subtask.id, {
-      isCompleted: true,
-      completedAt: completedAt
-    });
-    
-    // Actualizar subtarea con evidencia completada Y marcada como completada
-    const updatedSubtasks = task.subtasks.map(s => {
-      if (s.id === subtask.id) {
-        return {
-          ...s,
-          isCompleted: true,
-          completedAt: completedAt,
-          evidence: {
-            id: `subtask-evidence-${Date.now()}`,
-            subtaskId: subtask.id,
-            type: subtask.evidenceRequirement!.type,
-            title: `${subtask.evidenceRequirement!.title} - Completada`,
-            description: 'Evidencia de firma capturada correctamente',
-            createdAt: new Date(),
-            completedBy: 'Usuario Actual',
-            // Guardar los datos de la firma para poder consultarla
-            data: signatureData,
-          },
-        };
-      }
-      return s;
-    });
-    
-    // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
-    const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
-    
-    const updatedTask = { 
-      ...task, 
-      subtasks: updatedSubtasks,
-      status: newTaskStatus
-    };
-    setTask(updatedTask);
+    try {
+      // Actualizar en Supabase: marcar subtarea como completada
+      const completedAt = new Date();
+      await supabaseService.updateSubtask(subtask.id, {
+        isCompleted: true,
+        completedAt: completedAt
+      });
 
-    // Actualizar el estado de la tarea en la base de datos si cambió
-    if (newTaskStatus !== task.status) {
-      try {
-        await supabaseService.updateTask(taskId, { status: newTaskStatus });
-        console.log('✅ Task status updated to:', newTaskStatus);
-        
-        // Log del cambio de estado (visible en consola)
-        const statusText = getStatusText(newTaskStatus);
-        console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
-      } catch (error) {
-        console.error('❌ Error updating task status:', error);
+      // Guardar la evidencia en la base de datos
+      await supabaseService.addSubtaskEvidence(
+        subtask.id,
+        subtask.evidenceRequirement.id,
+        subtask.evidenceRequirement.type,
+        `${subtask.evidenceRequirement.title} - Completada`,
+        'Evidencia de firma capturada correctamente',
+        undefined, // filePath
+        signatureData // data
+      );
+      
+      // Actualizar subtarea con evidencia completada Y marcada como completada
+      const updatedSubtasks = task.subtasks.map(s => {
+        if (s.id === subtask.id) {
+          return {
+            ...s,
+            isCompleted: true,
+            completedAt: completedAt,
+            evidence: {
+              id: `subtask-evidence-${Date.now()}`,
+              subtaskId: subtask.id,
+              type: subtask.evidenceRequirement!.type,
+              title: `${subtask.evidenceRequirement!.title} - Completada`,
+              description: 'Evidencia de firma capturada correctamente',
+              createdAt: new Date(),
+              completedBy: 'Usuario Actual',
+              // Guardar los datos de la firma para poder consultarla
+              data: signatureData,
+            },
+          };
+        }
+        return s;
+      });
+      
+      // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+      const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
+      
+      const updatedTask = { 
+        ...task, 
+        subtasks: updatedSubtasks,
+        status: newTaskStatus
+      };
+      setTask(updatedTask);
+
+      // Actualizar el estado de la tarea en la base de datos si cambió
+      if (newTaskStatus !== task.status) {
+        try {
+          await supabaseService.updateTask(taskId, { status: newTaskStatus });
+          console.log('✅ Task status updated to:', newTaskStatus);
+          
+          // Log del cambio de estado (visible en consola)
+          const statusText = getStatusText(newTaskStatus);
+          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+        } catch (error) {
+          console.error('❌ Error updating task status:', error);
+        }
       }
+
+      console.log('✅ Signature evidence saved successfully to database');
+    } catch (error) {
+      console.error('❌ Error saving signature evidence:', error);
+      Alert.alert('Error', 'No se pudo guardar la evidencia de firma. Inténtalo de nuevo.');
     }
   };
 

@@ -615,6 +615,48 @@ export class SupabaseService {
     }
   }
 
+  async addSubtaskEvidence(
+    subtaskId: string,
+    requirementId: string,
+    type: string,
+    title: string,
+    description?: string,
+    filePath?: string,
+    data?: any
+  ): Promise<void> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const evidenceData = {
+        subtask_id: subtaskId,
+        requirement_id: requirementId,
+        type: type,
+        title: title,
+        description: description || null,
+        file_path: filePath || null,
+        data: data || null,
+        completed_by: user.id,
+      };
+
+      console.log('🔄 Inserting subtask evidence:', evidenceData);
+
+      const { error } = await supabase
+        .from('subtask_evidences')
+        .insert(evidenceData);
+
+      if (error) {
+        console.error('❌ Supabase error saving evidence:', error);
+        throw error;
+      }
+
+      console.log('✅ Subtask evidence saved successfully');
+    } catch (error) {
+      console.error('❌ Error adding subtask evidence:', error);
+      throw error;
+    }
+  }
+
   async updateTaskStatus(taskId: string, status: string): Promise<void> {
     try {
       const { error } = await supabase
@@ -1593,8 +1635,8 @@ export class SupabaseService {
       console.error('❌ Error deleting task problem report:', error);
       throw error;
     }
-  }
-
+    }
+ 
   // ========== HELPERS ==========
   
   private transformTaskFromSupabase(data: any): Task {
@@ -1619,6 +1661,7 @@ export class SupabaseService {
         completedAt: subtask.completed_at ? new Date(subtask.completed_at) : undefined,
         // Mapear evidencias si existen
         evidenceRequirement: subtask.subtask_evidence_requirements?.[0] ? {
+          id: subtask.subtask_evidence_requirements[0].id,
           type: subtask.subtask_evidence_requirements[0].type,
           isRequired: subtask.subtask_evidence_requirements[0].is_required,
           title: subtask.subtask_evidence_requirements[0].title,

@@ -72,6 +72,7 @@ export const mockTasks: Task[] = [
         completedAt: new Date('2025-01-12T10:30:00'),
         // Evidencia requerida: PHOTO_VIDEO (COMPLETADA)
         evidenceRequirement: {
+          id: 'evidence-req-1',
           type: EvidenceType.PHOTO_VIDEO,
           isRequired: true,
           title: 'Foto de extintores',
@@ -103,6 +104,7 @@ export const mockTasks: Task[] = [
         completedAt: new Date('2025-01-12T11:00:00'),
         // Evidencia requerida: LOCATION/GPS (COMPLETADA)
         evidenceRequirement: {
+          id: 'evidence-req-3',
           type: EvidenceType.LOCATION,
           isRequired: true,
           title: 'Ubicación GPS de salidas',
@@ -137,6 +139,7 @@ export const mockTasks: Task[] = [
         createdAt: new Date('2025-01-12T09:00:00'),
         // Evidencia requerida: NFC (NO COMPLETADA)
         evidenceRequirement: {
+          id: 'evidence-req-4',
           type: EvidenceType.NFC,
           isRequired: true,
           title: 'Escaneo NFC de equipos',
@@ -157,6 +160,7 @@ export const mockTasks: Task[] = [
         createdAt: new Date('2025-01-12T09:00:00'),
         // Evidencia opcional: PHOTO_VIDEO (NO COMPLETADA)
         evidenceRequirement: {
+          id: 'evidence-req-5',
           type: EvidenceType.PHOTO_VIDEO,
           isRequired: false, // OPCIONAL
           title: 'Fotos de EPIs (opcional)',
@@ -178,6 +182,7 @@ export const mockTasks: Task[] = [
         createdAt: new Date('2025-01-12T09:00:00'),
         // Evidencia requerida: SIGNATURE (NO COMPLETADA)
         evidenceRequirement: {
+          id: 'evidence-req-6',
           type: EvidenceType.SIGNATURE,
           isRequired: true,
           title: 'Firma del supervisor',
@@ -384,6 +389,7 @@ export const mockTasks: Task[] = [
         createdAt: new Date('2025-01-10T08:00:00'),
         // Evidencia opcional: PHOTO_VIDEO
         evidenceRequirement: {
+          id: 'evidence-req-7',
           type: EvidenceType.PHOTO_VIDEO,
           isRequired: false, // OPCIONAL
           title: 'Video del estado de correas',
@@ -404,6 +410,7 @@ export const mockTasks: Task[] = [
         createdAt: new Date('2025-01-10T08:00:00'),
         // Evidencia requerida: NFC + SIGNATURE
         evidenceRequirement: {
+          id: 'evidence-req-8',
           type: EvidenceType.NFC,
           isRequired: true,
           title: 'Escaneo NFC filtros nuevos',
@@ -492,6 +499,7 @@ export const mockTasks: Task[] = [
         completedAt: new Date('2025-01-10T10:30:00'),
         // Evidencia requerida: SIGNATURE (COMPLETADA)
         evidenceRequirement: {
+          id: 'evidence-req-9',
           type: EvidenceType.SIGNATURE,
           isRequired: true,
           title: 'Firma de calibración T1',
@@ -531,6 +539,7 @@ export const mockTasks: Task[] = [
         completedAt: new Date('2025-01-10T11:00:00'),
         // Evidencia requerida: NFC (COMPLETADA)
         evidenceRequirement: {
+          id: 'evidence-req-10',
           type: EvidenceType.NFC,
           isRequired: true,
           title: 'Escaneo NFC sensor P1',

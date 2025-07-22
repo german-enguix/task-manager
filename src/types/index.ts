@@ -137,6 +137,7 @@ export interface Tag {
 
 // Configuración de evidencia para subtareas
 export interface SubtaskEvidenceRequirement {
+  id: string;
   type: EvidenceType;
   isRequired: boolean; // true = obligatoria (check bloqueado), false = opcional (check normal)
   title: string;
