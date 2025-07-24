@@ -34,7 +34,7 @@ import {
   TaskProblemReport,
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
-import { ProblemReportDialog, NFCDialog, SignatureDialog, SignatureViewer } from '@/components';
+import { ProblemReportDialog, NFCDialog, LocationDialog, LocationViewer, SignatureDialog, SignatureViewer } from '@/components';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -59,6 +59,10 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [currentSignatureSubtask, setCurrentSignatureSubtask] = useState<TaskSubtask | null>(null);
   const [showSignatureViewer, setShowSignatureViewer] = useState(false);
   const [currentSignatureData, setCurrentSignatureData] = useState<string>('');
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
+  const [currentLocationSubtask, setCurrentLocationSubtask] = useState<TaskSubtask | null>(null);
+  const [showLocationViewer, setShowLocationViewer] = useState(false);
+  const [currentLocationData, setCurrentLocationData] = useState<any>(null);
 
   useEffect(() => {
     loadUserAndTask();
@@ -327,6 +331,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       setShowSignatureDialog(true);
       return;
     }
+
+    // Si es evidencia de ubicación, mostrar el diálogo específico
+    if (subtask.evidenceRequirement.type === EvidenceType.LOCATION) {
+      setCurrentLocationSubtask(subtask);
+      setShowLocationDialog(true);
+      return;
+    }
     
     // Para otros tipos de evidencia, usar el flujo existente
     const actionText = getSubtaskEvidenceActionText(subtask.evidenceRequirement);
@@ -412,6 +423,50 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setCurrentSignatureData('');
   };
 
+  const handleLocationSuccess = async () => {
+    if (!currentLocationSubtask || !task) return;
+    
+    // Cerrar el diálogo de ubicación
+    setShowLocationDialog(false);
+    
+    try {
+      // Simular la captura de evidencia de ubicación y marcar como completada
+      await simulateLocationEvidenceCapture(currentLocationSubtask);
+      
+      console.log('✅ Location evidence captured and subtask completed');
+    } catch (error) {
+      console.error('❌ Error completing location evidence:', error);
+      Alert.alert('Error', 'No se pudo completar la evidencia de ubicación. Inténtalo de nuevo.');
+    } finally {
+      // Limpiar la subtarea actual
+      setCurrentLocationSubtask(null);
+    }
+  };
+
+  const handleLocationDismiss = () => {
+    setShowLocationDialog(false);
+    setCurrentLocationSubtask(null);
+  };
+
+  const handleViewLocation = (subtask: TaskSubtask) => {
+    if (subtask.evidence && subtask.evidence.data) {
+      setCurrentLocationData(subtask.evidence.data);
+      setShowLocationViewer(true);
+    } else {
+      console.warn('No se puede mostrar la ubicación: datos inválidos o vacíos', subtask.evidence?.data);
+      Alert.alert(
+        'Error',
+        'No se pueden mostrar los datos de ubicación. Es posible que la ubicación esté corrupta o vacía.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleLocationViewerDismiss = () => {
+    setShowLocationViewer(false);
+    setCurrentLocationData(null);
+  };
+
   const simulateNFCEvidenceCapture = async (subtask: TaskSubtask) => {
     if (!task || !subtask.evidenceRequirement) return;
     
@@ -491,6 +546,92 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     } catch (error) {
       console.error('❌ Error saving NFC evidence:', error);
       Alert.alert('Error', 'No se pudo guardar la evidencia NFC. Inténtalo de nuevo.');
+    }
+   };
+
+  const simulateLocationEvidenceCapture = async (subtask: TaskSubtask) => {
+    if (!task || !subtask.evidenceRequirement) return;
+    
+    try {
+      // Actualizar en Supabase: marcar subtarea como completada
+      const completedAt = new Date();
+      await supabaseService.updateSubtask(subtask.id, {
+        isCompleted: true,
+        completedAt: completedAt
+      });
+
+      // Simular datos de ubicación GPS (en una implementación real, vendría del GPS)
+      const locationData = {
+        latitude: '41.3851',
+        longitude: '2.1734',
+        accuracy: '5 metros',
+        altitude: '12 metros',
+        timestamp: new Date().toISOString(),
+        address: 'Barcelona, España',
+        provider: 'GPS'
+      };
+
+      // Guardar la evidencia en la base de datos
+      await supabaseService.addSubtaskEvidence(
+        subtask.id,
+        subtask.evidenceRequirement.id,
+        subtask.evidenceRequirement.type,
+        `${subtask.evidenceRequirement.title} - Completada`,
+        'Evidencia de ubicación capturada correctamente',
+        undefined, // filePath
+        locationData // data
+      );
+      
+      // Actualizar subtarea con evidencia completada Y marcada como completada
+      const updatedSubtasks = task.subtasks.map(s => {
+        if (s.id === subtask.id) {
+          return {
+            ...s,
+            isCompleted: true,
+            completedAt: completedAt,
+            evidence: {
+              id: `subtask-evidence-${Date.now()}`,
+              subtaskId: subtask.id,
+              type: subtask.evidenceRequirement!.type,
+              title: `${subtask.evidenceRequirement!.title} - Completada`,
+              description: 'Evidencia de ubicación capturada correctamente',
+              createdAt: new Date(),
+              completedBy: 'Usuario Actual',
+              data: locationData,
+            },
+          };
+        }
+        return s;
+      });
+      
+      // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+      const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
+      
+      const updatedTask = { 
+        ...task, 
+        subtasks: updatedSubtasks,
+        status: newTaskStatus
+      };
+      setTask(updatedTask);
+
+      // Actualizar el estado de la tarea en la base de datos si cambió
+      if (newTaskStatus !== task.status) {
+        try {
+          await supabaseService.updateTask(taskId, { status: newTaskStatus });
+          console.log('✅ Task status updated to:', newTaskStatus);
+          
+          // Log del cambio de estado (visible en consola)
+          const statusText = getStatusText(newTaskStatus);
+          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+        } catch (error) {
+          console.error('❌ Error updating task status:', error);
+        }
+      }
+
+      console.log('✅ Location evidence saved successfully to database');
+    } catch (error) {
+      console.error('❌ Error saving location evidence:', error);
+      Alert.alert('Error', 'No se pudo guardar la evidencia de ubicación. Inténtalo de nuevo.');
     }
    };
 
@@ -1240,16 +1381,28 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                         mode="outlined"
                         icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
                         disabled={
-                          subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE ||
-                          !subtask.evidence.data ||
-                          typeof subtask.evidence.data !== 'string' ||
-                          subtask.evidence.data.trim() === ''
+                          (subtask.evidenceRequirement.type === EvidenceType.SIGNATURE && 
+                           (!subtask.evidence.data || 
+                            typeof subtask.evidence.data !== 'string' || 
+                            subtask.evidence.data.trim() === '')) ||
+                          (subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE && 
+                           subtask.evidenceRequirement.type !== EvidenceType.LOCATION)
                         }
-                        onPress={subtask.evidenceRequirement.type === EvidenceType.SIGNATURE ? () => handleViewSignature(subtask) : undefined}
+                        onPress={
+                          subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
+                            ? () => handleViewSignature(subtask)
+                            : subtask.evidenceRequirement.type === EvidenceType.LOCATION
+                            ? () => handleViewLocation(subtask)
+                            : undefined
+                        }
                         style={styles.evidenceCompletedButton}
                         labelStyle={styles.evidenceCompletedButtonText}
                       >
-                        {subtask.evidenceRequirement.type === EvidenceType.SIGNATURE ? 'Ver Firma' : 'Evidencia completada'}
+                        {subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
+                          ? 'Ver Firma' 
+                          : subtask.evidenceRequirement.type === EvidenceType.LOCATION
+                          ? 'Ver Ubicación'
+                          : 'Evidencia completada'}
                       </Button>
                     ) : (
                       <Button 
@@ -1459,6 +1612,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         onDismiss={handleSignatureViewerDismiss}
         signatureData={currentSignatureData}
         title="Firma Digital Capturada"
+      />
+
+      {/* Location Dialog */}
+      <LocationDialog
+        visible={showLocationDialog}
+        onDismiss={handleLocationDismiss}
+        onSuccess={handleLocationSuccess}
+        title={currentLocationSubtask?.evidenceRequirement?.title || 'Obtener Ubicación'}
+        description={currentLocationSubtask?.evidenceRequirement?.description || 'Obteniendo tu ubicación actual mediante GPS'}
+      />
+
+      {/* Location Viewer */}
+      <LocationViewer
+        visible={showLocationViewer}
+        onDismiss={handleLocationViewerDismiss}
+        locationData={currentLocationData}
+        title="Ubicación Registrada"
       />
     </Surface>
   );
