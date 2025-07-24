@@ -107,12 +107,36 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     try {
       const taskData = await supabaseService.getTaskById(taskId);
       if (taskData) {
-        // Calcular el estado correcto basándose en las subtareas y el timer
-        const calculatedStatus = calculateTaskStatus(taskData.subtasks, taskData.timer);
+        // VALIDACIÓN DE CONSISTENCIA: Asegurar que evidencia y estado coincidan
+        const consistentSubtasks = taskData.subtasks.map(subtask => {
+          // Si hay evidencia pero no está marcada como completada, corregir
+          if (subtask.evidence && !subtask.isCompleted) {
+            console.log(`🔧 Corrigiendo inconsistencia: subtarea "${subtask.title}" tiene evidencia pero no está marcada como completada`);
+            return {
+              ...subtask,
+              isCompleted: true,
+              completedAt: subtask.completedAt || new Date()
+            };
+          }
+          // Si está marcada como completada pero requiere evidencia y no la tiene, desmarcar
+          if (subtask.isCompleted && subtask.evidenceRequirement?.isRequired && !subtask.evidence) {
+            console.log(`🔧 Corrigiendo inconsistencia: subtarea "${subtask.title}" está marcada pero falta evidencia requerida`);
+            return {
+              ...subtask,
+              isCompleted: false,
+              completedAt: undefined
+            };
+          }
+          return subtask;
+        });
+
+        // Calcular el estado correcto basándose en las subtareas corregidas y el timer
+        const calculatedStatus = calculateTaskStatus(consistentSubtasks, taskData.timer);
         
-        // Si el estado calculado es diferente al almacenado, actualizar
+        // Aplicar datos consistentes
         const finalTaskData = {
           ...taskData,
+          subtasks: consistentSubtasks,
           status: calculatedStatus
         };
         
@@ -237,8 +261,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     
     const subtask = task.subtasks.find(s => s.id === subtaskId);
     if (!subtask) return;
-    
-    // Verificar si la subtarea requiere evidencia obligatoria
+
+    // REGLA 1: Si la evidencia es requerida y no hay evidencia, mostrar diálogo
     if (subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted) {
       Alert.alert(
         'Evidencia Requerida',
@@ -250,28 +274,52 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       );
       return;
     }
+
+    // REGLA 2: Si hay evidencia y se intenta desmarcar, eliminar evidencia
+    if (subtask.evidence && subtask.isCompleted) {
+      Alert.alert(
+        'Eliminar Evidencia',
+        `¿Deseas desmarcar esta subtarea? Se eliminará la evidencia de ${subtask.evidenceRequirement?.title || 'la subtarea'} y podrás volver a capturarla.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Desmarcar y Eliminar', 
+            style: 'destructive',
+            onPress: () => forceToggleSubtask(subtaskId, false) 
+          }
+        ]
+      );
+      return;
+    }
     
+    // REGLA 3: Toggle normal (solo para casos sin evidencia o marcado inicial)
+    await forceToggleSubtask(subtaskId, !subtask.isCompleted);
+  };
+
+  const forceToggleSubtask = async (subtaskId: string, newState: boolean) => {
+    if (!task) return;
+    
+    const subtask = task.subtasks.find(s => s.id === subtaskId);
+    if (!subtask) return;
+
     try {
-      const newCompletedState = !subtask.isCompleted;
-      const completedAt = newCompletedState ? new Date() : undefined;
+      const completedAt = newState ? new Date() : undefined;
       
       // Actualizar en Supabase
       await supabaseService.updateSubtask(subtaskId, {
-        isCompleted: newCompletedState,
+        isCompleted: newState,
         completedAt: completedAt
       });
 
-
-      
       // Actualizar estado local
       const updatedSubtasks = task.subtasks.map(s => {
         if (s.id === subtaskId) {
           return {
             ...s,
-            isCompleted: newCompletedState,
+            isCompleted: newState,
             completedAt: completedAt,
-            // Si se desmarca la subtarea, también eliminar la evidencia para permitir volver a obtenerla
-            evidence: newCompletedState ? s.evidence : undefined,
+            // REGLA CRÍTICA: Si se desmarca, SIEMPRE eliminar evidencia
+            evidence: newState ? s.evidence : undefined,
           };
         }
         return s;
@@ -303,17 +351,17 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       }
       
       // Log específico para evidencia eliminada
-      if (!newCompletedState && subtask.evidence) {
+      if (!newState && subtask.evidence) {
         console.log(`🗑️ Evidencia eliminada al desmarcar subtarea: ${subtask.evidence.type}`);
         console.log(`🔄 Botón CTA volverá a mostrar: "${getSubtaskEvidenceActionText(subtask.evidenceRequirement!)}"`);
       }
       
-      console.log('✅ Subtask toggled successfully');
+      console.log('✅ Subtask force toggled successfully');
       
       // Opcional: Recargar la tarea completa para sincronizar con la base de datos
       // await loadTask();
     } catch (error) {
-      console.error('❌ Error updating subtask:', error);
+      console.error('❌ Error force updating subtask:', error);
       Alert.alert('Error', 'No se pudo actualizar la subtarea. Inténtalo de nuevo.');
     }
   };
@@ -978,9 +1026,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     // Si está completada, siempre checked
     if (subtask.isCompleted) return 'checked';
     
-    // Si requiere evidencia obligatoria y no la tiene, bloqueado
+    // REGLA CRÍTICA: Si hay evidencia, el check DEBE estar marcado
+    if (subtask.evidence) return 'checked';
+    
+    // Si requiere evidencia obligatoria y no la tiene, bloqueado (se mostrará candado)
     if (subtask.evidenceRequirement?.isRequired && !subtask.evidence) {
-      return 'unchecked'; // Mantener unchecked pero cambiaremos el icono
+      return 'unchecked'; // Mantener unchecked pero se mostrará candado
     }
     
     // En cualquier otro caso, normal
@@ -988,6 +1039,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const isSubtaskBlocked = (subtask: TaskSubtask) => {
+    // Bloqueado solo si: evidencia requerida + no hay evidencia + no está completada
     return subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted;
   };
 
