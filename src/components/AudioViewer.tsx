@@ -70,30 +70,41 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
     try {
       console.log('🔍 Validating audio URI:', uri);
       
-      // Para URLs de Supabase Storage, verificar con GET (más confiable)
-      const isSupabaseUrl = uri.includes('supabase') || uri.includes('storage');
+      // Validación básica de formato de URI
+      if (!uri || uri.trim() === '') {
+        console.warn('❌ Empty URI');
+        return false;
+      }
       
-      if (isSupabaseUrl) {
-        // Para Supabase Storage, usar GET con range pequeño
-        const response = await fetch(uri, { 
-          method: 'GET',
-          headers: {
-            'Range': 'bytes=0-1023' // Solo primeros 1KB para validar
-          }
-        });
-        const isValid = response.ok || response.status === 206; // 206 = Partial Content
-        console.log(`✅ Supabase audio validation result: ${isValid} (status: ${response.status})`);
+      // Para validación, intentar directamente con expo-av en lugar de fetch
+      // Esto es más confiable para archivos de audio
+      try {
+        const { sound, status } = await Audio.Sound.createAsync(
+          { uri },
+          { shouldPlay: false },
+          undefined
+        );
+        
+        const isValid = status.isLoaded || false;
+        console.log(`✅ Audio validation result: ${isValid}`);
+        
+        // Limpiar el sound object
+        if (sound) {
+          await sound.unloadAsync();
+        }
+        
         return isValid;
-      } else {
-        // Para archivos locales, usar HEAD
-        const response = await fetch(uri, { method: 'HEAD' });
-        const isValid = response.ok;
-        console.log(`✅ Local audio validation result: ${isValid} (status: ${response.status})`);
-        return isValid;
+      } catch (audioError) {
+        console.warn('❌ Audio validation failed with expo-av:', audioError);
+        
+        // Fallback: asumir que es válido y dejar que expo-av maneje el error después
+        console.log('🔄 Fallback: assuming URI is valid, will try to load');
+        return true;
       }
     } catch (error) {
       console.warn('❌ URI validation failed:', error);
-      return false;
+      // En caso de error de validación, asumir que es válido
+      return true;
     }
   };
 
@@ -110,16 +121,16 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
 
     try {
       setIsLoading(true);
-      console.log('🔄 Validando y cargando audio desde:', audio.uri);
-      
-      // Validar si el URI sigue siendo accesible
-      const isValid = await validateAudioUri(audio.uri);
-      if (!isValid) {
-        console.error('❌ Audio URI no válido o archivo eliminado:', audio.uri);
-        throw new Error('AUDIO_FILE_NOT_FOUND');
-      }
+      console.log('🔄 Cargando audio desde:', audio.uri);
+      console.log('🎵 Audio metadata:', {
+        duration: audio.duration,
+        format: audio.format,
+        storage: audio.deviceInfo?.storage,
+        persistent: audio.deviceInfo?.persistent
+      });
       
       // Configurar modo de audio para reproducción
+      console.log('🔧 Configurando modo de audio...');
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
@@ -128,6 +139,7 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
         playThroughEarpieceAndroid: false,
       });
 
+      console.log('📱 Creando objeto de audio...');
       // Crear el sound object con configuración específica
       const { sound: newSound, status } = await Audio.Sound.createAsync(
         { uri: audio.uri },
@@ -139,13 +151,25 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
         onPlaybackStatusUpdate
       );
       
+      console.log('🔍 Status de carga:', {
+        isLoaded: status.isLoaded,
+        duration: status.durationMillis,
+        error: status.error
+      });
+      
       // Verificar que se cargó correctamente
       if (status.isLoaded) {
         setSound(newSound);
         console.log('✅ Audio cargado correctamente para reproducción');
         console.log(`🎵 Duración: ${Math.floor((status.durationMillis || 0) / 1000)}s`);
       } else {
-        throw new Error('Audio no se pudo cargar completamente');
+        // Aún así, intentar usar el sound object si está disponible
+        if (newSound) {
+          console.log('⚠️ Audio parcialmente cargado, intentando usar...');
+          setSound(newSound);
+        } else {
+          throw new Error('Audio no se pudo cargar: ' + (status.error || 'Unknown error'));
+        }
       }
     } catch (error) {
       console.error('❌ Error loading audio:', error);
@@ -154,20 +178,26 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       let showRetry = true;
       
       if (error instanceof Error) {
-        if (error.message === 'AUDIO_FILE_NOT_FOUND') {
-          errorMessage = 'El archivo de audio ya no está disponible. Es posible que se haya eliminado después de refrescar la app.';
+        console.log('🔍 Error details:', error.message);
+        
+        if (error.message.includes('not found') || error.message.includes('No such file')) {
+          errorMessage = 'El archivo de audio no se encontró.';
           showRetry = false;
-        } else if (error.message.includes('not found') || error.message.includes('No such file')) {
-          errorMessage = 'El archivo de audio no se encontró en el dispositivo.';
-          showRetry = false;
-        } else if (error.message.includes('format')) {
+        } else if (error.message.includes('format') || error.message.includes('codec')) {
           errorMessage = 'Formato de audio no compatible.';
-        } else if (error.message.includes('Network request failed')) {
-          errorMessage = 'No se pudo acceder al archivo de audio. Verifica la conexión.';
+        } else if (error.message.includes('Network') || error.message.includes('network')) {
+          errorMessage = 'No se pudo acceder al archivo. Verifica la conexión.';
+        } else if (error.message.includes('permission')) {
+          errorMessage = 'Sin permisos para acceder al audio.';
         } else {
           errorMessage += ` (${error.message})`;
         }
       }
+      
+      // En caso de error, mostrar información útil
+      const debugInfo = audio.deviceInfo?.persistent === false 
+        ? '\n\n💡 Este audio usa almacenamiento temporal. Si refrescaste la app, el archivo puede haberse perdido.' 
+        : '';
       
       const buttons = [{ text: 'Cerrar', onPress: onDismiss }];
       if (showRetry) {
@@ -176,7 +206,7 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       
       Alert.alert(
         'Error de Reproducción',
-        errorMessage + '\n\n💡 Para evitar este problema, graba el audio nuevamente.',
+        errorMessage + debugInfo,
         buttons
       );
     } finally {
