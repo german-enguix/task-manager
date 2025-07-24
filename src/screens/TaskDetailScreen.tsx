@@ -289,6 +289,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     try {
       const completedAt = newState ? new Date() : undefined;
       
+      // Si se desmarca y hay evidencia, eliminarla de la base de datos
+      if (!newState && subtask.evidence) {
+        await supabaseService.removeSubtaskEvidence(subtaskId);
+        console.log('🗑️ Evidencia eliminada de la base de datos');
+      }
+      
       // Actualizar en Supabase
       await supabaseService.updateSubtask(subtaskId, {
         isCompleted: newState,

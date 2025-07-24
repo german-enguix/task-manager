@@ -657,6 +657,27 @@ export class SupabaseService {
     }
   }
 
+  async removeSubtaskEvidence(subtaskId: string): Promise<void> {
+    try {
+      console.log('🔄 Removing subtask evidence for:', subtaskId);
+
+      const { error } = await supabase
+        .from('subtask_evidences')
+        .delete()
+        .eq('subtask_id', subtaskId);
+
+      if (error) {
+        console.error('❌ Supabase error removing evidence:', error);
+        throw error;
+      }
+
+      console.log('✅ Subtask evidence removed successfully');
+    } catch (error) {
+      console.error('❌ Error removing subtask evidence:', error);
+      throw error;
+    }
+  }
+
   async updateTaskStatus(taskId: string, status: string): Promise<void> {
     try {
       const { error } = await supabase
