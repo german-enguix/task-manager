@@ -159,17 +159,27 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       
       // Verificar que se cargó correctamente
       if (status.isLoaded) {
+        // Verificar que tiene duración válida
+        const durationSeconds = Math.floor((status.durationMillis || 0) / 1000);
+        
+        if (durationSeconds === 0) {
+          console.error('❌ Audio cargado pero duración es 0s - archivo corrupto o vacío');
+          if (newSound) await newSound.unloadAsync();
+          throw new Error('AUDIO_EMPTY_OR_CORRUPT');
+        }
+        
         setSound(newSound);
         console.log('✅ Audio cargado correctamente para reproducción');
-        console.log(`🎵 Duración: ${Math.floor((status.durationMillis || 0) / 1000)}s`);
+        console.log(`🎵 Duración: ${durationSeconds}s`);
       } else {
-        // Aún así, intentar usar el sound object si está disponible
-        if (newSound) {
-          console.log('⚠️ Audio parcialmente cargado, intentando usar...');
-          setSound(newSound);
-        } else {
-          throw new Error('Audio no se pudo cargar: ' + (status.error || 'Unknown error'));
-        }
+        console.error('❌ Audio no se pudo cargar completamente');
+        console.log('Status details:', status);
+        
+        if (newSound) await newSound.unloadAsync();
+        
+        // Si hay error específico en el status, usarlo
+        const errorMsg = status.error || 'Status indicates audio not loaded';
+        throw new Error('Audio load failed: ' + errorMsg);
       }
     } catch (error) {
       console.error('❌ Error loading audio:', error);
@@ -180,7 +190,10 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       if (error instanceof Error) {
         console.log('🔍 Error details:', error.message);
         
-        if (error.message.includes('not found') || error.message.includes('No such file')) {
+        if (error.message === 'AUDIO_EMPTY_OR_CORRUPT') {
+          errorMessage = 'El archivo de audio está vacío o corrupto. Es necesario grabar de nuevo.';
+          showRetry = false;
+        } else if (error.message.includes('not found') || error.message.includes('No such file')) {
           errorMessage = 'El archivo de audio no se encontró.';
           showRetry = false;
         } else if (error.message.includes('format') || error.message.includes('codec')) {
@@ -189,15 +202,26 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
           errorMessage = 'No se pudo acceder al archivo. Verifica la conexión.';
         } else if (error.message.includes('permission')) {
           errorMessage = 'Sin permisos para acceder al audio.';
+        } else if (error.message.includes('Audio load failed')) {
+          errorMessage = 'El audio no se pudo cargar correctamente. Archivo posiblemente corrupto.';
+          showRetry = false;
         } else {
           errorMessage += ` (${error.message})`;
         }
       }
       
       // En caso de error, mostrar información útil
-      const debugInfo = audio.deviceInfo?.persistent === false 
-        ? '\n\n💡 Este audio usa almacenamiento temporal. Si refrescaste la app, el archivo puede haberse perdido.' 
-        : '';
+      let debugInfo = '';
+      let suggestions = '';
+      
+      if (audio.deviceInfo?.persistent === false) {
+        debugInfo = '\n\n💡 Este audio usa almacenamiento temporal. Si refrescaste la app, el archivo puede haberse perdido.';
+        suggestions = '\n\n✅ Solución: Graba el audio nuevamente para crear un archivo válido.';
+      } else if (error instanceof Error && error.message === 'AUDIO_EMPTY_OR_CORRUPT') {
+        suggestions = '\n\n✅ Solución: El archivo está corrupto. Graba el audio nuevamente.';
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        suggestions = '\n\n✅ Solución: El archivo se perdió. Graba el audio nuevamente.';
+      }
       
       const buttons = [{ text: 'Cerrar', onPress: onDismiss }];
       if (showRetry) {
@@ -206,7 +230,7 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       
       Alert.alert(
         'Error de Reproducción',
-        errorMessage + debugInfo,
+        errorMessage + debugInfo + suggestions,
         buttons
       );
     } finally {
@@ -234,11 +258,38 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
 
   const playPauseAudio = async () => {
     if (!sound) {
-      console.warn('No sound loaded for playback');
+      console.warn('❌ No sound object available for playback');
+      Alert.alert(
+        'Error de Reproducción', 
+        'El audio no está cargado. Intenta recargar el reproductor.',
+        [
+          { text: 'Recargar', onPress: loadAudio },
+          { text: 'Cerrar', onPress: onDismiss }
+        ]
+      );
       return;
     }
 
     try {
+      // Verificar el status del sound antes de intentar reproducir
+      const status = await sound.getStatusAsync();
+      console.log('🔍 Sound status before play:', {
+        isLoaded: status.isLoaded,
+        durationMillis: status.durationMillis,
+        positionMillis: status.positionMillis,
+        isPlaying: status.isPlaying
+      });
+
+      if (!status.isLoaded) {
+        console.error('❌ Sound not loaded when trying to play');
+        throw new Error('Sound object exists but is not loaded');
+      }
+
+      if ((status.durationMillis || 0) === 0) {
+        console.error('❌ Sound has 0 duration - corrupted file');
+        throw new Error('Audio file appears to be empty or corrupted');
+      }
+
       if (isPlaying) {
         console.log('⏸️ Pausando audio');
         await sound.pauseAsync();
@@ -248,12 +299,24 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       }
     } catch (error) {
       console.error('❌ Error playing/pausing audio:', error);
+      
+      let errorMessage = 'No se pudo reproducir el audio.';
+      if (error instanceof Error) {
+        if (error.message.includes('not loaded')) {
+          errorMessage = 'El audio no está cargado correctamente. Intenta recargarlo.';
+        } else if (error.message.includes('empty') || error.message.includes('corrupted')) {
+          errorMessage = 'El archivo de audio está corrupto o vacío. Es necesario grabar de nuevo.';
+        } else if (error.message.includes('Cannot complete operation')) {
+          errorMessage = 'El archivo de audio no está disponible. Posiblemente se perdió al refrescar la app.';
+        }
+      }
+      
       Alert.alert(
         'Error de Reproducción', 
-        'No se pudo reproducir el audio. Verifica que el archivo esté disponible.',
+        errorMessage,
         [
-          { text: 'OK' },
-          { text: 'Recargar', onPress: loadAudio }
+          { text: 'Recargar', onPress: loadAudio },
+          { text: 'Cerrar', onPress: onDismiss }
         ]
       );
     }
