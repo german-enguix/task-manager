@@ -708,16 +708,37 @@ export class SupabaseService {
    */
   async uploadAudioFile(uri: string, fileName: string): Promise<{publicUrl: string, filePath: string}> {
     try {
-      console.log('📤 Uploading audio file:', fileName);
+      console.log('📤 Starting audio file upload:', {
+        fileName,
+        uri: uri.substring(0, 50) + '...' // Solo primeros 50 chars por seguridad
+      });
+      
+      // Verificar URI del archivo
+      if (!uri || uri.trim() === '') {
+        throw new Error('URI de audio vacío o inválido');
+      }
       
       // Leer el archivo como blob/binary
+      console.log('🔄 Fetching audio file from URI...');
       const response = await fetch(uri);
+      
+      if (!response.ok) {
+        throw new Error(`No se pudo leer el archivo de audio: ${response.status} ${response.statusText}`);
+      }
+      
       const blob = await response.blob();
+      console.log('✅ Audio file fetched, size:', blob.size, 'bytes');
+      
+      if (blob.size === 0) {
+        throw new Error('El archivo de audio está vacío');
+      }
       
       // Crear un nombre único para el archivo
       const timestamp = Date.now();
       const uniqueFileName = `audio_${timestamp}_${fileName}`;
       const filePath = `audio-evidences/${uniqueFileName}`;
+      
+      console.log('🔄 Uploading to Supabase Storage:', filePath);
       
       // Subir archivo a Supabase Storage
       const { data, error } = await supabase.storage
@@ -728,14 +749,30 @@ export class SupabaseService {
         });
 
       if (error) {
-        console.error('❌ Error uploading audio file:', error);
-        throw error;
+        console.error('❌ Supabase Storage error:', error);
+        
+        // Mensajes de error específicos
+        if (error.message.includes('Bucket not found')) {
+          throw new Error('El bucket "task-evidences" no existe en Supabase Storage. Necesita ser creado.');
+        } else if (error.message.includes('permission') || error.message.includes('access')) {
+          throw new Error('Sin permisos para subir archivos a Supabase Storage. Revisa las políticas RLS.');
+        } else if (error.message.includes('file size')) {
+          throw new Error('El archivo de audio es demasiado grande para Supabase Storage.');
+        } else {
+          throw new Error(`Error de Supabase Storage: ${error.message}`);
+        }
       }
+
+      console.log('✅ File uploaded to Supabase Storage:', data?.path);
 
       // Obtener URL pública del archivo
       const { data: urlData } = supabase.storage
         .from('task-evidences')
         .getPublicUrl(filePath);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('No se pudo obtener la URL pública del archivo');
+      }
 
       console.log('✅ Audio file uploaded successfully:', urlData.publicUrl);
       
@@ -745,7 +782,13 @@ export class SupabaseService {
       };
     } catch (error) {
       console.error('❌ Error in uploadAudioFile:', error);
-      throw error;
+      
+      // Re-lanzar con mensaje más descriptivo
+      if (error instanceof Error) {
+        throw new Error(`Error al subir audio: ${error.message}`);
+      } else {
+        throw new Error('Error desconocido al subir archivo de audio');
+      }
     }
   }
 

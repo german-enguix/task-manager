@@ -520,19 +520,59 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const handleAudioSuccess = async (audioData: any) => {
-    if (!currentAudioSubtask || !task) return;
+    console.log('🎵 handleAudioSuccess called with:', {
+      hasCurrentAudioSubtask: !!currentAudioSubtask,
+      hasTask: !!task,
+      audioData: audioData ? 'Present' : 'Missing',
+      audioUri: audioData?.uri ? 'Present' : 'Missing'
+    });
+    
+    if (!currentAudioSubtask || !task) {
+      console.error('❌ Missing required data in handleAudioSuccess');
+      return;
+    }
     
     // Cerrar el diálogo de audio
     setShowAudioDialog(false);
     
     try {
+      console.log('🔄 Starting audio evidence capture process...');
+      
       // Capturar la evidencia de audio real y marcar como completada
       await captureRealAudioEvidence(currentAudioSubtask, audioData);
       
       console.log('✅ Real audio evidence captured and subtask completed');
     } catch (error) {
       console.error('❌ Error completing audio evidence:', error);
-      Alert.alert('Error', 'No se pudo completar la evidencia de audio. Inténtalo de nuevo.');
+      
+      // Determinar el tipo de error y dar mensaje específico
+      let errorMessage = 'No se pudo completar la evidencia de audio.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('storage') || error.message.includes('upload')) {
+          errorMessage = 'Error al guardar el archivo de audio. Se guardará localmente.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
+        } else if (error.message.includes('permission')) {
+          errorMessage = 'Error de permisos. Verifica los permisos de la aplicación.';
+        } else {
+          errorMessage += ` (${error.message})`;
+        }
+      }
+      
+      Alert.alert(
+        'Error de Audio',
+        errorMessage + '\n\nInténtalo de nuevo.',
+        [
+          { text: 'OK', style: 'default' },
+          { text: 'Reintentar', onPress: () => {
+            // Reintentar con los mismos datos
+            if (realAudioData) {
+              setTimeout(() => captureRealAudioEvidence(subtask, realAudioData), 500);
+            }
+          }}
+        ]
+      );
     } finally {
       // Limpiar la subtarea actual
       setCurrentAudioSubtask(null);
@@ -745,16 +785,63 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     try {
       console.log('🎵 Procesando evidencia de audio real...');
       
-      // Subir archivo de audio a Supabase Storage
-      const fileName = `audio_evidence_${subtask.id}_${Date.now()}.m4a`;
-      console.log('📤 Subiendo archivo de audio:', fileName);
-      
-      const { publicUrl, filePath } = await supabaseService.uploadAudioFile(
-        realAudioData.uri, 
-        fileName
-      );
-      
-      console.log('✅ Audio subido exitosamente:', publicUrl);
+      let audioData: any;
+      let audioFilePath: string | undefined;
+
+      // Intentar subir a Supabase Storage, con fallback a URI local
+      try {
+        const fileName = `audio_evidence_${subtask.id}_${Date.now()}.m4a`;
+        console.log('📤 Intentando subir archivo de audio:', fileName);
+        
+        const { publicUrl, filePath } = await supabaseService.uploadAudioFile(
+          realAudioData.uri, 
+          fileName
+        );
+        
+        console.log('✅ Audio subido exitosamente a Supabase Storage:', publicUrl);
+
+        // Usar datos con URL persistente de Supabase
+        audioData = {
+          uri: publicUrl, // URI público de Supabase Storage
+          localUri: realAudioData.uri, // URI local original (para referencia)
+          filePath: filePath, // Path en Supabase Storage
+          duration: realAudioData.duration,
+          timestamp: realAudioData.timestamp,
+          format: realAudioData.format,
+          quality: realAudioData.quality,
+          source: realAudioData.source,
+          capturedAt: new Date().toISOString(),
+          deviceInfo: {
+            platform: 'mobile',
+            source: 'Micrófono real del dispositivo',
+            storage: 'Supabase Storage',
+            persistent: true
+          }
+        };
+        audioFilePath = filePath;
+
+      } catch (storageError) {
+        console.warn('⚠️ Error subiendo a Supabase Storage, usando URI local:', storageError);
+        
+        // Fallback: usar URI local (funcional pero no persistente tras refresh)
+        audioData = {
+          uri: realAudioData.uri, // URI local del dispositivo
+          duration: realAudioData.duration,
+          timestamp: realAudioData.timestamp,
+          format: realAudioData.format,
+          quality: realAudioData.quality,
+          source: realAudioData.source,
+          capturedAt: new Date().toISOString(),
+          deviceInfo: {
+            platform: 'mobile',
+            source: 'Micrófono real del dispositivo',
+            storage: 'Local (temporal)',
+            persistent: false,
+            note: 'Audio se perderá al refrescar - configurar Supabase Storage'
+          }
+        };
+        audioFilePath = undefined;
+      }
 
       // Actualizar en Supabase: marcar subtarea como completada
       const completedAt = new Date();
@@ -763,33 +850,14 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         completedAt: completedAt
       });
 
-      // Usar datos reales de audio del dispositivo + URL persistente
-      const audioData = {
-        uri: publicUrl, // URI público de Supabase Storage
-        localUri: realAudioData.uri, // URI local original (para referencia)
-        filePath: filePath, // Path en Supabase Storage
-        duration: realAudioData.duration,
-        timestamp: realAudioData.timestamp,
-        format: realAudioData.format,
-        quality: realAudioData.quality,
-        source: realAudioData.source,
-        capturedAt: new Date().toISOString(),
-        deviceInfo: {
-          platform: 'mobile',
-          source: 'Micrófono real del dispositivo',
-          storage: 'Supabase Storage',
-          persistent: true
-        }
-      };
-
-      // Guardar la evidencia en la base de datos con el filePath de Supabase
+      // Guardar la evidencia en la base de datos
       await supabaseService.addSubtaskEvidence(
         subtask.id,
         subtask.evidenceRequirement.id,
         subtask.evidenceRequirement.type,
         `${subtask.evidenceRequirement.title} - Completada`,
         `Audio grabado: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} de duración`,
-        filePath, // filePath de Supabase Storage
+        audioFilePath, // filePath de Supabase Storage o undefined si falló
         audioData // data
       );
       
