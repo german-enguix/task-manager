@@ -256,13 +256,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
   };
 
-  const toggleSubtask = async (subtaskId: string) => {
+    const toggleSubtask = async (subtaskId: string) => {
     if (!task) return;
     
     const subtask = task.subtasks.find(s => s.id === subtaskId);
     if (!subtask) return;
 
-    // REGLA 1: Si la evidencia es requerida y no hay evidencia, mostrar diálogo
+    // ÚNICA RESTRICCIÓN: Si la evidencia es requerida y no hay evidencia, mostrar diálogo para obtenerla
     if (subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted) {
       Alert.alert(
         'Evidencia Requerida',
@@ -275,24 +275,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       return;
     }
 
-    // REGLA 2: Si hay evidencia y se intenta desmarcar, eliminar evidencia
-    if (subtask.evidence && subtask.isCompleted) {
-      Alert.alert(
-        'Eliminar Evidencia',
-        `¿Deseas desmarcar esta subtarea? Se eliminará la evidencia de ${subtask.evidenceRequirement?.title || 'la subtarea'} y podrás volver a capturarla.`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { 
-            text: 'Desmarcar y Eliminar', 
-            style: 'destructive',
-            onPress: () => forceToggleSubtask(subtaskId, false) 
-          }
-        ]
-      );
-      return;
-    }
-    
-    // REGLA 3: Toggle normal (solo para casos sin evidencia o marcado inicial)
+    // COMPORTAMIENTO DIRECTO: Permitir marcar/desmarcar libremente
+    // Si se desmarca, automáticamente elimina la evidencia
     await forceToggleSubtask(subtaskId, !subtask.isCompleted);
   };
 
@@ -350,13 +334,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         }
       }
       
-      // Log específico para evidencia eliminada
+      // Log específico para evidencia eliminada automáticamente
       if (!newState && subtask.evidence) {
-        console.log(`🗑️ Evidencia eliminada al desmarcar subtarea: ${subtask.evidence.type}`);
+        console.log(`🗑️ Evidencia eliminada automáticamente al desmarcar subtarea: ${subtask.evidence.type}`);
         console.log(`🔄 Botón CTA volverá a mostrar: "${getSubtaskEvidenceActionText(subtask.evidenceRequirement!)}"`);
       }
       
-      console.log('✅ Subtask force toggled successfully');
+      console.log('✅ Subtask toggled successfully (direct mode)');
       
       // Opcional: Recargar la tarea completa para sincronizar con la base de datos
       // await loadTask();
