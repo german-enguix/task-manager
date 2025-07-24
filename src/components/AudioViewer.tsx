@@ -67,32 +67,64 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
   }, [playbackStatus]);
 
   const loadAudio = async () => {
-    if (!audio?.uri) return;
+    if (!audio?.uri) {
+      console.warn('No audio URI provided');
+      return;
+    }
 
     try {
       setIsLoading(true);
+      console.log('🔄 Cargando audio desde:', audio.uri);
       
       // Configurar modo de audio para reproducción
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
 
-      const { sound: newSound } = await Audio.Sound.createAsync(
+      // Crear el sound object con configuración específica
+      const { sound: newSound, status } = await Audio.Sound.createAsync(
         { uri: audio.uri },
-        { shouldPlay: false },
+        { 
+          shouldPlay: false,
+          isLooping: false,
+          volume: 1.0,
+        },
         onPlaybackStatusUpdate
       );
       
-      setSound(newSound);
-      console.log('🎵 Audio cargado para reproducción');
+      // Verificar que se cargó correctamente
+      if (status.isLoaded) {
+        setSound(newSound);
+        console.log('✅ Audio cargado correctamente para reproducción');
+        console.log(`🎵 Duración: ${Math.floor((status.durationMillis || 0) / 1000)}s`);
+      } else {
+        throw new Error('Audio no se pudo cargar completamente');
+      }
     } catch (error) {
-      console.error('Error loading audio:', error);
+      console.error('❌ Error loading audio:', error);
+      
+      let errorMessage = 'No se pudo cargar el audio.';
+      if (error instanceof Error) {
+        if (error.message.includes('not found') || error.message.includes('No such file')) {
+          errorMessage = 'El archivo de audio no se encontró. Es posible que se haya eliminado.';
+        } else if (error.message.includes('format')) {
+          errorMessage = 'Formato de audio no compatible.';
+        } else {
+          errorMessage += ` (${error.message})`;
+        }
+      }
+      
       Alert.alert(
-        'Error',
-        'No se pudo cargar el audio. Es posible que el archivo esté corrupto.',
-        [{ text: 'OK' }]
+        'Error de Reproducción',
+        errorMessage,
+        [
+          { text: 'Cerrar', onPress: onDismiss },
+          { text: 'Reintentar', onPress: loadAudio }
+        ]
       );
     } finally {
       setIsLoading(false);
@@ -118,17 +150,29 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
   };
 
   const playPauseAudio = async () => {
-    if (!sound) return;
+    if (!sound) {
+      console.warn('No sound loaded for playback');
+      return;
+    }
 
     try {
       if (isPlaying) {
+        console.log('⏸️ Pausando audio');
         await sound.pauseAsync();
       } else {
+        console.log('▶️ Reproduciendo audio');
         await sound.playAsync();
       }
     } catch (error) {
-      console.error('Error playing/pausing audio:', error);
-      Alert.alert('Error', 'No se pudo reproducir el audio.');
+      console.error('❌ Error playing/pausing audio:', error);
+      Alert.alert(
+        'Error de Reproducción', 
+        'No se pudo reproducir el audio. Verifica que el archivo esté disponible.',
+        [
+          { text: 'OK' },
+          { text: 'Recargar', onPress: loadAudio }
+        ]
+      );
     }
   };
 
@@ -136,21 +180,26 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
     if (!sound) return;
 
     try {
+      console.log('⏹️ Deteniendo audio');
       await sound.stopAsync();
       await sound.setPositionAsync(0);
     } catch (error) {
-      console.error('Error stopping audio:', error);
+      console.error('❌ Error stopping audio:', error);
     }
   };
 
   const seekToPosition = async (value: number) => {
-    if (!sound || !duration) return;
+    if (!sound || !duration) {
+      console.warn('Cannot seek: no sound or duration');
+      return;
+    }
 
     try {
-      const newPosition = value * duration;
+      const newPosition = Math.floor(value * duration);
+      console.log(`⏩ Seeking to position: ${newPosition}ms`);
       await sound.setPositionAsync(newPosition);
     } catch (error) {
-      console.error('Error seeking audio:', error);
+      console.error('❌ Error seeking audio:', error);
     }
   };
 
@@ -198,6 +247,14 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
                   <Text style={styles.audioIconText}>🎵</Text>
                 </View>
 
+                {/* Título del reproductor */}
+                <Text variant="titleMedium" style={styles.playerTitle}>
+                  Reproductor de Audio
+                </Text>
+                <Text variant="bodySmall" style={styles.playerSubtitle}>
+                  Usa los controles para reproducir la evidencia de audio
+                </Text>
+
                 {/* Controles de reproducción */}
                 <View style={styles.controls}>
                   <View style={styles.timeContainer}>
@@ -209,33 +266,73 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
                     </Text>
                   </View>
 
-                  <ProgressBar 
-                    progress={progress} 
-                    style={styles.progressBar}
-                    color={theme.colors.primary}
-                  />
+                  {/* Barra de progreso interactiva */}
+                  <View style={styles.progressContainer}>
+                    <ProgressBar 
+                      progress={progress} 
+                      style={styles.progressBar}
+                      color={theme.colors.primary}
+                    />
+                    {/* Overlay transparente para hacer la barra clickeable */}
+                    <View 
+                      style={styles.progressTouchArea}
+                      onTouchStart={(event) => {
+                        if (sound && duration > 0) {
+                          const x = event.nativeEvent.locationX;
+                          const width = 250; // ancho aproximado de la barra
+                          const newProgress = Math.max(0, Math.min(1, x / width));
+                          seekToPosition(newProgress);
+                        }
+                      }}
+                    />
+                  </View>
 
                   <View style={styles.buttonsContainer}>
                     <IconButton
                       icon="stop"
-                      size={24}
+                      size={28}
                       onPress={stopAudio}
                       disabled={!sound || isLoading}
+                      style={styles.controlButton}
                     />
                     <IconButton
                       icon={isPlaying ? "pause" : "play"}
-                      size={32}
+                      size={48}
                       mode="contained"
                       onPress={playPauseAudio}
                       disabled={!sound || isLoading}
                       loading={isLoading}
+                      style={styles.playButton}
+                      iconColor="white"
                     />
                     <IconButton
                       icon="volume-high"
-                      size={24}
+                      size={28}
                       disabled={true}
                       iconColor={theme.colors.outline}
+                      style={styles.controlButton}
                     />
+                  </View>
+
+                  {/* Estado de reproducción */}
+                  <View style={styles.statusContainer}>
+                    {isLoading ? (
+                      <Text variant="bodySmall" style={styles.statusText}>
+                        Cargando audio...
+                      </Text>
+                    ) : !sound ? (
+                      <Text variant="bodySmall" style={[styles.statusText, {color: theme.colors.error}]}>
+                        Error cargando audio
+                      </Text>
+                    ) : isPlaying ? (
+                      <Text variant="bodySmall" style={[styles.statusText, {color: theme.colors.primary}]}>
+                        ▶️ Reproduciendo...
+                      </Text>
+                    ) : (
+                      <Text variant="bodySmall" style={styles.statusText}>
+                        ⏸️ Pausado - Toca ▶️ para reproducir
+                      </Text>
+                    )}
                   </View>
                 </View>
               </View>
@@ -334,6 +431,18 @@ const styles = StyleSheet.create({
   audioIconText: {
     fontSize: 32,
   },
+  playerTitle: {
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  playerSubtitle: {
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
   controls: {
     width: '100%',
     alignItems: 'center',
@@ -348,17 +457,47 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     color: '#666',
   },
+  progressContainer: {
+    width: '100%',
+    position: 'relative',
+    marginBottom: 15,
+  },
   progressBar: {
     width: '100%',
-    height: 6,
-    marginBottom: 20,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
+  },
+  progressTouchArea: {
+    position: 'absolute',
+    top: -10,
+    left: 0,
+    right: 0,
+    height: 28,
+    backgroundColor: 'transparent',
   },
   buttonsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 15,
+    marginBottom: 10,
+  },
+  playButton: {
+    backgroundColor: '#FF5722',
+    width: 64,
+    height: 64,
+  },
+  controlButton: {
+    backgroundColor: 'transparent',
+  },
+  statusContainer: {
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  statusText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    opacity: 0.8,
   },
   infoContainer: {
     gap: 16,
