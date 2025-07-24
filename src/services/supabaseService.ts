@@ -661,6 +661,29 @@ export class SupabaseService {
     try {
       console.log('🔄 Removing subtask evidence for:', subtaskId);
 
+      // Primero, obtener la evidencia para ver si tiene archivos que eliminar
+      const { data: existingEvidence, error: fetchError } = await supabase
+        .from('subtask_evidences')
+        .select('file_path, type')
+        .eq('subtask_id', subtaskId)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('❌ Error fetching evidence to delete:', fetchError);
+        throw fetchError;
+      }
+
+      // Si hay evidencia con archivo (audio), eliminarlo de Storage
+      if (existingEvidence?.file_path && existingEvidence.type === 'AUDIO') {
+        try {
+          console.log('🗑️ Deleting audio file from storage:', existingEvidence.file_path);
+          await this.deleteAudioFile(existingEvidence.file_path);
+        } catch (fileError) {
+          console.warn('⚠️ Could not delete audio file, but continuing with evidence removal:', fileError);
+        }
+      }
+
+      // Eliminar la evidencia de la base de datos
       const { error } = await supabase
         .from('subtask_evidences')
         .delete()
@@ -675,6 +698,100 @@ export class SupabaseService {
     } catch (error) {
       console.error('❌ Error removing subtask evidence:', error);
       throw error;
+    }
+  }
+
+  // ==================== AUDIO FILE UPLOAD METHODS ====================
+
+  /**
+   * Sube un archivo de audio a Supabase Storage
+   */
+  async uploadAudioFile(uri: string, fileName: string): Promise<{publicUrl: string, filePath: string}> {
+    try {
+      console.log('📤 Uploading audio file:', fileName);
+      
+      // Leer el archivo como blob/binary
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      // Crear un nombre único para el archivo
+      const timestamp = Date.now();
+      const uniqueFileName = `audio_${timestamp}_${fileName}`;
+      const filePath = `audio-evidences/${uniqueFileName}`;
+      
+      // Subir archivo a Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('task-evidences')
+        .upload(filePath, blob, {
+          contentType: 'audio/m4a',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('❌ Error uploading audio file:', error);
+        throw error;
+      }
+
+      // Obtener URL pública del archivo
+      const { data: urlData } = supabase.storage
+        .from('task-evidences')
+        .getPublicUrl(filePath);
+
+      console.log('✅ Audio file uploaded successfully:', urlData.publicUrl);
+      
+      return {
+        publicUrl: urlData.publicUrl,
+        filePath: filePath
+      };
+    } catch (error) {
+      console.error('❌ Error in uploadAudioFile:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Elimina un archivo de audio de Supabase Storage
+   */
+  async deleteAudioFile(filePath: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting audio file:', filePath);
+      
+      const { error } = await supabase.storage
+        .from('task-evidences')
+        .remove([filePath]);
+
+      if (error) {
+        console.error('❌ Error deleting audio file:', error);
+        throw error;
+      }
+
+      console.log('✅ Audio file deleted successfully');
+    } catch (error) {
+      console.error('❌ Error in deleteAudioFile:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verifica si un archivo de audio existe en Supabase Storage
+   */
+  async checkAudioFileExists(filePath: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.storage
+        .from('task-evidences')
+        .list(filePath.split('/').slice(0, -1).join('/'), {
+          search: filePath.split('/').pop()
+        });
+
+      if (error) {
+        console.error('❌ Error checking audio file:', error);
+        return false;
+      }
+
+      return data && data.length > 0;
+    } catch (error) {
+      console.error('❌ Error in checkAudioFileExists:', error);
+      return false;
     }
   }
 

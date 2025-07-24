@@ -743,6 +743,19 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     if (!task || !subtask.evidenceRequirement || !realAudioData) return;
     
     try {
+      console.log('🎵 Procesando evidencia de audio real...');
+      
+      // Subir archivo de audio a Supabase Storage
+      const fileName = `audio_evidence_${subtask.id}_${Date.now()}.m4a`;
+      console.log('📤 Subiendo archivo de audio:', fileName);
+      
+      const { publicUrl, filePath } = await supabaseService.uploadAudioFile(
+        realAudioData.uri, 
+        fileName
+      );
+      
+      console.log('✅ Audio subido exitosamente:', publicUrl);
+
       // Actualizar en Supabase: marcar subtarea como completada
       const completedAt = new Date();
       await supabaseService.updateSubtask(subtask.id, {
@@ -750,9 +763,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         completedAt: completedAt
       });
 
-      // Usar datos reales de audio del dispositivo
+      // Usar datos reales de audio del dispositivo + URL persistente
       const audioData = {
-        uri: realAudioData.uri,
+        uri: publicUrl, // URI público de Supabase Storage
+        localUri: realAudioData.uri, // URI local original (para referencia)
+        filePath: filePath, // Path en Supabase Storage
         duration: realAudioData.duration,
         timestamp: realAudioData.timestamp,
         format: realAudioData.format,
@@ -761,18 +776,20 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         capturedAt: new Date().toISOString(),
         deviceInfo: {
           platform: 'mobile',
-          source: 'Micrófono real del dispositivo'
+          source: 'Micrófono real del dispositivo',
+          storage: 'Supabase Storage',
+          persistent: true
         }
       };
 
-      // Guardar la evidencia en la base de datos
+      // Guardar la evidencia en la base de datos con el filePath de Supabase
       await supabaseService.addSubtaskEvidence(
         subtask.id,
         subtask.evidenceRequirement.id,
         subtask.evidenceRequirement.type,
         `${subtask.evidenceRequirement.title} - Completada`,
         `Audio grabado: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} de duración`,
-        undefined, // filePath
+        filePath, // filePath de Supabase Storage
         audioData // data
       );
       

@@ -66,15 +66,58 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
     }
   }, [playbackStatus]);
 
+  const validateAudioUri = async (uri: string): Promise<boolean> => {
+    try {
+      console.log('🔍 Validating audio URI:', uri);
+      
+      // Para URLs de Supabase Storage, verificar con GET (más confiable)
+      const isSupabaseUrl = uri.includes('supabase') || uri.includes('storage');
+      
+      if (isSupabaseUrl) {
+        // Para Supabase Storage, usar GET con range pequeño
+        const response = await fetch(uri, { 
+          method: 'GET',
+          headers: {
+            'Range': 'bytes=0-1023' // Solo primeros 1KB para validar
+          }
+        });
+        const isValid = response.ok || response.status === 206; // 206 = Partial Content
+        console.log(`✅ Supabase audio validation result: ${isValid} (status: ${response.status})`);
+        return isValid;
+      } else {
+        // Para archivos locales, usar HEAD
+        const response = await fetch(uri, { method: 'HEAD' });
+        const isValid = response.ok;
+        console.log(`✅ Local audio validation result: ${isValid} (status: ${response.status})`);
+        return isValid;
+      }
+    } catch (error) {
+      console.warn('❌ URI validation failed:', error);
+      return false;
+    }
+  };
+
   const loadAudio = async () => {
     if (!audio?.uri) {
-      console.warn('No audio URI provided');
+      console.warn('❌ No audio URI provided');
+      Alert.alert(
+        'Audio No Disponible',
+        'No se encontró la ubicación del archivo de audio.',
+        [{ text: 'Cerrar', onPress: onDismiss }]
+      );
       return;
     }
 
     try {
       setIsLoading(true);
-      console.log('🔄 Cargando audio desde:', audio.uri);
+      console.log('🔄 Validando y cargando audio desde:', audio.uri);
+      
+      // Validar si el URI sigue siendo accesible
+      const isValid = await validateAudioUri(audio.uri);
+      if (!isValid) {
+        console.error('❌ Audio URI no válido o archivo eliminado:', audio.uri);
+        throw new Error('AUDIO_FILE_NOT_FOUND');
+      }
       
       // Configurar modo de audio para reproducción
       await Audio.setAudioModeAsync({
@@ -108,23 +151,33 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       console.error('❌ Error loading audio:', error);
       
       let errorMessage = 'No se pudo cargar el audio.';
+      let showRetry = true;
+      
       if (error instanceof Error) {
-        if (error.message.includes('not found') || error.message.includes('No such file')) {
-          errorMessage = 'El archivo de audio no se encontró. Es posible que se haya eliminado.';
+        if (error.message === 'AUDIO_FILE_NOT_FOUND') {
+          errorMessage = 'El archivo de audio ya no está disponible. Es posible que se haya eliminado después de refrescar la app.';
+          showRetry = false;
+        } else if (error.message.includes('not found') || error.message.includes('No such file')) {
+          errorMessage = 'El archivo de audio no se encontró en el dispositivo.';
+          showRetry = false;
         } else if (error.message.includes('format')) {
           errorMessage = 'Formato de audio no compatible.';
+        } else if (error.message.includes('Network request failed')) {
+          errorMessage = 'No se pudo acceder al archivo de audio. Verifica la conexión.';
         } else {
           errorMessage += ` (${error.message})`;
         }
       }
       
+      const buttons = [{ text: 'Cerrar', onPress: onDismiss }];
+      if (showRetry) {
+        buttons.unshift({ text: 'Reintentar', onPress: loadAudio });
+      }
+      
       Alert.alert(
         'Error de Reproducción',
-        errorMessage,
-        [
-          { text: 'Cerrar', onPress: onDismiss },
-          { text: 'Reintentar', onPress: loadAudio }
-        ]
+        errorMessage + '\n\n💡 Para evitar este problema, graba el audio nuevamente.',
+        buttons
       );
     } finally {
       setIsLoading(false);
