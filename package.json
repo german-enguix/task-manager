@@ -33,7 +33,8 @@
     "react-native-screens": "~4.3.0",
     "react-native-web": "^0.20.0",
     "uuid": "^11.1.0",
-    "expo-location": "~18.1.6"
+    "expo-location": "~18.1.6",
+    "expo-av": "~15.1.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

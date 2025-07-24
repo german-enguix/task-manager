@@ -34,7 +34,7 @@ import {
   TaskProblemReport,
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
-import { ProblemReportDialog, NFCDialog, LocationDialog, LocationViewer, SignatureDialog, SignatureViewer } from '@/components';
+import { ProblemReportDialog, NFCDialog, LocationDialog, LocationViewer, AudioDialog, AudioViewer, SignatureDialog, SignatureViewer } from '@/components';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -63,6 +63,10 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [currentLocationSubtask, setCurrentLocationSubtask] = useState<TaskSubtask | null>(null);
   const [showLocationViewer, setShowLocationViewer] = useState(false);
   const [currentLocationData, setCurrentLocationData] = useState<any>(null);
+  const [showAudioDialog, setShowAudioDialog] = useState(false);
+  const [currentAudioSubtask, setCurrentAudioSubtask] = useState<TaskSubtask | null>(null);
+  const [showAudioViewer, setShowAudioViewer] = useState(false);
+  const [currentAudioData, setCurrentAudioData] = useState<any>(null);
 
   useEffect(() => {
     loadUserAndTask();
@@ -379,6 +383,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       setShowLocationDialog(true);
       return;
     }
+
+    // Si es evidencia de audio, mostrar el diálogo específico
+    if (subtask.evidenceRequirement.type === EvidenceType.AUDIO) {
+      setCurrentAudioSubtask(subtask);
+      setShowAudioDialog(true);
+      return;
+    }
     
     // Para otros tipos de evidencia, usar el flujo existente
     const actionText = getSubtaskEvidenceActionText(subtask.evidenceRequirement);
@@ -506,6 +517,50 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const handleLocationViewerDismiss = () => {
     setShowLocationViewer(false);
     setCurrentLocationData(null);
+  };
+
+  const handleAudioSuccess = async (audioData: any) => {
+    if (!currentAudioSubtask || !task) return;
+    
+    // Cerrar el diálogo de audio
+    setShowAudioDialog(false);
+    
+    try {
+      // Capturar la evidencia de audio real y marcar como completada
+      await captureRealAudioEvidence(currentAudioSubtask, audioData);
+      
+      console.log('✅ Real audio evidence captured and subtask completed');
+    } catch (error) {
+      console.error('❌ Error completing audio evidence:', error);
+      Alert.alert('Error', 'No se pudo completar la evidencia de audio. Inténtalo de nuevo.');
+    } finally {
+      // Limpiar la subtarea actual
+      setCurrentAudioSubtask(null);
+    }
+  };
+
+  const handleAudioDismiss = () => {
+    setShowAudioDialog(false);
+    setCurrentAudioSubtask(null);
+  };
+
+  const handleViewAudio = (subtask: TaskSubtask) => {
+    if (subtask.evidence && subtask.evidence.data) {
+      setCurrentAudioData(subtask.evidence.data);
+      setShowAudioViewer(true);
+    } else {
+      console.warn('No se puede mostrar el audio: datos inválidos o vacíos', subtask.evidence?.data);
+      Alert.alert(
+        'Error',
+        'No se pueden mostrar los datos de audio. Es posible que el audio esté corrupto o vacío.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleAudioViewerDismiss = () => {
+    setShowAudioViewer(false);
+    setCurrentAudioData(null);
   };
 
   const simulateNFCEvidenceCapture = async (subtask: TaskSubtask) => {
@@ -681,6 +736,97 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     } catch (error) {
       console.error('❌ Error saving real location evidence:', error);
       Alert.alert('Error', 'No se pudo guardar la evidencia de ubicación real. Inténtalo de nuevo.');
+    }
+   };
+
+  const captureRealAudioEvidence = async (subtask: TaskSubtask, realAudioData: any) => {
+    if (!task || !subtask.evidenceRequirement || !realAudioData) return;
+    
+    try {
+      // Actualizar en Supabase: marcar subtarea como completada
+      const completedAt = new Date();
+      await supabaseService.updateSubtask(subtask.id, {
+        isCompleted: true,
+        completedAt: completedAt
+      });
+
+      // Usar datos reales de audio del dispositivo
+      const audioData = {
+        uri: realAudioData.uri,
+        duration: realAudioData.duration,
+        timestamp: realAudioData.timestamp,
+        format: realAudioData.format,
+        quality: realAudioData.quality,
+        source: realAudioData.source,
+        capturedAt: new Date().toISOString(),
+        deviceInfo: {
+          platform: 'mobile',
+          source: 'Micrófono real del dispositivo'
+        }
+      };
+
+      // Guardar la evidencia en la base de datos
+      await supabaseService.addSubtaskEvidence(
+        subtask.id,
+        subtask.evidenceRequirement.id,
+        subtask.evidenceRequirement.type,
+        `${subtask.evidenceRequirement.title} - Completada`,
+        `Audio grabado: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} de duración`,
+        undefined, // filePath
+        audioData // data
+      );
+      
+      // Actualizar subtarea con evidencia completada Y marcada como completada
+      const updatedSubtasks = task.subtasks.map(s => {
+        if (s.id === subtask.id) {
+          return {
+            ...s,
+            isCompleted: true,
+            completedAt: completedAt,
+            evidence: {
+              id: `subtask-evidence-${Date.now()}`,
+              subtaskId: subtask.id,
+              type: subtask.evidenceRequirement!.type,
+              title: `${subtask.evidenceRequirement!.title} - Completada`,
+              description: `Audio grabado: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} de duración`,
+              createdAt: new Date(),
+              completedBy: 'Usuario Actual',
+              data: audioData,
+            },
+          };
+        }
+        return s;
+      });
+      
+      // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+      const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
+      
+      const updatedTask = { 
+        ...task, 
+        subtasks: updatedSubtasks,
+        status: newTaskStatus
+      };
+      setTask(updatedTask);
+
+      // Actualizar el estado de la tarea en la base de datos si cambió
+      if (newTaskStatus !== task.status) {
+        try {
+          await supabaseService.updateTask(taskId, { status: newTaskStatus });
+          console.log('✅ Task status updated to:', newTaskStatus);
+          
+          // Log del cambio de estado (visible en consola)
+          const statusText = getStatusText(newTaskStatus);
+          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+        } catch (error) {
+          console.error('❌ Error updating task status:', error);
+        }
+      }
+
+      console.log('✅ Real audio evidence saved successfully to database');
+      console.log(`🎤 Audio details: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} duration, ${audioData.quality} quality`);
+    } catch (error) {
+      console.error('❌ Error saving real audio evidence:', error);
+      Alert.alert('Error', 'No se pudo guardar la evidencia de audio real. Inténtalo de nuevo.');
     }
    };
 
@@ -1439,13 +1585,16 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                             typeof subtask.evidence.data !== 'string' || 
                             subtask.evidence.data.trim() === '')) ||
                           (subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE && 
-                           subtask.evidenceRequirement.type !== EvidenceType.LOCATION)
+                           subtask.evidenceRequirement.type !== EvidenceType.LOCATION &&
+                           subtask.evidenceRequirement.type !== EvidenceType.AUDIO)
                         }
                         onPress={
                           subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
                             ? () => handleViewSignature(subtask)
                             : subtask.evidenceRequirement.type === EvidenceType.LOCATION
                             ? () => handleViewLocation(subtask)
+                            : subtask.evidenceRequirement.type === EvidenceType.AUDIO
+                            ? () => handleViewAudio(subtask)
                             : undefined
                         }
                         style={styles.evidenceCompletedButton}
@@ -1455,6 +1604,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                           ? 'Ver Firma' 
                           : subtask.evidenceRequirement.type === EvidenceType.LOCATION
                           ? 'Ver Ubicación'
+                          : subtask.evidenceRequirement.type === EvidenceType.AUDIO
+                          ? 'Ver Audio'
                           : 'Evidencia completada'}
                       </Button>
                     ) : (
@@ -1682,6 +1833,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         onDismiss={handleLocationViewerDismiss}
         locationData={currentLocationData}
         title="Ubicación Registrada"
+      />
+
+      {/* Audio Dialog */}
+      <AudioDialog
+        visible={showAudioDialog}
+        onDismiss={handleAudioDismiss}
+        onSuccess={handleAudioSuccess}
+        title={currentAudioSubtask?.evidenceRequirement?.title || 'Grabar Audio'}
+        description={currentAudioSubtask?.evidenceRequirement?.description || 'Presiona grabar para capturar evidencia de audio'}
+      />
+
+      {/* Audio Viewer */}
+      <AudioViewer
+        visible={showAudioViewer}
+        onDismiss={handleAudioViewerDismiss}
+        audioData={currentAudioData}
+        title="Audio Registrado"
       />
     </Surface>
   );

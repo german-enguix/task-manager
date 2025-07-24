@@ -24,5 +24,7 @@ export { ProblemReportDialog } from './ProblemReportDialog';
 export { NFCDialog } from './NFCDialog';
 export { LocationDialog } from './LocationDialog';
 export { LocationViewer } from './LocationViewer';
+export { AudioDialog } from './AudioDialog';
+export { AudioViewer } from './AudioViewer';
 export { SignatureDialog } from './SignatureDialog';
 export { SignatureViewer } from './SignatureViewer';
