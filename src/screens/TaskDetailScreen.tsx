@@ -260,6 +260,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         isCompleted: newCompletedState,
         completedAt: completedAt
       });
+
+
       
       // Actualizar estado local
       const updatedSubtasks = task.subtasks.map(s => {
@@ -268,7 +270,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             ...s,
             isCompleted: newCompletedState,
             completedAt: completedAt,
-            // Si se desmarca la subtarea, también eliminar la evidencia para permitir volver a escanear
+            // Si se desmarca la subtarea, también eliminar la evidencia para permitir volver a obtenerla
             evidence: newCompletedState ? s.evidence : undefined,
           };
         }
@@ -303,6 +305,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       // Log específico para evidencia eliminada
       if (!newCompletedState && subtask.evidence) {
         console.log(`🗑️ Evidencia eliminada al desmarcar subtarea: ${subtask.evidence.type}`);
+        console.log(`🔄 Botón CTA volverá a mostrar: "${getSubtaskEvidenceActionText(subtask.evidenceRequirement!)}"`);
       }
       
       console.log('✅ Subtask toggled successfully');
