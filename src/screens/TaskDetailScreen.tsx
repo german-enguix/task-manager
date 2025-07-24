@@ -423,17 +423,17 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setCurrentSignatureData('');
   };
 
-  const handleLocationSuccess = async () => {
+  const handleLocationSuccess = async (locationData: any) => {
     if (!currentLocationSubtask || !task) return;
     
     // Cerrar el diálogo de ubicación
     setShowLocationDialog(false);
     
     try {
-      // Simular la captura de evidencia de ubicación y marcar como completada
-      await simulateLocationEvidenceCapture(currentLocationSubtask);
+      // Capturar la evidencia de ubicación real y marcar como completada
+      await captureRealLocationEvidence(currentLocationSubtask, locationData);
       
-      console.log('✅ Location evidence captured and subtask completed');
+      console.log('✅ Real location evidence captured and subtask completed');
     } catch (error) {
       console.error('❌ Error completing location evidence:', error);
       Alert.alert('Error', 'No se pudo completar la evidencia de ubicación. Inténtalo de nuevo.');
@@ -549,8 +549,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
    };
 
-  const simulateLocationEvidenceCapture = async (subtask: TaskSubtask) => {
-    if (!task || !subtask.evidenceRequirement) return;
+  const captureRealLocationEvidence = async (subtask: TaskSubtask, realLocationData: any) => {
+    if (!task || !subtask.evidenceRequirement || !realLocationData) return;
     
     try {
       // Actualizar en Supabase: marcar subtarea como completada
@@ -560,15 +560,22 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         completedAt: completedAt
       });
 
-      // Simular datos de ubicación GPS (en una implementación real, vendría del GPS)
+      // Usar datos reales de ubicación GPS del dispositivo
       const locationData = {
-        latitude: '41.3851',
-        longitude: '2.1734',
-        accuracy: '5 metros',
-        altitude: '12 metros',
-        timestamp: new Date().toISOString(),
-        address: 'Barcelona, España',
-        provider: 'GPS'
+        latitude: realLocationData.latitude,
+        longitude: realLocationData.longitude,
+        accuracy: realLocationData.accuracy,
+        altitude: realLocationData.altitude,
+        timestamp: realLocationData.timestamp,
+        address: realLocationData.address,
+        provider: realLocationData.provider,
+        speed: realLocationData.speed,
+        heading: realLocationData.heading,
+        capturedAt: new Date().toISOString(),
+        deviceInfo: {
+          platform: 'mobile',
+          source: 'GPS real del dispositivo'
+        }
       };
 
       // Guardar la evidencia en la base de datos
@@ -577,7 +584,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         subtask.evidenceRequirement.id,
         subtask.evidenceRequirement.type,
         `${subtask.evidenceRequirement.title} - Completada`,
-        'Evidencia de ubicación capturada correctamente',
+        `Ubicación GPS capturada: ${locationData.address || 'Coordenadas verificadas'}`,
         undefined, // filePath
         locationData // data
       );
@@ -594,7 +601,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
               subtaskId: subtask.id,
               type: subtask.evidenceRequirement!.type,
               title: `${subtask.evidenceRequirement!.title} - Completada`,
-              description: 'Evidencia de ubicación capturada correctamente',
+              description: `Ubicación GPS capturada: ${locationData.address || 'Coordenadas verificadas'}`,
               createdAt: new Date(),
               completedBy: 'Usuario Actual',
               data: locationData,
@@ -628,10 +635,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         }
       }
 
-      console.log('✅ Location evidence saved successfully to database');
+      console.log('✅ Real GPS location evidence saved successfully to database');
+      console.log(`📍 Location details: ${locationData.latitude}, ${locationData.longitude} (±${locationData.accuracy})`);
     } catch (error) {
-      console.error('❌ Error saving location evidence:', error);
-      Alert.alert('Error', 'No se pudo guardar la evidencia de ubicación. Inténtalo de nuevo.');
+      console.error('❌ Error saving real location evidence:', error);
+      Alert.alert('Error', 'No se pudo guardar la evidencia de ubicación real. Inténtalo de nuevo.');
     }
    };
 

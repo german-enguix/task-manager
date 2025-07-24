@@ -7,12 +7,13 @@ import {
   useTheme,
   ActivityIndicator,
 } from 'react-native-paper';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Alert } from 'react-native';
+import * as Location from 'expo-location';
 
 interface LocationDialogProps {
   visible: boolean;
   onDismiss: () => void;
-  onSuccess: () => void;
+  onSuccess: (locationData: any) => void;
   title?: string;
   description?: string;
 }
@@ -28,25 +29,15 @@ export const LocationDialog: React.FC<LocationDialogProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [isLocationFound, setIsLocationFound] = useState(false);
   const [buttonEnabled, setButtonEnabled] = useState(false);
+  const [realLocationData, setRealLocationData] = useState<any>(null);
+  const [currentStatus, setCurrentStatus] = useState<string>('');
   const [gpsAnimation] = useState(new Animated.Value(0));
   const [pulseAnimation] = useState(new Animated.Value(1));
 
   useEffect(() => {
     if (visible) {
-      setIsSearching(true);
-      setIsLocationFound(false);
-      setButtonEnabled(false);
-      startAnimations();
-      
-      // Simular búsqueda de ubicación por 2-3 segundos
-      const timer = setTimeout(() => {
-        setIsSearching(false);
-        setIsLocationFound(true);
-        setButtonEnabled(true);
-        stopAnimations();
-      }, 2500);
-
-      return () => clearTimeout(timer);
+      resetState();
+      requestLocationAndGet();
     } else {
       resetState();
     }
@@ -56,7 +47,117 @@ export const LocationDialog: React.FC<LocationDialogProps> = ({
     setIsSearching(false);
     setIsLocationFound(false);
     setButtonEnabled(false);
+    setRealLocationData(null);
+    setCurrentStatus('');
     stopAnimations();
+  };
+
+  const requestLocationAndGet = async () => {
+    try {
+      setIsSearching(true);
+      setCurrentStatus('Solicitando permisos...');
+      startAnimations();
+
+      // 1. Verificar si la ubicación está habilitada
+      const isEnabled = await Location.hasServicesEnabledAsync();
+      if (!isEnabled) {
+        setCurrentStatus('GPS desactivado');
+        Alert.alert(
+          'GPS Desactivado',
+          'Por favor, activa la ubicación en tu dispositivo y vuelve a intentarlo.',
+          [{ text: 'OK', onPress: handleCancel }]
+        );
+        return;
+      }
+
+      // 2. Solicitar permisos
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        setCurrentStatus('Permisos denegados');
+        Alert.alert(
+          'Permisos Necesarios',
+          'Necesitamos acceso a tu ubicación para registrar la evidencia. Por favor, otorga los permisos en la configuración.',
+          [{ text: 'OK', onPress: handleCancel }]
+        );
+        return;
+      }
+
+      // 3. Obtener ubicación actual
+      setCurrentStatus('Buscando señal GPS...');
+      
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeInterval: 1000,
+        distanceInterval: 0,
+      });
+
+      // 4. Obtener dirección aproximada (opcional)
+      let address = 'Ubicación desconocida';
+      try {
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+        
+        if (reverseGeocode && reverseGeocode.length > 0) {
+          const place = reverseGeocode[0];
+          address = `${place.street || ''} ${place.streetNumber || ''}, ${place.city || place.subregion || ''}, ${place.region || place.country || ''}`.trim();
+          // Limpiar espacios extra y comas
+          address = address.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '');
+        }
+      } catch (geocodeError) {
+        console.warn('Could not get address:', geocodeError);
+        // No es crítico, continuamos sin dirección
+      }
+
+      // 5. Preparar datos de ubicación
+      const locationData = {
+        latitude: location.coords.latitude.toFixed(6),
+        longitude: location.coords.longitude.toFixed(6),
+        accuracy: `${Math.round(location.coords.accuracy || 0)} metros`,
+        altitude: location.coords.altitude ? `${Math.round(location.coords.altitude)} metros` : 'No disponible',
+        timestamp: new Date(location.timestamp).toISOString(),
+        address: address,
+        provider: 'GPS',
+        speed: location.coords.speed ? `${Math.round(location.coords.speed * 3.6)} km/h` : null,
+        heading: location.coords.heading ? `${Math.round(location.coords.heading)}°` : null
+      };
+
+      setRealLocationData(locationData);
+      setIsSearching(false);
+      setIsLocationFound(true);
+      setButtonEnabled(true);
+      setCurrentStatus('Ubicación encontrada');
+      stopAnimations();
+
+    } catch (error) {
+      console.error('Error getting location:', error);
+      setIsSearching(false);
+      setCurrentStatus('Error de ubicación');
+      
+      let errorMessage = 'No se pudo obtener la ubicación. ';
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage += 'Tiempo de espera agotado. Asegúrate de estar en un área con buena señal GPS.';
+        } else if (error.message.includes('permission')) {
+          errorMessage += 'Permisos de ubicación denegados.';
+        } else {
+          errorMessage += 'Inténtalo de nuevo.';
+        }
+      } else {
+        errorMessage += 'Inténtalo de nuevo.';
+      }
+
+      Alert.alert(
+        'Error de Ubicación',
+        errorMessage,
+        [
+          { text: 'Cancelar', style: 'cancel', onPress: handleCancel },
+          { text: 'Reintentar', onPress: requestLocationAndGet }
+        ]
+      );
+    }
   };
 
   const startAnimations = () => {
@@ -100,8 +201,10 @@ export const LocationDialog: React.FC<LocationDialogProps> = ({
   };
 
   const handleFichaje = () => {
-    onSuccess();
-    resetState();
+    if (realLocationData) {
+      onSuccess(realLocationData);
+      resetState();
+    }
   };
 
   const handleCancel = () => {
@@ -113,13 +216,6 @@ export const LocationDialog: React.FC<LocationDialogProps> = ({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
-
-  // Coordenadas simuladas (Barcelona, España)
-  const simulatedLocation = {
-    latitude: '41.3851',
-    longitude: '2.1734',
-    accuracy: '5 metros'
-  };
 
   return (
     <Portal>
@@ -208,17 +304,22 @@ export const LocationDialog: React.FC<LocationDialogProps> = ({
             </Text>
 
             {/* Información de ubicación */}
-            {isLocationFound && (
+            {isLocationFound && realLocationData && (
               <View style={styles.locationInfo}>
                 <Text variant="bodySmall" style={styles.locationText}>
-                  📍 Lat: {simulatedLocation.latitude}
+                  📍 Lat: {realLocationData.latitude}
                 </Text>
                 <Text variant="bodySmall" style={styles.locationText}>
-                  📍 Lng: {simulatedLocation.longitude}
+                  📍 Lng: {realLocationData.longitude}
                 </Text>
                 <Text variant="bodySmall" style={styles.locationText}>
-                  🎯 Precisión: {simulatedLocation.accuracy}
+                  🎯 Precisión: {realLocationData.accuracy}
                 </Text>
+                {realLocationData.address && (
+                  <Text variant="bodySmall" style={[styles.locationText, styles.addressText]}>
+                    📍 {realLocationData.address}
+                  </Text>
+                )}
               </View>
             )}
 
@@ -232,12 +333,12 @@ export const LocationDialog: React.FC<LocationDialogProps> = ({
                 <>
                   <ActivityIndicator size="small" color={theme.colors.primary} />
                   <Text variant="bodySmall" style={[styles.statusText, { color: theme.colors.primary }]}>
-                    Buscando señal GPS...
+                    {currentStatus}
                   </Text>
                 </>
               ) : (
                 <Text variant="bodySmall" style={styles.statusText}>
-                  Iniciando búsqueda de ubicación...
+                  {currentStatus || 'Preparando ubicación...'}
                 </Text>
               )}
             </View>
@@ -264,7 +365,7 @@ export const LocationDialog: React.FC<LocationDialogProps> = ({
 
 const styles = StyleSheet.create({
   dialog: {
-    maxHeight: '75%',
+    maxHeight: '80%',
   },
   title: {
     textAlign: 'center',
@@ -367,12 +468,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 15,
     alignItems: 'center',
+    minWidth: '80%',
   },
   locationText: {
     fontSize: 11,
     marginVertical: 1,
     fontFamily: 'monospace',
     color: '#666',
+  },
+  addressText: {
+    fontSize: 10,
+    fontFamily: 'default',
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 200,
   },
   statusContainer: {
     flexDirection: 'row',

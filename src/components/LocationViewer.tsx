@@ -29,8 +29,14 @@ export const LocationViewer: React.FC<LocationViewerProps> = ({
     latitude: locationData.latitude || '41.3851',
     longitude: locationData.longitude || '2.1734',
     accuracy: locationData.accuracy || '5 metros',
+    altitude: locationData.altitude || 'No disponible',
     timestamp: locationData.timestamp || new Date().toISOString(),
-    address: locationData.address || 'Barcelona, España'
+    address: locationData.address || 'Ubicación desconocida',
+    provider: locationData.provider || 'GPS',
+    speed: locationData.speed || null,
+    heading: locationData.heading || null,
+    capturedAt: locationData.capturedAt || locationData.timestamp,
+    deviceInfo: locationData.deviceInfo || null
   } : null;
 
   if (!location) {
@@ -110,6 +116,14 @@ export const LocationViewer: React.FC<LocationViewerProps> = ({
                   <Text variant="bodySmall" style={styles.infoLabel}>Precisión:</Text>
                   <Text variant="bodySmall" style={styles.infoValue}>{location.accuracy}</Text>
                 </View>
+                <View style={styles.infoRow}>
+                  <Text variant="bodySmall" style={styles.infoLabel}>Altitud:</Text>
+                  <Text variant="bodySmall" style={styles.infoValue}>{location.altitude}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text variant="bodySmall" style={styles.infoLabel}>Proveedor:</Text>
+                  <Text variant="bodySmall" style={styles.infoValue}>{location.provider}</Text>
+                </View>
               </View>
 
               <View style={styles.infoSection}>
@@ -118,7 +132,9 @@ export const LocationViewer: React.FC<LocationViewerProps> = ({
                 </Text>
                 <View style={styles.infoRow}>
                   <Text variant="bodySmall" style={styles.infoLabel}>Dirección:</Text>
-                  <Text variant="bodySmall" style={styles.infoValue}>{location.address}</Text>
+                  <Text variant="bodySmall" style={[styles.infoValue, styles.addressValue]} numberOfLines={2}>
+                    {location.address}
+                  </Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Text variant="bodySmall" style={styles.infoLabel}>Fecha y hora:</Text>
@@ -126,13 +142,41 @@ export const LocationViewer: React.FC<LocationViewerProps> = ({
                     {formatTimestamp(location.timestamp)}
                   </Text>
                 </View>
+                {location.speed && (
+                  <View style={styles.infoRow}>
+                    <Text variant="bodySmall" style={styles.infoLabel}>Velocidad:</Text>
+                    <Text variant="bodySmall" style={styles.infoValue}>{location.speed}</Text>
+                  </View>
+                )}
+                {location.heading && (
+                  <View style={styles.infoRow}>
+                    <Text variant="bodySmall" style={styles.infoLabel}>Rumbo:</Text>
+                    <Text variant="bodySmall" style={styles.infoValue}>{location.heading}</Text>
+                  </View>
+                )}
               </View>
+
+              {location.deviceInfo && (
+                <View style={styles.infoSection}>
+                  <Text variant="titleSmall" style={styles.sectionTitle}>
+                    Información del dispositivo
+                  </Text>
+                  <View style={styles.infoRow}>
+                    <Text variant="bodySmall" style={styles.infoLabel}>Fuente:</Text>
+                    <Text variant="bodySmall" style={styles.infoValue}>{location.deviceInfo.source}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text variant="bodySmall" style={styles.infoLabel}>Plataforma:</Text>
+                    <Text variant="bodySmall" style={styles.infoValue}>{location.deviceInfo.platform}</Text>
+                  </View>
+                </View>
+              )}
 
               {/* Nota informativa */}
               <View style={styles.noteContainer}>
                 <Text variant="bodySmall" style={styles.noteText}>
-                  💡 Esta ubicación fue registrada como evidencia para la subtarea.
-                  Los datos están almacenados de forma segura.
+                  💡 Esta ubicación fue capturada usando el GPS real de tu dispositivo como evidencia para la subtarea.
+                  Los datos están almacenados de forma segura y verificada.
                 </Text>
               </View>
             </View>
@@ -280,6 +324,12 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 2,
     textAlign: 'right',
+  },
+  addressValue: {
+    fontFamily: 'default',
+    fontSize: 10,
+    textAlign: 'right',
+    flexWrap: 'wrap',
   },
   noteContainer: {
     backgroundColor: '#e3f2fd',
