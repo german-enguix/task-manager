@@ -684,6 +684,16 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         };
 
         setTask(updatedTask);
+        
+        // DEBUG: Confirmar que la subtarea ahora tiene evidencia
+        const updatedSubtask = updatedSubtasks.find(s => s.id === subtask.id);
+        console.log('🔍 Subtask después de actualizar:', {
+          id: updatedSubtask?.id,
+          isCompleted: updatedSubtask?.isCompleted,
+          hasEvidence: !!updatedSubtask?.evidence,
+          evidenceType: updatedSubtask?.evidence?.type,
+          evidenceFilePath: updatedSubtask?.evidence?.filePath
+        });
       }
 
       console.log(`📸 Media guardado exitosamente en Supabase Storage`);
@@ -726,13 +736,17 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       return;
     }
 
-    setShowCameraDialog(false);
     setIsLoading(true);
 
     try {
       console.log('🔄 Starting media evidence capture process...');
       await saveMediaEvidence(currentCameraSubtask, mediaData);
       console.log('✅ Media evidence saved successfully');
+      
+      // Pequeño delay para asegurar que React procese la actualización del estado
+      console.log('⏳ Esperando actualización de UI...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
     } catch (error) {
       console.error('❌ Error saving media evidence:', error);
       Alert.alert(
@@ -742,7 +756,9 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       );
     } finally {
       setIsLoading(false);
+      setShowCameraDialog(false);
       setCurrentCameraSubtask(null);
+      console.log('🎯 Camera dialog closed, UI should now show "Ver Media" button');
     }
   };
 
@@ -1693,7 +1709,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 {/* CTA de evidencia */}
                 {subtask.evidenceRequirement && (
                   <View style={styles.evidenceInfo}>
-                    {subtask.evidence ? (
+                    {(() => {
+                      // DEBUG: Logging para verificar estado de evidencia
+                      const hasEvidence = !!subtask.evidence;
+                      console.log(`🔍 Rendering subtask ${subtask.id}: hasEvidence=${hasEvidence}, evidenceType=${subtask.evidence?.type}`);
+                      return hasEvidence;
+                    })() ? (
                       <Button 
                         mode="outlined"
                         icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
@@ -1728,7 +1749,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                           : subtask.evidenceRequirement.type === EvidenceType.AUDIO
                           ? 'Ver Audio'
                           : subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO
-                          ? 'Ver Media'
+                          ? (subtask.evidence?.data?.type === 'video' ? 'Ver Video' : 'Ver Imagen')
                           : 'Evidencia completada'}
                       </Button>
                     ) : (
