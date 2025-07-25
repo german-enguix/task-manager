@@ -106,6 +106,7 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
         quality: 0.8,
         base64: false,
         skipProcessing: false,
+        imageType: 'jpg', // Forzar JPEG que siempre está soportado
       });
 
       console.log('📸 Foto capturada exitosamente:', photo);
@@ -183,10 +184,12 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
       setIsProcessing(true);
       console.log('🔄 Procesando y subiendo media...');
 
-      // Determinar formato y extensión
+      // Determinar formato y extensión (siempre JPG para fotos)
       const isVideo = type === 'video';
       const format = isVideo ? 'mp4' : 'jpg';
       const fileName = `${isVideo ? 'video' : 'photo'}.${format}`;
+      
+      console.log('📝 Archivo generado:', fileName, 'MIME type esperado:', isVideo ? 'video/mp4' : 'image/jpeg');
 
       // Subir a Supabase
       const { publicUrl, filePath } = await supabaseService.uploadMediaFile(media.uri, fileName);

@@ -776,6 +776,12 @@ export class SupabaseService {
       if (!uri || uri.trim() === '') {
         throw new Error('URI de media vacío o inválido');
       }
+
+      // Verificar que el bucket existe
+      const bucketExists = await this.verifyStorageBucket();
+      if (!bucketExists) {
+        throw new Error('❌ Bucket task-evidences no existe. Ejecuta el script setup_supabase_storage.sql en tu dashboard de Supabase.');
+      }
       
       // Leer el archivo
       const response = await fetch(uri);
@@ -797,6 +803,14 @@ export class SupabaseService {
       
       // Determinar content type basado en la extensión
       const contentType = this.getMediaContentType(fileName);
+      console.log('📋 Upload details:', {
+        fileName,
+        uniqueFileName,
+        filePath,
+        contentType,
+        blobSize: blob.size,
+        blobType: blob.type
+      });
       
       // Subir archivo a Supabase Storage
       const { data, error } = await supabase.storage
@@ -833,22 +847,40 @@ export class SupabaseService {
   }
 
   /**
+   * Verifica si el bucket de storage existe y está configurado
+   */
+  async verifyStorageBucket(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.storage.getBucket('task-evidences');
+      if (error) {
+        console.error('❌ Bucket verification failed:', error);
+        return false;
+      }
+      console.log('✅ Bucket exists:', data);
+      return true;
+    } catch (error) {
+      console.error('❌ Error verifying bucket:', error);
+      return false;
+    }
+  }
+
+  /**
    * Determina el content type basado en la extensión del archivo
+   * TEMPORALMENTE: Fuerza JPEG para fotos para evitar problemas de configuración
    */
   private getMediaContentType(fileName: string): string {
     const extension = fileName.split('.').pop()?.toLowerCase();
     
     switch (extension) {
-      // Imágenes
+      // Imágenes - TEMPORALMENTE FORZAR JPEG
       case 'jpg':
       case 'jpeg':
+      case 'png': // ← TEMPORAL: PNG también se trata como JPEG
         return 'image/jpeg';
-      case 'png':
-        return 'image/png';
       case 'gif':
-        return 'image/gif';
+        return 'image/jpeg'; // ← TEMPORAL: Forzar JPEG
       case 'webp':
-        return 'image/webp';
+        return 'image/jpeg'; // ← TEMPORAL: Forzar JPEG
       
       // Videos
       case 'mp4':
