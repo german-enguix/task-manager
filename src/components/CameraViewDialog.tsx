@@ -9,7 +9,7 @@ import {
   Surface,
   useTheme
 } from 'react-native-paper';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { MediaData } from '../services/cameraService';
 import { supabaseService } from '../services/supabaseService';
 
@@ -36,6 +36,7 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
   
   // Estados principales
   const [permission, requestPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -48,7 +49,11 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
     if (visible && !permission?.granted) {
       requestPermission();
     }
-  }, [visible, permission]);
+    // Para video también necesitamos permisos de micrófono
+    if (visible && mediaType !== 'photo' && !micPermission?.granted) {
+      requestMicPermission();
+    }
+  }, [visible, permission, micPermission, mediaType]);
 
   // Resetear estado cuando se abre el diálogo
   useEffect(() => {
@@ -67,9 +72,12 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
   }, [facing]);
 
   useEffect(() => {
+    console.log('🎯 Media type changed:', mediaType);
     if (mediaType === 'photo') {
+      console.log('📸 Setting mode to photo');
       setCurrentMode('photo');
     } else if (mediaType === 'video') {
+      console.log('🎬 Setting mode to video');
       setCurrentMode('video');
     }
     // Para 'both', mantener el modo actual o defaultear a photo
@@ -77,6 +85,8 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
 
   const onCameraReady = () => {
     console.log('📹 Cámara lista para capturar');
+    console.log('📹 Modo actual de cámara:', currentMode);
+    console.log('📹 Facing:', facing);
     setIsCameraReady(true);
   };
 
@@ -130,6 +140,9 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
     console.log('Camera ref:', !!cameraRef.current);
     console.log('Camera ready:', isCameraReady);
     console.log('Is recording:', isRecording);
+    console.log('Current mode:', currentMode);
+    console.log('Camera permission:', permission?.granted);
+    console.log('Microphone permission:', micPermission?.granted);
 
     if (!cameraRef.current) {
       console.error('❌ No hay referencia a la cámara');
@@ -143,16 +156,41 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
       return;
     }
 
+    if (!permission?.granted) {
+      console.error('❌ Sin permisos de cámara');
+      Alert.alert('Error', 'Se requieren permisos de cámara para grabar video');
+      return;
+    }
+
+    if (!micPermission?.granted) {
+      console.error('❌ Sin permisos de micrófono');
+      Alert.alert('Error', 'Se requieren permisos de micrófono para grabar video');
+      await requestMicPermission();
+      return;
+    }
+
     try {
       setIsRecording(true);
       console.log('🎬 Iniciando grabación...');
+      console.log('🎬 Configuración de grabación:', {
+        maxDuration: 60,
+        quality: 'high',
+        mute: false
+      });
 
       const video = await cameraRef.current.recordAsync({
         maxDuration: 60, // máximo 60 segundos
         quality: 'high',
+        mute: false, // Asegurar que se grabe audio
       });
 
       console.log('🎬 Video grabado exitosamente:', video);
+      console.log('🎬 Video info:', {
+        uri: video?.uri,
+        duration: video?.duration,
+        width: video?.width,
+        height: video?.height
+      });
 
       if (video && video.uri) {
         await processAndUploadMedia(video, 'video');
@@ -228,8 +266,16 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
   };
 
   const toggleMode = () => {
+    console.log('🔄 Toggle mode called');
+    console.log('Media type:', mediaType);
+    console.log('Current mode:', currentMode);
+    
     if (mediaType === 'both') {
-      setCurrentMode(current => current === 'photo' ? 'video' : 'photo');
+      const newMode = currentMode === 'photo' ? 'video' : 'photo';
+      console.log('🔄 Changing mode from', currentMode, 'to', newMode);
+      setCurrentMode(newMode);
+    } else {
+      console.log('⚠️ Cannot toggle mode, mediaType is:', mediaType);
     }
   };
 
@@ -259,7 +305,29 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
           <Dialog.Actions>
             <Button onPress={handleCancel}>Cancelar</Button>
             <Button mode="contained" onPress={requestPermission}>
-              Otorgar Permisos
+              Otorgar Permisos de Cámara
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+    );
+  }
+
+  // Verificar permisos de micrófono para video
+  if ((mediaType === 'video' || mediaType === 'both') && !micPermission?.granted) {
+    return (
+      <Portal>
+        <Dialog visible={visible} onDismiss={handleCancel}>
+          <Dialog.Title>Permisos de Micrófono Necesarios</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              Necesitamos acceso al micrófono para grabar video con audio.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={handleCancel}>Cancelar</Button>
+            <Button mode="contained" onPress={requestMicPermission}>
+              Otorgar Permisos de Micrófono
             </Button>
           </Dialog.Actions>
         </Dialog>
@@ -283,13 +351,18 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
 
           {/* Vista de la cámara */}
           <Surface style={styles.cameraContainer}>
-            <CameraView
-              ref={cameraRef}
-              style={styles.camera}
-              facing={facing}
-              mode={currentMode}
-              onCameraReady={onCameraReady}
-            />
+            {(() => {
+              console.log('🎥 Rendering CameraView with mode:', currentMode, 'facing:', facing);
+              return (
+                <CameraView
+                  ref={cameraRef}
+                  style={styles.camera}
+                  facing={facing}
+                  mode={currentMode}
+                  onCameraReady={onCameraReady}
+                />
+              );
+            })()}
             
             {/* Controles superpuestos usando absolute positioning */}
             <View style={styles.overlay}>
