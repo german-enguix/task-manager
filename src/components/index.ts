@@ -26,5 +26,8 @@ export { LocationDialog } from './LocationDialog';
 export { LocationViewer } from './LocationViewer';
 export { AudioDialog } from './AudioDialog';
 export { AudioViewer } from './AudioViewer';
+export { CameraDialog } from './CameraDialog';
+export { CameraViewDialog } from './CameraViewDialog';
+export { MediaViewer } from './MediaViewer';
 export { SignatureDialog } from './SignatureDialog';
 export { SignatureViewer } from './SignatureViewer';

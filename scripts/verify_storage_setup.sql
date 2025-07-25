@@ -19,7 +19,10 @@ SELECT
     ELSE '⚠️ Límite bajo: ' || (file_size_limit/1024/1024) || 'MB'
   END as size_limit,
   CASE 
-    WHEN 'audio/mp4' = ANY(allowed_mime_types) THEN '✅ MIME types OK'
+    WHEN 'audio/mp4' = ANY(allowed_mime_types) AND 'image/jpeg' = ANY(allowed_mime_types) AND 'video/mp4' = ANY(allowed_mime_types) 
+    THEN '✅ MIME types OK (Audio, Fotos, Videos)'
+    WHEN 'audio/mp4' = ANY(allowed_mime_types) 
+    THEN '⚠️ Solo audio configurado - Faltan fotos/videos'
     ELSE '⚠️ Verificar MIME types'
   END as mime_status
 FROM storage.buckets 
@@ -35,7 +38,7 @@ SELECT
 FROM pg_policies 
 WHERE tablename = 'objects' 
 AND schemaname = 'storage'
-AND policyname LIKE '%audio%';
+AND (policyname LIKE '%audio%' OR policyname LIKE '%evidencia%');
 
 -- 4. Verificar RLS
 SELECT 
@@ -49,6 +52,6 @@ AND tablename = 'objects';
 
 -- 5. Resumen final
 SELECT 
-  '🎵 VERIFICACIÓN COMPLETA' as titulo,
+  '🎵📸 VERIFICACIÓN COMPLETA' as titulo,
   'Si todos los items anteriores muestran ✅, el storage está listo' as instruccion,
-  'Prueba grabando un audio en tu app' as siguiente_paso; 
+  'Prueba grabando audio o capturando fotos/videos en tu app' as siguiente_paso; 

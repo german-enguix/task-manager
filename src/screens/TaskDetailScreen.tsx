@@ -34,7 +34,7 @@ import {
   TaskProblemReport,
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
-import { ProblemReportDialog, NFCDialog, LocationDialog, LocationViewer, AudioDialog, AudioViewer, SignatureDialog, SignatureViewer } from '@/components';
+import { ProblemReportDialog, NFCDialog, LocationDialog, LocationViewer, AudioDialog, AudioViewer, SignatureDialog, SignatureViewer, CameraDialog, MediaViewer } from '@/components';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -67,6 +67,10 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [currentAudioSubtask, setCurrentAudioSubtask] = useState<TaskSubtask | null>(null);
   const [showAudioViewer, setShowAudioViewer] = useState(false);
   const [currentAudioData, setCurrentAudioData] = useState<any>(null);
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
+  const [currentCameraSubtask, setCurrentCameraSubtask] = useState<TaskSubtask | null>(null);
+  const [showMediaViewer, setShowMediaViewer] = useState(false);
+  const [currentMediaData, setCurrentMediaData] = useState<any>(null);
 
   useEffect(() => {
     loadUserAndTask();
@@ -390,6 +394,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       setShowAudioDialog(true);
       return;
     }
+
+    // Si es evidencia de foto/video, mostrar el diálogo específico
+    if (subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO) {
+      setCurrentCameraSubtask(subtask);
+      setShowCameraDialog(true);
+      return;
+    }
     
     // Para otros tipos de evidencia, usar el flujo existente
     const actionText = getSubtaskEvidenceActionText(subtask.evidenceRequirement);
@@ -613,6 +624,75 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
   };
 
+  const saveMediaEvidence = async (subtask: TaskSubtask, mediaData: any) => {
+    if (!task || !subtask.evidenceRequirement || !mediaData) return;
+    
+    try {
+      console.log('📸 Guardando evidencia de media desde Supabase Storage...');
+      
+      // Actualizar en Supabase: marcar subtarea como completada
+      const completedAt = new Date();
+      await supabaseService.updateSubtask(subtask.id, {
+        isCompleted: true,
+        completedAt: completedAt
+      });
+
+      // Crear descripción basada en el tipo de media
+      const mediaTypeText = mediaData.type === 'video' ? 'Video' : 'Foto';
+      const durationText = mediaData.type === 'video' && mediaData.duration 
+        ? ` - Duración: ${Math.floor(mediaData.duration / 60)}:${(mediaData.duration % 60).toString().padStart(2, '0')}`
+        : '';
+      const description = `${mediaTypeText} capturada: ${mediaData.width}×${mediaData.height}${durationText}`;
+
+      // Guardar la evidencia en la base de datos
+      await supabaseService.addSubtaskEvidence(
+        subtask.id,
+        subtask.evidenceRequirement.id,
+        subtask.evidenceRequirement.type,
+        `${subtask.evidenceRequirement.title} - Completada`,
+        description,
+        mediaData.filePath, // Path en Supabase Storage
+        mediaData // Datos completos del media
+      );
+
+      // Actualizar estado local
+      if (task && setTask) {
+        const updatedSubtasks = task.subtasks.map(s => 
+          s.id === subtask.id 
+            ? { 
+                ...s, 
+                isCompleted: true, 
+                completedAt: completedAt,
+                evidence: {
+                  id: `evidence_${subtask.id}`,
+                  subtaskId: subtask.id,
+                  evidenceRequirementId: subtask.evidenceRequirement.id,
+                  type: subtask.evidenceRequirement.type,
+                  title: `${subtask.evidenceRequirement.title} - Completada`,
+                  description,
+                  filePath: mediaData.filePath,
+                  data: mediaData,
+                  createdAt: new Date(),
+                }
+              } 
+            : s
+        );
+
+        const updatedTask = {
+          ...task,
+          subtasks: updatedSubtasks
+        };
+
+        setTask(updatedTask);
+      }
+
+      console.log(`📸 Media guardado exitosamente en Supabase Storage`);
+    } catch (error) {
+      console.error('❌ Error saving media evidence:', error);
+      throw error;
+    }
+  };
+
   const handleAudioDismiss = () => {
     setShowAudioDialog(false);
     setCurrentAudioSubtask(null);
@@ -635,6 +715,59 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const handleAudioViewerDismiss = () => {
     setShowAudioViewer(false);
     setCurrentAudioData(null);
+  };
+
+  const handleMediaSuccess = async (mediaData: any) => {
+    console.log('📸 handleMediaSuccess called with media from Supabase Storage');
+
+    if (!currentCameraSubtask || !task) {
+      console.error('❌ Missing currentCameraSubtask or task for media evidence.');
+      Alert.alert('Error', 'No se pudo procesar la evidencia de media. Faltan datos de la tarea.');
+      return;
+    }
+
+    setShowCameraDialog(false);
+    setIsLoading(true);
+
+    try {
+      console.log('🔄 Starting media evidence capture process...');
+      await saveMediaEvidence(currentCameraSubtask, mediaData);
+      console.log('✅ Media evidence saved successfully');
+    } catch (error) {
+      console.error('❌ Error saving media evidence:', error);
+      Alert.alert(
+        'Error de Media',
+        'No se pudo guardar la evidencia de media. Inténtalo de nuevo.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    } finally {
+      setIsLoading(false);
+      setCurrentCameraSubtask(null);
+    }
+  };
+
+  const handleCameraDismiss = () => {
+    setShowCameraDialog(false);
+    setCurrentCameraSubtask(null);
+  };
+
+  const handleViewMedia = (subtask: TaskSubtask) => {
+    if (subtask.evidence && subtask.evidence.data) {
+      setCurrentMediaData(subtask.evidence.data);
+      setShowMediaViewer(true);
+    } else {
+      console.warn('No se puede mostrar el media: datos inválidos o vacíos', subtask.evidence?.data);
+      Alert.alert(
+        'Error',
+        'No se pueden mostrar los datos de media. Es posible que el archivo esté corrupto o vacío.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleMediaViewerDismiss = () => {
+    setShowMediaViewer(false);
+    setCurrentMediaData(null);
   };
 
   const simulateNFCEvidenceCapture = async (subtask: TaskSubtask) => {
@@ -1571,7 +1704,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                             subtask.evidence.data.trim() === '')) ||
                           (subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE && 
                            subtask.evidenceRequirement.type !== EvidenceType.LOCATION &&
-                           subtask.evidenceRequirement.type !== EvidenceType.AUDIO)
+                           subtask.evidenceRequirement.type !== EvidenceType.AUDIO &&
+                           subtask.evidenceRequirement.type !== EvidenceType.PHOTO_VIDEO)
                         }
                         onPress={
                           subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
@@ -1580,6 +1714,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                             ? () => handleViewLocation(subtask)
                             : subtask.evidenceRequirement.type === EvidenceType.AUDIO
                             ? () => handleViewAudio(subtask)
+                            : subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO
+                            ? () => handleViewMedia(subtask)
                             : undefined
                         }
                         style={styles.evidenceCompletedButton}
@@ -1591,6 +1727,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                           ? 'Ver Ubicación'
                           : subtask.evidenceRequirement.type === EvidenceType.AUDIO
                           ? 'Ver Audio'
+                          : subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO
+                          ? 'Ver Media'
                           : 'Evidencia completada'}
                       </Button>
                     ) : (
@@ -1835,6 +1973,28 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         onDismiss={handleAudioViewerDismiss}
         audioData={currentAudioData}
         title="Audio Registrado"
+      />
+
+      {/* Camera Dialog */}
+      <CameraDialog
+        visible={showCameraDialog}
+        onCancel={handleCameraDismiss}
+        onSuccess={handleMediaSuccess}
+        title={currentCameraSubtask?.evidenceRequirement?.title || 'Capturar Media'}
+        description={currentCameraSubtask?.evidenceRequirement?.description || 'Captura una foto o video como evidencia'}
+        config={{
+          mediaTypes: currentCameraSubtask?.evidenceRequirement?.config?.allowVideo ? 'both' : 'photo',
+          quality: 0.8,
+          videoMaxDuration: 60,
+          allowsEditing: true
+        }}
+      />
+
+      {/* Media Viewer */}
+      <MediaViewer
+        visible={showMediaViewer}
+        onDismiss={handleMediaViewerDismiss}
+        mediaData={currentMediaData}
       />
     </Surface>
   );

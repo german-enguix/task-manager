@@ -10,7 +10,11 @@ VALUES (
   'task-evidences', 
   true,
   52428800, -- 50MB en bytes
-  ARRAY['audio/mp4', 'audio/m4a', 'audio/wav', 'audio/mpeg']
+  ARRAY[
+    'audio/mp4', 'audio/m4a', 'audio/wav', 'audio/mpeg',
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'
+  ]
 )
 ON CONFLICT (id) DO NOTHING;
 
@@ -29,33 +33,39 @@ WHERE id = 'task-evidences';
 DROP POLICY IF EXISTS "Permitir subir archivos de audio" ON storage.objects;
 DROP POLICY IF EXISTS "Permitir leer archivos de audio" ON storage.objects;
 DROP POLICY IF EXISTS "Permitir eliminar archivos de audio" ON storage.objects;
+DROP POLICY IF EXISTS "Permitir subir archivos de evidencia" ON storage.objects;
+DROP POLICY IF EXISTS "Permitir leer archivos de evidencia" ON storage.objects;
+DROP POLICY IF EXISTS "Permitir eliminar archivos de evidencia" ON storage.objects;
 
 -- 4. Crear políticas de acceso para el bucket
 -- Política para INSERT (subir archivos)
-CREATE POLICY "Permitir subir archivos de audio" ON storage.objects
+CREATE POLICY "Permitir subir archivos de evidencia" ON storage.objects
 FOR INSERT 
 TO authenticated, anon
 WITH CHECK (
   bucket_id = 'task-evidences' AND 
-  (storage.foldername(name))[1] = 'audio-evidences'
+  ((storage.foldername(name))[1] = 'audio-evidences' OR 
+   (storage.foldername(name))[1] = 'media-evidences')
 );
 
 -- Política para SELECT (leer archivos públicos)
-CREATE POLICY "Permitir leer archivos de audio" ON storage.objects
+CREATE POLICY "Permitir leer archivos de evidencia" ON storage.objects
 FOR SELECT 
 TO authenticated, anon
 USING (
   bucket_id = 'task-evidences' AND 
-  (storage.foldername(name))[1] = 'audio-evidences'
+  ((storage.foldername(name))[1] = 'audio-evidences' OR 
+   (storage.foldername(name))[1] = 'media-evidences')
 );
 
 -- Política para DELETE (eliminar archivos - opcional)
-CREATE POLICY "Permitir eliminar archivos de audio" ON storage.objects
+CREATE POLICY "Permitir eliminar archivos de evidencia" ON storage.objects
 FOR DELETE 
 TO authenticated
 USING (
   bucket_id = 'task-evidences' AND 
-  (storage.foldername(name))[1] = 'audio-evidences'
+  ((storage.foldername(name))[1] = 'audio-evidences' OR 
+   (storage.foldername(name))[1] = 'media-evidences')
 );
 
 -- 5. Verificar políticas creadas
@@ -68,7 +78,7 @@ SELECT
 FROM pg_policies 
 WHERE tablename = 'objects' 
 AND schemaname = 'storage'
-AND policyname LIKE '%audio%';
+AND (policyname LIKE '%audio%' OR policyname LIKE '%evidencia%');
 
 -- 6. Verificar configuración completa
 SELECT 
@@ -81,6 +91,6 @@ WHERE b.id = 'task-evidences';
 
 -- 7. Mensaje de confirmación
 SELECT 
-  '🎵 Configuración de Supabase Storage completada exitosamente!' as mensaje,
-  'El bucket task-evidences está listo para recibir archivos de audio' as detalle,
-  'Carpeta de destino: audio-evidences/' as path_info; 
+  '🎵📸 Configuración de Supabase Storage completada exitosamente!' as mensaje,
+  'El bucket task-evidences está listo para recibir archivos de audio, fotos y videos' as detalle,
+  'Carpetas de destino: audio-evidences/ y media-evidences/' as path_info; 

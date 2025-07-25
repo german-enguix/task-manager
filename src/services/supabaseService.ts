@@ -767,6 +767,108 @@ export class SupabaseService {
   }
 
   /**
+   * Sube un archivo de media (foto o video) a Supabase Storage
+   */
+  async uploadMediaFile(uri: string, fileName: string): Promise<{publicUrl: string, filePath: string}> {
+    try {
+      console.log('📤 Uploading media to Supabase Storage:', fileName);
+      
+      if (!uri || uri.trim() === '') {
+        throw new Error('URI de media vacío o inválido');
+      }
+      
+      // Leer el archivo
+      const response = await fetch(uri);
+      if (!response.ok) {
+        throw new Error(`Error fetching media file: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('✅ Media file fetched, size:', blob.size, 'bytes');
+      
+      if (blob.size === 0) {
+        throw new Error('El archivo de media está vacío');
+      }
+      
+      // Generar nombre único para el archivo
+      const timestamp = Date.now();
+      const uniqueFileName = `media_${timestamp}_${fileName}`;
+      const filePath = `media-evidences/${uniqueFileName}`;
+      
+      // Determinar content type basado en la extensión
+      const contentType = this.getMediaContentType(fileName);
+      
+      // Subir archivo a Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('task-evidences')
+        .upload(filePath, blob, {
+          contentType,
+          upsert: false
+        });
+
+      if (error) {
+        console.error('❌ Supabase Storage upload error:', error);
+        throw new Error(`Error subiendo archivo: ${error.message}`);
+      }
+
+      console.log('✅ Media uploaded successfully to:', filePath);
+
+      // Obtener URL público
+      const { data: urlData } = supabase.storage
+        .from('task-evidences')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+      console.log('✅ Public URL generated:', publicUrl);
+
+      return {
+        publicUrl,
+        filePath
+      };
+
+    } catch (error) {
+      console.error('❌ Error uploading media file:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Determina el content type basado en la extensión del archivo
+   */
+  private getMediaContentType(fileName: string): string {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    
+    switch (extension) {
+      // Imágenes
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      
+      // Videos
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'avi':
+        return 'video/x-msvideo';
+      case 'mkv':
+        return 'video/x-matroska';
+      case 'webm':
+        return 'video/webm';
+      
+      // Fallback
+      default:
+        return fileName.includes('video') ? 'video/mp4' : 'image/jpeg';
+    }
+  }
+
+  /**
    * Elimina un archivo de audio de Supabase Storage
    */
   async deleteAudioFile(filePath: string): Promise<void> {
