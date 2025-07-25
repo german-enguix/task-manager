@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Alert, StyleSheet, Dimensions } from 'react-native';
+import { View, Alert, StyleSheet, Dimensions, Platform } from 'react-native';
 import { 
   Portal, 
   Dialog, 
@@ -10,6 +10,7 @@ import {
   useTheme
 } from 'react-native-paper';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { MediaData } from '../services/cameraService';
 import { supabaseService } from '../services/supabaseService';
 
@@ -137,6 +138,7 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
 
   const startRecording = async () => {
     console.log('🎬 Intentando iniciar grabación...');
+    console.log('Platform:', Platform.OS);
     console.log('Camera ref:', !!cameraRef.current);
     console.log('Camera ready:', isCameraReady);
     console.log('Is recording:', isRecording);
@@ -144,6 +146,14 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
     console.log('Camera permission:', permission?.granted);
     console.log('Microphone permission:', micPermission?.granted);
 
+    // En web, usar ImagePicker para video ya que expo-camera no soporta recordAsync
+    if (Platform.OS === 'web') {
+      console.log('🌐 Detectado web - usando ImagePicker para video');
+      await startRecordingWeb();
+      return;
+    }
+
+    // Flujo normal para móvil
     if (!cameraRef.current) {
       console.error('❌ No hay referencia a la cámara');
       Alert.alert('Error', 'Cámara no disponible');
@@ -206,14 +216,118 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
     }
   };
 
+  const startRecordingWeb = async () => {
+    console.log('🌐 Iniciando grabación web con navegador nativo...');
+    
+    try {
+      setIsRecording(true);
+      
+      // En web, usar la API nativa del navegador para video
+      console.log('🌐 Solicitando acceso a getUserMedia...');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      
+      console.log('🌐 Stream obtenido, iniciando grabación...');
+      
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      
+      // Recopilar chunks de datos
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      
+      // Cuando termina la grabación
+      mediaRecorder.onstop = async () => {
+        console.log('🎬 Grabación terminada, procesando...');
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const videoUri = URL.createObjectURL(blob);
+        
+        console.log('🎬 Video blob creado:', {
+          size: blob.size,
+          type: blob.type,
+          uri: videoUri
+        });
+        
+        // Crear objeto similar a ImagePicker result
+        const videoAsset = {
+          uri: videoUri,
+          type: 'video',
+          width: 1280,
+          height: 720,
+          duration: 0, // No podemos calcular duración fácilmente
+          fileSize: blob.size,
+          fileName: `video_${Date.now()}.webm`
+        };
+        
+        await processAndUploadMedia(videoAsset, 'video');
+        
+        // Limpiar stream
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      // Iniciar grabación
+      mediaRecorder.start();
+      console.log('🔴 Grabación iniciada...');
+      
+      // Auto-parar después de 60 segundos
+      setTimeout(() => {
+        if (mediaRecorder.state === 'recording') {
+          console.log('⏰ Tiempo límite alcanzado, deteniendo grabación');
+          mediaRecorder.stop();
+        }
+      }, 60000);
+      
+      // Guardar referencia para poder parar manualmente
+      (window as any).__currentRecorder = mediaRecorder;
+      
+    } catch (error) {
+      console.error('❌ Error en grabación web:', error);
+      
+      if (error.name === 'NotAllowedError') {
+        Alert.alert('Permisos Requeridos', 'Se necesitan permisos de cámara y micrófono para grabar video.');
+      } else if (error.name === 'NotFoundError') {
+        Alert.alert('Hardware No Disponible', 'No se encontró cámara o micrófono en el dispositivo.');
+      } else {
+        Alert.alert('Error', `No se pudo iniciar la grabación: ${error.message || error}`);
+      }
+      
+      setIsRecording(false);
+    }
+  };
+
   const stopRecording = async () => {
-    if (!cameraRef.current || !isRecording) return;
+    if (!isRecording) return;
+    
+    console.log('🛑 Deteniendo grabación...');
+    console.log('Platform:', Platform.OS);
 
     try {
-      console.log('🛑 Deteniendo grabación...');
-      await cameraRef.current.stopRecording();
+      if (Platform.OS === 'web') {
+        // En web, parar el MediaRecorder
+        const recorder = (window as any).__currentRecorder;
+        if (recorder && recorder.state === 'recording') {
+          console.log('🌐 Deteniendo MediaRecorder...');
+          recorder.stop();
+          // El procesamiento se hace en el evento onstop
+        } else {
+          console.log('⚠️ No hay recorder activo o ya está parado');
+          setIsRecording(false);
+        }
+      } else {
+        // En móvil, usar expo-camera
+        if (!cameraRef.current) return;
+        console.log('📱 Deteniendo expo-camera recording...');
+        await cameraRef.current.stopRecording();
+      }
     } catch (error) {
       console.error('❌ Error deteniendo grabación:', error);
+      setIsRecording(false);
     }
   };
 
@@ -221,13 +335,22 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
     try {
       setIsProcessing(true);
       console.log('🔄 Procesando y subiendo media...');
+      console.log('Platform:', Platform.OS);
+      console.log('Media object:', media);
 
-      // Determinar formato y extensión (siempre JPG para fotos)
+      // Determinar formato y extensión
       const isVideo = type === 'video';
-      const format = isVideo ? 'mp4' : 'jpg';
+      let format = isVideo ? 'mp4' : 'jpg';
+      
+      // En web, si el fileName indica webm, usarlo
+      if (Platform.OS === 'web' && isVideo && media.fileName && media.fileName.includes('.webm')) {
+        format = 'webm';
+      }
+      
       const fileName = `${isVideo ? 'video' : 'photo'}.${format}`;
       
-      console.log('📝 Archivo generado:', fileName, 'MIME type esperado:', isVideo ? 'video/mp4' : 'image/jpeg');
+      console.log('📝 Archivo generado:', fileName, 'MIME type esperado:', 
+        isVideo ? (format === 'webm' ? 'video/webm' : 'video/mp4') : 'image/jpeg');
 
       // Subir a Supabase
       const { publicUrl, filePath } = await supabaseService.uploadMediaFile(media.uri, fileName);
@@ -241,7 +364,7 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
         width: media.width || 1920,
         height: media.height || 1080,
         duration: isVideo ? (media.duration ? Math.round(media.duration / 1000) : undefined) : undefined,
-        fileSize: 0, // expo-camera no proporciona fileSize
+        fileSize: media.fileSize || 0, // En web tenemos fileSize del blob
         timestamp: new Date().toISOString(),
         format,
       };
