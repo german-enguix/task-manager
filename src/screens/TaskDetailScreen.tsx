@@ -736,8 +736,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       return;
     }
 
-    setIsLoading(true);
-
     try {
       console.log('🔄 Starting media evidence capture process...');
       await saveMediaEvidence(currentCameraSubtask, mediaData);
@@ -755,7 +753,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         [{ text: 'OK', style: 'default' }]
       );
     } finally {
-      setIsLoading(false);
       setShowCameraDialog(false);
       setCurrentCameraSubtask(null);
       console.log('🎯 Camera dialog closed, UI should now show "Ver Media" button');
