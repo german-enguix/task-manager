@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native-paper';
 import { View, StyleSheet, Animated, Easing, Alert } from 'react-native';
-import { Audio } from 'expo-av';
+import { audioService } from '../services/audioService';
 
 interface AudioDialogProps {
   visible: boolean;
@@ -27,10 +27,8 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
 }) => {
   const theme = useTheme();
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isAudioReady, setIsAudioReady] = useState(false);
-  const [buttonEnabled, setButtonEnabled] = useState(false);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [audioUri, setAudioUri] = useState<string>('');
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [currentStatus, setCurrentStatus] = useState<string>('');
   const [pulseAnimation] = useState(new Animated.Value(1));
@@ -39,45 +37,52 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
   useEffect(() => {
     if (visible) {
       resetState();
-      requestAudioPermissions();
+      initializeAudio();
     } else {
-      resetState();
+      cleanup();
     }
   }, [visible]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    if (isRecording && recording) {
+    
+    if (isRecording) {
       interval = setInterval(async () => {
-        const status = await recording.getStatusAsync();
-        if (status.isRecording) {
-          setRecordingDuration(Math.floor(status.durationMillis / 1000));
+        const status = await audioService.getRecordingStatus();
+        if (status) {
+          setRecordingDuration(status.durationSeconds);
         }
       }, 100);
     }
+    
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRecording, recording]);
+  }, [isRecording]);
 
   const resetState = () => {
     setIsRecording(false);
+    setIsProcessing(false);
     setIsAudioReady(false);
-    setButtonEnabled(false);
-    setRecording(null);
-    setAudioUri('');
     setRecordingDuration(0);
     setCurrentStatus('');
     stopAnimations();
   };
 
-  const requestAudioPermissions = async () => {
+  const cleanup = async () => {
+    if (audioService.isCurrentlyRecording) {
+      await audioService.cancelRecording();
+    }
+    resetState();
+  };
+
+  const initializeAudio = async () => {
     try {
-      setCurrentStatus('Solicitando permisos...');
+      setCurrentStatus('Verificando permisos...');
       
-      const { status } = await Audio.requestPermissionsAsync();
+      const hasPermissions = await audioService.requestPermissions();
       
-      if (status !== 'granted') {
+      if (!hasPermissions) {
         setCurrentStatus('Permisos denegados');
         Alert.alert(
           'Permisos Necesarios',
@@ -87,23 +92,16 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
         return;
       }
 
-      // Configurar modo de audio
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      setCurrentStatus('Lista para grabar');
-      setButtonEnabled(true);
+      setCurrentStatus('Listo para grabar');
     } catch (error) {
-      console.error('Error requesting audio permissions:', error);
-      setCurrentStatus('Error de permisos');
+      console.error('Error initializing audio:', error);
+      setCurrentStatus('Error de inicialización');
       Alert.alert(
-        'Error de Permisos',
-        'No se pudieron obtener los permisos de audio. Inténtalo de nuevo.',
+        'Error',
+        'No se pudo inicializar el sistema de audio. Inténtalo de nuevo.',
         [
           { text: 'Cancelar', style: 'cancel', onPress: handleCancel },
-          { text: 'Reintentar', onPress: requestAudioPermissions }
+          { text: 'Reintentar', onPress: initializeAudio }
         ]
       );
     }
@@ -116,51 +114,71 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
       setRecordingDuration(0);
       startAnimations();
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      await audioService.startRecording({
+        quality: 'high',
+        sampleRate: 44100,
+        numberOfChannels: 2,
+        bitRate: 128000
+      });
       
-      setRecording(newRecording);
       setCurrentStatus('Grabando...');
       console.log('🎤 Grabación iniciada');
     } catch (error) {
       console.error('Error starting recording:', error);
       setIsRecording(false);
       stopAnimations();
-      Alert.alert(
-        'Error de Grabación',
-        'No se pudo iniciar la grabación. Verifica que el micrófono esté disponible.',
-        [{ text: 'OK' }]
-      );
+      
+      let errorMessage = 'No se pudo iniciar la grabación.';
+      if (error instanceof Error) {
+        if (error.message.includes('Permisos')) {
+          errorMessage = 'Permisos de audio denegados. Verifica la configuración.';
+        } else if (error.message.includes('en progreso')) {
+          errorMessage = 'Ya hay una grabación en progreso.';
+        }
+      }
+      
+      Alert.alert('Error de Grabación', errorMessage, [{ text: 'OK' }]);
     }
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
+    if (!audioService.isCurrentlyRecording) return;
 
     try {
-      setCurrentStatus('Finalizando grabación...');
+      setCurrentStatus('Finalizando y subiendo...');
       setIsRecording(false);
+      setIsProcessing(true);
       stopAnimations();
 
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      // Detener grabación y subir a Supabase Storage
+      const audioData = await audioService.stopRecording();
       
-      if (uri) {
-        setAudioUri(uri);
-        setIsAudioReady(true);
-        setCurrentStatus('Audio grabado correctamente');
-        console.log('✅ Grabación completada:', uri);
-      } else {
-        throw new Error('No se pudo obtener el URI del audio');
-      }
+      setIsAudioReady(true);
+      setIsProcessing(false);
+      setCurrentStatus('Audio grabado y guardado');
+      
+      console.log('✅ Audio procesado exitosamente');
+      
+      // Pasar los datos del audio al componente padre
+      setTimeout(() => {
+        onSuccess(audioData);
+        resetState();
+      }, 500);
+      
     } catch (error) {
       console.error('Error stopping recording:', error);
-      Alert.alert(
-        'Error',
-        'No se pudo finalizar la grabación correctamente. Inténtalo de nuevo.',
-        [{ text: 'OK' }]
-      );
+      setIsProcessing(false);
+      
+      let errorMessage = 'No se pudo finalizar la grabación.';
+      if (error instanceof Error) {
+        if (error.message.includes('Storage') || error.message.includes('upload')) {
+          errorMessage = 'Error subiendo el audio. Verifica tu conexión a internet.';
+        } else if (error.message.includes('No hay grabación')) {
+          errorMessage = 'No hay grabación activa para detener.';
+        }
+      }
+      
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
     }
   };
 
@@ -212,24 +230,8 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
     micAnimation.setValue(1);
   };
 
-  const handleCompletarEvidencia = () => {
-    if (audioUri && isAudioReady) {
-      const audioData = {
-        uri: audioUri,
-        duration: recordingDuration,
-        timestamp: new Date().toISOString(),
-        format: 'caf', // Core Audio Format (iOS) o webm (Android)
-        quality: 'high',
-        source: 'device_microphone'
-      };
-      
-      onSuccess(audioData);
-      resetState();
-    }
-  };
-
-  const handleCancel = () => {
-    resetState();
+  const handleCancel = async () => {
+    await cleanup();
     onDismiss();
   };
 
@@ -239,9 +241,23 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getStatusColor = () => {
+    if (isAudioReady) return '#4CAF50';
+    if (isRecording) return '#FF5722';
+    if (isProcessing) return '#2196F3';
+    return theme.colors.primary;
+  };
+
+  const getStatusIcon = () => {
+    if (isAudioReady) return '✓';
+    if (isRecording) return '🎤';
+    if (isProcessing) return '📤';
+    return '🎤';
+  };
+
   return (
     <Portal>
-      <Dialog visible={visible} onDismiss={handleCancel} style={styles.dialog}>
+      <Dialog visible={visible} onDismiss={!isRecording && !isProcessing ? handleCancel : undefined} style={styles.dialog}>
         <Dialog.Title style={styles.title}>{title}</Dialog.Title>
         
         <Dialog.Content>
@@ -255,7 +271,7 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
                   styles.pulseCircle1,
                   {
                     transform: [{ scale: isRecording ? pulseAnimation : 1 }],
-                    backgroundColor: isAudioReady ? '#4CAF50' + '20' : theme.colors.primary + '20',
+                    backgroundColor: getStatusColor() + '20',
                   }
                 ]}
               />
@@ -265,7 +281,7 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
                   styles.pulseCircle2,
                   {
                     transform: [{ scale: isRecording ? pulseAnimation : 1 }],
-                    backgroundColor: isAudioReady ? '#4CAF50' + '15' : theme.colors.primary + '15',
+                    backgroundColor: getStatusColor() + '15',
                   }
                 ]}
               />
@@ -275,7 +291,7 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
                   styles.pulseCircle3,
                   {
                     transform: [{ scale: isRecording ? pulseAnimation : 1 }],
-                    backgroundColor: isAudioReady ? '#4CAF50' + '10' : theme.colors.primary + '10',
+                    backgroundColor: getStatusColor() + '10',
                   }
                 ]}
               />
@@ -285,31 +301,38 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
                 style={[
                   styles.micContainer,
                   {
-                    backgroundColor: isAudioReady ? '#4CAF50' : theme.colors.primary,
+                    backgroundColor: getStatusColor(),
                     transform: [{ scale: isRecording ? micAnimation : 1 }],
                   }
                 ]}
               >
                 <Text style={styles.micIcon}>
-                  {isAudioReady ? '✓' : isRecording ? '🎤' : '🎤'}
+                  {getStatusIcon()}
                 </Text>
               </Animated.View>
             </View>
 
             {/* Texto descriptivo */}
             <Text variant="bodyMedium" style={styles.description}>
-              {isAudioReady ? '¡Audio grabado!' : description}
+              {isAudioReady ? '¡Audio guardado en Supabase!' : 
+               isProcessing ? 'Subiendo audio...' : 
+               description}
             </Text>
 
             {/* Información de grabación */}
-            {(isRecording || isAudioReady) && (
+            {(isRecording || isProcessing || isAudioReady) && (
               <View style={styles.recordingInfo}>
                 <Text variant="titleSmall" style={styles.durationText}>
                   ⏱️ {formatDuration(recordingDuration)}
                 </Text>
                 {isAudioReady && (
                   <Text variant="bodySmall" style={styles.qualityText}>
-                    🎵 Calidad alta • Listo para enviar
+                    ☁️ Guardado en Supabase Storage • Listo para usar
+                  </Text>
+                )}
+                {isProcessing && (
+                  <Text variant="bodySmall" style={styles.qualityText}>
+                    📤 Subiendo a Supabase Storage...
                   </Text>
                 )}
               </View>
@@ -317,9 +340,16 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
 
             {/* Indicador de estado */}
             <View style={styles.statusContainer}>
-              {isAudioReady ? (
+              {isProcessing ? (
+                <>
+                  <ActivityIndicator size="small" color="#2196F3" />
+                  <Text variant="bodySmall" style={[styles.statusText, { color: '#2196F3' }]}>
+                    {currentStatus}
+                  </Text>
+                </>
+              ) : isAudioReady ? (
                 <Text variant="bodySmall" style={[styles.statusText, { color: '#4CAF50', fontWeight: 'bold' }]}>
-                  ✅ Audio grabado - Listo para completar evidencia
+                  ✅ {currentStatus}
                 </Text>
               ) : isRecording ? (
                 <>
@@ -328,13 +358,9 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
                     {currentStatus}
                   </Text>
                 </>
-              ) : buttonEnabled ? (
-                <Text variant="bodySmall" style={[styles.statusText, { color: theme.colors.primary }]}>
-                  {currentStatus}
-                </Text>
               ) : (
-                <Text variant="bodySmall" style={styles.statusText}>
-                  {currentStatus || 'Preparando grabación...'}
+                <Text variant="bodySmall" style={[styles.statusText, { color: theme.colors.primary }]}>
+                  {currentStatus || 'Preparando...'}
                 </Text>
               )}
             </View>
@@ -342,38 +368,34 @@ export const AudioDialog: React.FC<AudioDialogProps> = ({
         </Dialog.Content>
 
         <Dialog.Actions>
-          <Button onPress={handleCancel} disabled={isRecording}>
+          <Button 
+            onPress={handleCancel} 
+            disabled={isRecording || isProcessing}
+            style={isRecording || isProcessing ? styles.disabledButton : undefined}
+          >
             Cancelar
           </Button>
           
-          {isAudioReady ? (
-            <Button 
-              mode="contained" 
-              onPress={handleCompletarEvidencia}
-              style={styles.completeButton}
-            >
-              Completar Evidencia
-            </Button>
-          ) : isRecording ? (
+          {isRecording ? (
             <Button 
               mode="contained" 
               onPress={stopRecording}
-              style={[styles.stopButton]}
+              style={styles.stopButton}
               buttonColor="#FF5722"
             >
               Detener
             </Button>
-          ) : (
+          ) : !isAudioReady && !isProcessing ? (
             <Button 
               mode="contained" 
               onPress={startRecording}
-              style={[styles.recordButton, !buttonEnabled && styles.disabledButton]}
-              disabled={!buttonEnabled}
+              style={styles.recordButton}
               buttonColor="#FF5722"
+              disabled={!currentStatus.includes('Listo')}
             >
-              {buttonEnabled ? 'Grabar' : 'Preparando...'}
+              {currentStatus.includes('Listo') ? 'Grabar' : 'Preparando...'}
             </Button>
-          )}
+          ) : null}
         </Dialog.Actions>
       </Dialog>
     </Portal>
@@ -457,6 +479,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+    textAlign: 'center',
   },
   statusContainer: {
     flexDirection: 'row',
@@ -466,16 +489,13 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    opacity: 0.7,
+    opacity: 0.8,
   },
   recordButton: {
     minWidth: 100,
   },
   stopButton: {
     minWidth: 100,
-  },
-  completeButton: {
-    minWidth: 120,
   },
   disabledButton: {
     opacity: 0.6,

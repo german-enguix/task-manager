@@ -520,12 +520,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const handleAudioSuccess = async (audioData: any) => {
-    console.log('🎵 handleAudioSuccess called with:', {
-      hasCurrentAudioSubtask: !!currentAudioSubtask,
-      hasTask: !!task,
-      audioData: audioData ? 'Present' : 'Missing',
-      audioUri: audioData?.uri ? 'Present' : 'Missing'
-    });
+    console.log('🎵 handleAudioSuccess called with audio from Supabase Storage');
     
     if (!currentAudioSubtask || !task) {
       console.error('❌ Missing required data in handleAudioSuccess');
@@ -538,44 +533,83 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     try {
       console.log('🔄 Starting audio evidence capture process...');
       
-      // Capturar la evidencia de audio real y marcar como completada
-      await captureRealAudioEvidence(currentAudioSubtask, audioData);
+      // Guardar la evidencia de audio (ya subida a Supabase Storage)
+      await saveAudioEvidence(currentAudioSubtask, audioData);
       
-      console.log('✅ Real audio evidence captured and subtask completed');
+      console.log('✅ Audio evidence saved successfully');
     } catch (error) {
-      console.error('❌ Error completing audio evidence:', error);
-      
-      // Determinar el tipo de error y dar mensaje específico
-      let errorMessage = 'No se pudo completar la evidencia de audio.';
-      
-      if (error instanceof Error) {
-        if (error.message.includes('storage') || error.message.includes('upload')) {
-          errorMessage = 'Error al guardar el archivo de audio. Se guardará localmente.';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
-          errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
-        } else if (error.message.includes('permission')) {
-          errorMessage = 'Error de permisos. Verifica los permisos de la aplicación.';
-        } else {
-          errorMessage += ` (${error.message})`;
-        }
-      }
+      console.error('❌ Error saving audio evidence:', error);
       
       Alert.alert(
         'Error de Audio',
-        errorMessage + '\n\nInténtalo de nuevo.',
-        [
-          { text: 'OK', style: 'default' },
-          { text: 'Reintentar', onPress: () => {
-            // Reintentar con los mismos datos
-            if (realAudioData) {
-              setTimeout(() => captureRealAudioEvidence(subtask, realAudioData), 500);
-            }
-          }}
-        ]
+        'No se pudo guardar la evidencia de audio. Inténtalo de nuevo.',
+        [{ text: 'OK', style: 'default' }]
       );
     } finally {
       // Limpiar la subtarea actual
       setCurrentAudioSubtask(null);
+    }
+  };
+
+  const saveAudioEvidence = async (subtask: TaskSubtask, audioData: any) => {
+    if (!task || !subtask.evidenceRequirement || !audioData) return;
+    
+    try {
+      console.log('🎵 Guardando evidencia de audio desde Supabase Storage...');
+      
+      // Actualizar en Supabase: marcar subtarea como completada
+      const completedAt = new Date();
+      await supabaseService.updateSubtask(subtask.id, {
+        isCompleted: true,
+        completedAt: completedAt
+      });
+
+      // Guardar la evidencia en la base de datos
+      await supabaseService.addSubtaskEvidence(
+        subtask.id,
+        subtask.evidenceRequirement.id,
+        subtask.evidenceRequirement.type,
+        `${subtask.evidenceRequirement.title} - Completada`,
+        `Audio grabado: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} de duración`,
+        audioData.filePath, // Path en Supabase Storage
+        audioData // Datos completos del audio
+      );
+
+      // Actualizar estado local
+      if (task && setTask) {
+        const updatedSubtasks = task.subtasks.map(s => 
+          s.id === subtask.id 
+            ? { 
+                ...s, 
+                isCompleted: true, 
+                completedAt: completedAt,
+                evidence: {
+                  id: `evidence_${subtask.id}`,
+                  subtaskId: subtask.id,
+                  evidenceRequirementId: subtask.evidenceRequirement.id,
+                  type: subtask.evidenceRequirement.type,
+                  title: `${subtask.evidenceRequirement.title} - Completada`,
+                  description: `Audio grabado: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} de duración`,
+                  filePath: audioData.filePath,
+                  data: audioData,
+                  createdAt: new Date(),
+                }
+              } 
+            : s
+        );
+
+        const updatedTask = {
+          ...task,
+          subtasks: updatedSubtasks
+        };
+
+        setTask(updatedTask);
+      }
+
+      console.log(`🎤 Audio guardado exitosamente en Supabase Storage`);
+    } catch (error) {
+      console.error('❌ Error saving audio evidence:', error);
+      throw error;
     }
   };
 
@@ -779,141 +813,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
    };
 
-  const captureRealAudioEvidence = async (subtask: TaskSubtask, realAudioData: any) => {
-    if (!task || !subtask.evidenceRequirement || !realAudioData) return;
-    
-    try {
-      console.log('🎵 Procesando evidencia de audio real...');
-      
-      let audioData: any;
-      let audioFilePath: string | undefined;
 
-      // Intentar subir a Supabase Storage, con fallback a URI local
-      try {
-        const fileName = `audio_evidence_${subtask.id}_${Date.now()}.m4a`;
-        console.log('📤 Intentando subir archivo de audio:', fileName);
-        
-        const { publicUrl, filePath } = await supabaseService.uploadAudioFile(
-          realAudioData.uri, 
-          fileName
-        );
-        
-        console.log('✅ Audio subido exitosamente a Supabase Storage:', publicUrl);
-
-        // Usar datos con URL persistente de Supabase
-        audioData = {
-          uri: publicUrl, // URI público de Supabase Storage
-          localUri: realAudioData.uri, // URI local original (para referencia)
-          filePath: filePath, // Path en Supabase Storage
-          duration: realAudioData.duration,
-          timestamp: realAudioData.timestamp,
-          format: realAudioData.format,
-          quality: realAudioData.quality,
-          source: realAudioData.source,
-          capturedAt: new Date().toISOString(),
-          deviceInfo: {
-            platform: 'mobile',
-            source: 'Micrófono real del dispositivo',
-            storage: 'Supabase Storage',
-            persistent: true
-          }
-        };
-        audioFilePath = filePath;
-
-      } catch (storageError) {
-        console.warn('⚠️ Error subiendo a Supabase Storage, usando URI local:', storageError);
-        
-        // Fallback: usar URI local (funcional pero no persistente tras refresh)
-        audioData = {
-          uri: realAudioData.uri, // URI local del dispositivo
-          duration: realAudioData.duration,
-          timestamp: realAudioData.timestamp,
-          format: realAudioData.format,
-          quality: realAudioData.quality,
-          source: realAudioData.source,
-          capturedAt: new Date().toISOString(),
-          deviceInfo: {
-            platform: 'mobile',
-            source: 'Micrófono real del dispositivo',
-            storage: 'Local (temporal)',
-            persistent: false,
-            note: 'Audio se perderá al refrescar - configurar Supabase Storage'
-          }
-        };
-        audioFilePath = undefined;
-      }
-
-      // Actualizar en Supabase: marcar subtarea como completada
-      const completedAt = new Date();
-      await supabaseService.updateSubtask(subtask.id, {
-        isCompleted: true,
-        completedAt: completedAt
-      });
-
-      // Guardar la evidencia en la base de datos
-      await supabaseService.addSubtaskEvidence(
-        subtask.id,
-        subtask.evidenceRequirement.id,
-        subtask.evidenceRequirement.type,
-        `${subtask.evidenceRequirement.title} - Completada`,
-        `Audio grabado: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} de duración`,
-        audioFilePath, // filePath de Supabase Storage o undefined si falló
-        audioData // data
-      );
-      
-      // Actualizar subtarea con evidencia completada Y marcada como completada
-      const updatedSubtasks = task.subtasks.map(s => {
-        if (s.id === subtask.id) {
-          return {
-            ...s,
-            isCompleted: true,
-            completedAt: completedAt,
-            evidence: {
-              id: `subtask-evidence-${Date.now()}`,
-              subtaskId: subtask.id,
-              type: subtask.evidenceRequirement!.type,
-              title: `${subtask.evidenceRequirement!.title} - Completada`,
-              description: `Audio grabado: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} de duración`,
-              createdAt: new Date(),
-              completedBy: 'Usuario Actual',
-              data: audioData,
-            },
-          };
-        }
-        return s;
-      });
-      
-      // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
-      const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
-      
-      const updatedTask = { 
-        ...task, 
-        subtasks: updatedSubtasks,
-        status: newTaskStatus
-      };
-      setTask(updatedTask);
-
-      // Actualizar el estado de la tarea en la base de datos si cambió
-      if (newTaskStatus !== task.status) {
-        try {
-          await supabaseService.updateTask(taskId, { status: newTaskStatus });
-          console.log('✅ Task status updated to:', newTaskStatus);
-          
-          // Log del cambio de estado (visible en consola)
-          const statusText = getStatusText(newTaskStatus);
-          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
-        } catch (error) {
-          console.error('❌ Error updating task status:', error);
-        }
-      }
-
-      console.log('✅ Real audio evidence saved successfully to database');
-      console.log(`🎤 Audio details: ${Math.floor(audioData.duration / 60)}:${(audioData.duration % 60).toString().padStart(2, '0')} duration, ${audioData.quality} quality`);
-    } catch (error) {
-      console.error('❌ Error saving real audio evidence:', error);
-      Alert.alert('Error', 'No se pudo guardar la evidencia de audio real. Inténtalo de nuevo.');
-    }
-   };
 
   const simulateSignatureEvidenceCapture = async (subtask: TaskSubtask, signatureData: string) => {
     if (!task || !subtask.evidenceRequirement) return;

@@ -31,16 +31,17 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
-  // Extraer datos de audio
+  // Extraer datos de audio - simplificado para URLs de Supabase
   const audio = audioData ? {
-    uri: audioData.uri || null,
+    uri: audioData.uri || audioData.publicUrl || null,
     duration: audioData.duration || 0,
     timestamp: audioData.timestamp || new Date().toISOString(),
-    format: audioData.format || 'audio',
-    quality: audioData.quality || 'standard',
-    source: audioData.source || 'device_microphone'
+    format: audioData.format || 'm4a',
+    fileSize: audioData.fileSize || 0,
+    sampleRate: audioData.sampleRate || 44100,
+    numberOfChannels: audioData.numberOfChannels || 2,
+    bitRate: audioData.bitRate || 128000,
   } : null;
 
   useEffect(() => {
@@ -52,61 +53,6 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       unloadAudio();
     };
   }, [visible, audio?.uri]);
-
-  useEffect(() => {
-    if (playbackStatus) {
-      setPosition(playbackStatus.positionMillis || 0);
-      setDuration(playbackStatus.durationMillis || 0);
-      setIsPlaying(playbackStatus.isPlaying || false);
-      
-      if (playbackStatus.didJustFinish) {
-        setIsPlaying(false);
-        setPosition(0);
-      }
-    }
-  }, [playbackStatus]);
-
-  const validateAudioUri = async (uri: string): Promise<boolean> => {
-    try {
-      console.log('🔍 Validating audio URI:', uri);
-      
-      // Validación básica de formato de URI
-      if (!uri || uri.trim() === '') {
-        console.warn('❌ Empty URI');
-        return false;
-      }
-      
-      // Para validación, intentar directamente con expo-av en lugar de fetch
-      // Esto es más confiable para archivos de audio
-      try {
-        const { sound, status } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: false },
-          undefined
-        );
-        
-        const isValid = status.isLoaded || false;
-        console.log(`✅ Audio validation result: ${isValid}`);
-        
-        // Limpiar el sound object
-        if (sound) {
-          await sound.unloadAsync();
-        }
-        
-        return isValid;
-      } catch (audioError) {
-        console.warn('❌ Audio validation failed with expo-av:', audioError);
-        
-        // Fallback: asumir que es válido y dejar que expo-av maneje el error después
-        console.log('🔄 Fallback: assuming URI is valid, will try to load');
-        return true;
-      }
-    } catch (error) {
-      console.warn('❌ URI validation failed:', error);
-      // En caso de error de validación, asumir que es válido
-      return true;
-    }
-  };
 
   const loadAudio = async () => {
     if (!audio?.uri) {
@@ -121,16 +67,9 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
 
     try {
       setIsLoading(true);
-      console.log('🔄 Cargando audio desde:', audio.uri);
-      console.log('🎵 Audio metadata:', {
-        duration: audio.duration,
-        format: audio.format,
-        storage: audio.deviceInfo?.storage,
-        persistent: audio.deviceInfo?.persistent
-      });
+      console.log('🔄 Cargando audio desde Supabase Storage:', audio.uri);
       
       // Configurar modo de audio para reproducción
-      console.log('🔧 Configurando modo de audio...');
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
@@ -139,8 +78,7 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
         playThroughEarpieceAndroid: false,
       });
 
-      console.log('📱 Creando objeto de audio...');
-      // Crear el sound object con configuración específica
+      // Crear el sound object
       const { sound: newSound, status } = await Audio.Sound.createAsync(
         { uri: audio.uri },
         { 
@@ -153,85 +91,45 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
       
       console.log('🔍 Status de carga:', {
         isLoaded: status.isLoaded,
-        duration: status.durationMillis,
+        durationMillis: status.durationMillis,
         error: status.error
       });
       
-      // Verificar que se cargó correctamente
       if (status.isLoaded) {
-        // Verificar que tiene duración válida
-        const durationSeconds = Math.floor((status.durationMillis || 0) / 1000);
-        
-        if (durationSeconds === 0) {
-          console.error('❌ Audio cargado pero duración es 0s - archivo corrupto o vacío');
-          if (newSound) await newSound.unloadAsync();
-          throw new Error('AUDIO_EMPTY_OR_CORRUPT');
-        }
-        
         setSound(newSound);
-        console.log('✅ Audio cargado correctamente para reproducción');
-        console.log(`🎵 Duración: ${durationSeconds}s`);
+        setDuration(status.durationMillis || (audio.duration * 1000));
+        console.log('✅ Audio cargado correctamente desde Supabase Storage');
       } else {
-        console.error('❌ Audio no se pudo cargar completamente');
-        console.log('Status details:', status);
-        
+        console.error('❌ Error cargando audio:', status.error);
         if (newSound) await newSound.unloadAsync();
-        
-        // Si hay error específico en el status, usarlo
-        const errorMsg = status.error || 'Status indicates audio not loaded';
-        throw new Error('Audio load failed: ' + errorMsg);
+        throw new Error(status.error || 'No se pudo cargar el audio');
       }
     } catch (error) {
       console.error('❌ Error loading audio:', error);
       
-      let errorMessage = 'No se pudo cargar el audio.';
-      let showRetry = true;
-      
-      if (error instanceof Error) {
-        console.log('🔍 Error details:', error.message);
-        
-        if (error.message === 'AUDIO_EMPTY_OR_CORRUPT') {
-          errorMessage = 'El archivo de audio está vacío o corrupto. Es necesario grabar de nuevo.';
-          showRetry = false;
-        } else if (error.message.includes('not found') || error.message.includes('No such file')) {
-          errorMessage = 'El archivo de audio no se encontró.';
-          showRetry = false;
-        } else if (error.message.includes('format') || error.message.includes('codec')) {
-          errorMessage = 'Formato de audio no compatible.';
-        } else if (error.message.includes('Network') || error.message.includes('network')) {
-          errorMessage = 'No se pudo acceder al archivo. Verifica la conexión.';
-        } else if (error.message.includes('permission')) {
-          errorMessage = 'Sin permisos para acceder al audio.';
-        } else if (error.message.includes('Audio load failed')) {
-          errorMessage = 'El audio no se pudo cargar correctamente. Archivo posiblemente corrupto.';
-          showRetry = false;
-        } else {
-          errorMessage += ` (${error.message})`;
-        }
-      }
-      
-      // En caso de error, mostrar información útil
-      let debugInfo = '';
+      let errorMessage = 'No se pudo cargar el audio desde Supabase Storage.';
       let suggestions = '';
       
-      if (audio.deviceInfo?.persistent === false) {
-        debugInfo = '\n\n💡 Este audio usa almacenamiento temporal. Si refrescaste la app, el archivo puede haberse perdido.';
-        suggestions = '\n\n✅ Solución: Graba el audio nuevamente para crear un archivo válido.';
-      } else if (error instanceof Error && error.message === 'AUDIO_EMPTY_OR_CORRUPT') {
-        suggestions = '\n\n✅ Solución: El archivo está corrupto. Graba el audio nuevamente.';
-      } else if (error instanceof Error && error.message.includes('not found')) {
-        suggestions = '\n\n✅ Solución: El archivo se perdió. Graba el audio nuevamente.';
-      }
-      
-      const buttons = [{ text: 'Cerrar', onPress: onDismiss }];
-      if (showRetry) {
-        buttons.unshift({ text: 'Reintentar', onPress: loadAudio });
+      if (error instanceof Error) {
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Error de conexión al cargar el audio.';
+          suggestions = '\n\nVerifica tu conexión a internet e inténtalo de nuevo.';
+        } else if (error.message.includes('not found') || error.message.includes('404')) {
+          errorMessage = 'El archivo de audio no se encontró en Supabase Storage.';
+          suggestions = '\n\nEl archivo puede haber sido eliminado o movido.';
+        } else if (error.message.includes('format') || error.message.includes('codec')) {
+          errorMessage = 'Formato de audio no compatible.';
+          suggestions = '\n\nIntenta grabar el audio nuevamente.';
+        }
       }
       
       Alert.alert(
         'Error de Reproducción',
-        errorMessage + debugInfo + suggestions,
-        buttons
+        errorMessage + suggestions,
+        [
+          { text: 'Reintentar', onPress: loadAudio },
+          { text: 'Cerrar', onPress: onDismiss }
+        ]
       );
     } finally {
       setIsLoading(false);
@@ -253,7 +151,20 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
   };
 
   const onPlaybackStatusUpdate = (status: any) => {
-    setPlaybackStatus(status);
+    if (status.isLoaded) {
+      setPosition(status.positionMillis || 0);
+      setIsPlaying(status.isPlaying || false);
+      
+      if (status.didJustFinish) {
+        setIsPlaying(false);
+        setPosition(0);
+      }
+      
+      // Actualizar duración si no la teníamos
+      if (status.durationMillis && duration === 0) {
+        setDuration(status.durationMillis);
+      }
+    }
   };
 
   const playPauseAudio = async () => {
@@ -271,25 +182,6 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
     }
 
     try {
-      // Verificar el status del sound antes de intentar reproducir
-      const status = await sound.getStatusAsync();
-      console.log('🔍 Sound status before play:', {
-        isLoaded: status.isLoaded,
-        durationMillis: status.durationMillis,
-        positionMillis: status.positionMillis,
-        isPlaying: status.isPlaying
-      });
-
-      if (!status.isLoaded) {
-        console.error('❌ Sound not loaded when trying to play');
-        throw new Error('Sound object exists but is not loaded');
-      }
-
-      if ((status.durationMillis || 0) === 0) {
-        console.error('❌ Sound has 0 duration - corrupted file');
-        throw new Error('Audio file appears to be empty or corrupted');
-      }
-
       if (isPlaying) {
         console.log('⏸️ Pausando audio');
         await sound.pauseAsync();
@@ -300,20 +192,9 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
     } catch (error) {
       console.error('❌ Error playing/pausing audio:', error);
       
-      let errorMessage = 'No se pudo reproducir el audio.';
-      if (error instanceof Error) {
-        if (error.message.includes('not loaded')) {
-          errorMessage = 'El audio no está cargado correctamente. Intenta recargarlo.';
-        } else if (error.message.includes('empty') || error.message.includes('corrupted')) {
-          errorMessage = 'El archivo de audio está corrupto o vacío. Es necesario grabar de nuevo.';
-        } else if (error.message.includes('Cannot complete operation')) {
-          errorMessage = 'El archivo de audio no está disponible. Posiblemente se perdió al refrescar la app.';
-        }
-      }
-      
       Alert.alert(
         'Error de Reproducción', 
-        errorMessage,
+        'No se pudo reproducir el audio. Intenta recargarlo.',
         [
           { text: 'Recargar', onPress: loadAudio },
           { text: 'Cerrar', onPress: onDismiss }
@@ -372,6 +253,14 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
     }
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return 'Desconocido';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const progress = duration > 0 ? position / duration : 0;
 
   if (!audio) {
@@ -395,10 +284,10 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
 
                 {/* Título del reproductor */}
                 <Text variant="titleMedium" style={styles.playerTitle}>
-                  Reproductor de Audio
+                  Audio desde Supabase Storage
                 </Text>
                 <Text variant="bodySmall" style={styles.playerSubtitle}>
-                  Usa los controles para reproducir la evidencia de audio
+                  Audio almacenado de forma persistente en la nube
                 </Text>
 
                 {/* Controles de reproducción */}
@@ -464,7 +353,7 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
                   <View style={styles.statusContainer}>
                     {isLoading ? (
                       <Text variant="bodySmall" style={styles.statusText}>
-                        Cargando audio...
+                        Cargando desde Supabase Storage...
                       </Text>
                     ) : !sound ? (
                       <Text variant="bodySmall" style={[styles.statusText, {color: theme.colors.error}]}>
@@ -488,25 +377,45 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
             <View style={styles.infoContainer}>
               <View style={styles.infoSection}>
                 <Text variant="titleSmall" style={styles.sectionTitle}>
-                  Información del audio
+                  Información del archivo
                 </Text>
                 <View style={styles.infoRow}>
                   <Text variant="bodySmall" style={styles.infoLabel}>Duración:</Text>
                   <Text variant="bodySmall" style={styles.infoValue}>
-                    {audio.duration ? `${Math.floor(audio.duration / 60)}:${(audio.duration % 60).toString().padStart(2, '0')}` : 'Desconocida'}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text variant="bodySmall" style={styles.infoLabel}>Calidad:</Text>
-                  <Text variant="bodySmall" style={styles.infoValue}>
-                    {audio.quality === 'high' ? 'Alta' : 'Estándar'}
+                    {audio.duration ? `${Math.floor(audio.duration / 60)}:${(audio.duration % 60).toString().padStart(2, '0')}` : 'Calculando...'}
                   </Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Text variant="bodySmall" style={styles.infoLabel}>Formato:</Text>
                   <Text variant="bodySmall" style={styles.infoValue}>
-                    {audio.format?.toUpperCase() || 'AUDIO'}
+                    {audio.format?.toUpperCase() || 'M4A'}
                   </Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text variant="bodySmall" style={styles.infoLabel}>Tamaño:</Text>
+                  <Text variant="bodySmall" style={styles.infoValue}>
+                    {formatFileSize(audio.fileSize)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.infoSection}>
+                <Text variant="titleSmall" style={styles.sectionTitle}>
+                  Configuración de audio
+                </Text>
+                <View style={styles.infoRow}>
+                  <Text variant="bodySmall" style={styles.infoLabel}>Sample Rate:</Text>
+                  <Text variant="bodySmall" style={styles.infoValue}>{audio.sampleRate} Hz</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text variant="bodySmall" style={styles.infoLabel}>Canales:</Text>
+                  <Text variant="bodySmall" style={styles.infoValue}>
+                    {audio.numberOfChannels === 2 ? 'Estéreo (2)' : `Mono (${audio.numberOfChannels})`}
+                  </Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text variant="bodySmall" style={styles.infoLabel}>Bitrate:</Text>
+                  <Text variant="bodySmall" style={styles.infoValue}>{audio.bitRate / 1000} kbps</Text>
                 </View>
               </View>
 
@@ -519,7 +428,11 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
                   <Text variant="bodySmall" style={styles.infoValue}>Micrófono del dispositivo</Text>
                 </View>
                 <View style={styles.infoRow}>
-                  <Text variant="bodySmall" style={styles.infoLabel}>Fecha y hora:</Text>
+                  <Text variant="bodySmall" style={styles.infoLabel}>Almacenamiento:</Text>
+                  <Text variant="bodySmall" style={styles.infoValue}>Supabase Storage</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text variant="bodySmall" style={styles.infoLabel}>Fecha:</Text>
                   <Text variant="bodySmall" style={styles.infoValue}>
                     {formatTimestamp(audio.timestamp)}
                   </Text>
@@ -529,8 +442,9 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({
               {/* Nota informativa */}
               <View style={styles.noteContainer}>
                 <Text variant="bodySmall" style={styles.noteText}>
-                  🎤 Este audio fue grabado usando el micrófono real de tu dispositivo como evidencia para la subtarea.
-                  Los datos están almacenados de forma segura y verificada.
+                  ☁️ Este audio está almacenado de forma persistente en Supabase Storage. 
+                  Estará disponible incluso después de refrescar la aplicación y es accesible 
+                  desde cualquier dispositivo con acceso autorizado.
                 </Text>
               </View>
             </View>
@@ -676,15 +590,15 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   noteContainer: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#e8f5e8',
     padding: 12,
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#2196f3',
+    borderLeftColor: '#4CAF50',
   },
   noteText: {
-    color: '#1976d2',
+    color: '#2e7d32',
     fontStyle: 'italic',
     lineHeight: 16,
   },
-}); 
+});
