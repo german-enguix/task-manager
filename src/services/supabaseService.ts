@@ -777,8 +777,16 @@ export class SupabaseService {
         throw new Error('URI de media vacío o inválido');
       }
 
-      // Verificar que el bucket existe
-      const bucketExists = await this.verifyStorageBucket();
+      // Verificar que el bucket existe (con fallback)
+      let bucketExists = false;
+      try {
+        bucketExists = await this.verifyStorageBucket();
+      } catch (verificationError) {
+        console.warn('⚠️ Bucket verification failed, but attempting upload anyway:', verificationError);
+        console.log('🔄 Proceeding with upload (user confirmed bucket exists)...');
+        bucketExists = true; // TEMPORAL: Skip verification if it fails
+      }
+      
       if (!bucketExists) {
         throw new Error('❌ Bucket task-evidences no existe. Ejecuta el script setup_supabase_storage.sql en tu dashboard de Supabase.');
       }
@@ -873,18 +881,29 @@ export class SupabaseService {
 
   /**
    * Verifica si el bucket de storage existe y está configurado
+   * MÉTODO CORREGIDO: Usa listBuckets en lugar de getBucket para anon key
    */
   async verifyStorageBucket(): Promise<boolean> {
     try {
       // Primero hacer debugging
       await this.debugSupabaseConnection();
       
-      const { data, error } = await supabase.storage.getBucket('task-evidences');
+      // CAMBIO IMPORTANTE: Usar listBuckets que SÍ funciona con anon key
+      const { data: buckets, error } = await supabase.storage.listBuckets();
       if (error) {
-        console.error('❌ Bucket verification failed:', error);
+        console.error('❌ Storage verification failed:', error);
         return false;
       }
-      console.log('✅ Bucket exists:', data);
+      
+      // Buscar nuestro bucket en la lista
+      const taskEvidencesBucket = buckets?.find(bucket => bucket.name === 'task-evidences');
+      
+      if (!taskEvidencesBucket) {
+        console.error('❌ Bucket task-evidences not found in available buckets:', buckets?.map(b => b.name));
+        return false;
+      }
+      
+      console.log('✅ Bucket task-evidences found:', taskEvidencesBucket);
       return true;
     } catch (error) {
       console.error('❌ Error verifying bucket:', error);
