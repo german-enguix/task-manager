@@ -847,10 +847,38 @@ export class SupabaseService {
   }
 
   /**
+   * Verifica la configuración de Supabase y conexión
+   */
+  async debugSupabaseConnection(): Promise<void> {
+    console.log('🔍 DEBUGGING SUPABASE CONNECTION:');
+    console.log('URL:', supabase.supabaseUrl);
+    console.log('Key (first 20 chars):', supabase.supabaseKey.substring(0, 20) + '...');
+    
+    try {
+      // Test básico de conexión
+      const { data: healthData, error: healthError } = await supabase.from('tasks').select('count').limit(1);
+      console.log('🏥 Health check:', healthError ? '❌ FAILED' : '✅ SUCCESS');
+      if (healthError) console.error('Health error:', healthError);
+      
+      // Test de buckets
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      console.log('📁 Buckets check:', bucketsError ? '❌ FAILED' : '✅ SUCCESS');
+      if (bucketsError) console.error('Buckets error:', bucketsError);
+      if (buckets) console.log('Available buckets:', buckets.map(b => b.name));
+      
+    } catch (error) {
+      console.error('❌ Connection debugging failed:', error);
+    }
+  }
+
+  /**
    * Verifica si el bucket de storage existe y está configurado
    */
   async verifyStorageBucket(): Promise<boolean> {
     try {
+      // Primero hacer debugging
+      await this.debugSupabaseConnection();
+      
       const { data, error } = await supabase.storage.getBucket('task-evidences');
       if (error) {
         console.error('❌ Bucket verification failed:', error);
