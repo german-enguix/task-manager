@@ -777,19 +777,12 @@ export class SupabaseService {
         throw new Error('URI de media vacío o inválido');
       }
 
-      // Verificar que el bucket existe (con fallback)
-      let bucketExists = false;
-      try {
-        bucketExists = await this.verifyStorageBucket();
-      } catch (verificationError) {
-        console.warn('⚠️ Bucket verification failed, but attempting upload anyway:', verificationError);
-        console.log('🔄 Proceeding with upload (user confirmed bucket exists)...');
-        bucketExists = true; // TEMPORAL: Skip verification if it fails
-      }
+      // Skip bucket verification - anon key no tiene permisos para listBuckets
+      console.log('⚠️ Skipping bucket verification (anon key limitation)');
+      console.log('🔄 Proceeding directly to upload - bucket confirmed to exist by user');
       
-      if (!bucketExists) {
-        throw new Error('❌ Bucket task-evidences no existe. Ejecuta el script setup_supabase_storage.sql en tu dashboard de Supabase.');
-      }
+      // El usuario ya confirmó que el bucket task-evidences existe
+      // Proceder directamente al upload
       
       // Leer el archivo
       const response = await fetch(uri);
@@ -844,7 +837,18 @@ export class SupabaseService {
           error: error.error,
           details: error
         });
-        throw new Error(`Error subiendo archivo: ${error.message} (${error.statusCode})`);
+        
+        // Mensajes de error más específicos
+        let errorMessage = `Error subiendo archivo: ${error.message}`;
+        if (error.statusCode === 404) {
+          errorMessage = `❌ Bucket 'task-evidences' no existe. Ejecuta el script setup_supabase_storage.sql en tu dashboard de Supabase.`;
+        } else if (error.statusCode === 403 || error.statusCode === 401) {
+          errorMessage = `❌ Sin permisos para subir archivos. Verifica las políticas RLS del bucket 'task-evidences'.`;
+        } else if (error.statusCode === 413) {
+          errorMessage = `❌ Archivo demasiado grande. El límite es 50MB.`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       console.log('✅ Upload successful, data received:', data);
