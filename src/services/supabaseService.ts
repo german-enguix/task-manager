@@ -821,6 +821,12 @@ export class SupabaseService {
       });
       
       // Subir archivo a Supabase Storage
+      console.log('🚀 Iniciando upload a Supabase Storage...');
+      console.log('📂 Bucket: task-evidences');
+      console.log('📁 Path:', filePath);
+      console.log('📄 Content-Type:', contentType);
+      console.log('💾 Blob info:', { size: blob.size, type: blob.type });
+      
       const { data, error } = await supabase.storage
         .from('task-evidences')
         .upload(filePath, blob, {
@@ -828,21 +834,62 @@ export class SupabaseService {
           upsert: false
         });
 
+      console.log('📤 Upload response data:', data);
+      console.log('❗ Upload response error:', error);
+
       if (error) {
-        console.error('❌ Supabase Storage upload error:', error);
-        throw new Error(`Error subiendo archivo: ${error.message}`);
+        console.error('❌ Supabase Storage upload error DETAILS:', {
+          message: error.message,
+          statusCode: error.statusCode,
+          error: error.error,
+          details: error
+        });
+        throw new Error(`Error subiendo archivo: ${error.message} (${error.statusCode})`);
       }
+
+      console.log('✅ Upload successful, data received:', data);
 
       console.log('✅ Media uploaded successfully to:', filePath);
 
       // Obtener URL público
+      console.log('🔗 Generando URL pública...');
       const { data: urlData } = supabase.storage
         .from('task-evidences')
         .getPublicUrl(filePath);
 
+      console.log('🔗 URL data response:', urlData);
       const publicUrl = urlData.publicUrl;
       console.log('✅ Public URL generated:', publicUrl);
 
+      // Verificar que la URL es válida
+      if (!publicUrl || !publicUrl.includes('supabase')) {
+        console.error('❌ Generated URL looks invalid:', publicUrl);
+        throw new Error('URL pública generada incorrectamente');
+      }
+
+      // VERIFICACIÓN FINAL: Comprobar que el archivo realmente existe
+      console.log('🔍 Verificando que el archivo existe en Storage...');
+      try {
+        const { data: fileInfo, error: fileError } = await supabase.storage
+          .from('task-evidences')
+          .list('media-evidences', {
+            search: uniqueFileName
+          });
+
+        console.log('📁 File verification result:', { fileInfo, fileError });
+        
+        if (fileError) {
+          console.warn('⚠️ Could not verify file existence:', fileError);
+        } else if (fileInfo && fileInfo.length > 0) {
+          console.log('✅ File confirmed to exist in Storage!');
+        } else {
+          console.warn('⚠️ File not found in Storage list, but upload was successful');
+        }
+      } catch (verifyError) {
+        console.warn('⚠️ File verification failed, but upload was successful:', verifyError);
+      }
+
+      console.log('🎉 Upload process completed successfully!');
       return {
         publicUrl,
         filePath
