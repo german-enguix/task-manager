@@ -40,6 +40,7 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>('photo');
+  const [isCameraReady, setIsCameraReady] = useState(false);
   
   const cameraRef = useRef<CameraView>(null);
   
@@ -48,6 +49,22 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
       requestPermission();
     }
   }, [visible, permission]);
+
+  // Resetear estado cuando se abre el diálogo
+  useEffect(() => {
+    if (visible) {
+      console.log('📹 Abriendo CameraViewDialog');
+      setIsCameraReady(false);
+      setIsRecording(false);
+      setIsProcessing(false);
+    }
+  }, [visible]);
+
+  // Resetear estado de cámara cuando cambia facing
+  useEffect(() => {
+    console.log('📹 Cambio de cámara, reseteando estado ready');
+    setIsCameraReady(false);
+  }, [facing]);
 
   useEffect(() => {
     if (mediaType === 'photo') {
@@ -58,8 +75,28 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
     // Para 'both', mantener el modo actual o defaultear a photo
   }, [mediaType]);
 
+  const onCameraReady = () => {
+    console.log('📹 Cámara lista para capturar');
+    setIsCameraReady(true);
+  };
+
   const takePicture = async () => {
-    if (!cameraRef.current) return;
+    console.log('📸 Intentando tomar foto...');
+    console.log('Camera ref:', !!cameraRef.current);
+    console.log('Camera ready:', isCameraReady);
+    console.log('Is processing:', isProcessing);
+
+    if (!cameraRef.current) {
+      console.error('❌ No hay referencia a la cámara');
+      Alert.alert('Error', 'Cámara no disponible');
+      return;
+    }
+
+    if (!isCameraReady) {
+      console.error('❌ Cámara no está lista');
+      Alert.alert('Error', 'La cámara aún no está lista. Espera un momento.');
+      return;
+    }
 
     try {
       setIsProcessing(true);
@@ -71,20 +108,39 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
         skipProcessing: false,
       });
 
-      if (photo) {
-        console.log('📸 Foto capturada:', photo);
+      console.log('📸 Foto capturada exitosamente:', photo);
+
+      if (photo && photo.uri) {
         await processAndUploadMedia(photo, 'photo');
+      } else {
+        console.error('❌ Foto capturada pero sin URI');
+        Alert.alert('Error', 'No se pudo procesar la foto capturada.');
       }
     } catch (error) {
       console.error('❌ Error tomando foto:', error);
-      Alert.alert('Error', 'No se pudo tomar la foto. Inténtalo de nuevo.');
+      Alert.alert('Error', `No se pudo tomar la foto: ${error.message || error}`);
     } finally {
       setIsProcessing(false);
     }
   };
 
   const startRecording = async () => {
-    if (!cameraRef.current) return;
+    console.log('🎬 Intentando iniciar grabación...');
+    console.log('Camera ref:', !!cameraRef.current);
+    console.log('Camera ready:', isCameraReady);
+    console.log('Is recording:', isRecording);
+
+    if (!cameraRef.current) {
+      console.error('❌ No hay referencia a la cámara');
+      Alert.alert('Error', 'Cámara no disponible');
+      return;
+    }
+
+    if (!isCameraReady) {
+      console.error('❌ Cámara no está lista');
+      Alert.alert('Error', 'La cámara aún no está lista. Espera un momento.');
+      return;
+    }
 
     try {
       setIsRecording(true);
@@ -95,13 +151,17 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
         quality: 'high',
       });
 
-      if (video) {
-        console.log('🎬 Video grabado:', video);
+      console.log('🎬 Video grabado exitosamente:', video);
+
+      if (video && video.uri) {
         await processAndUploadMedia(video, 'video');
+      } else {
+        console.error('❌ Video grabado pero sin URI');
+        Alert.alert('Error', 'No se pudo procesar el video grabado.');
       }
     } catch (error) {
       console.error('❌ Error grabando video:', error);
-      Alert.alert('Error', 'No se pudo grabar el video. Inténtalo de nuevo.');
+      Alert.alert('Error', `No se pudo grabar el video: ${error.message || error}`);
     } finally {
       setIsRecording(false);
     }
@@ -225,16 +285,31 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
               style={styles.camera}
               facing={facing}
               mode={currentMode}
+              onCameraReady={onCameraReady}
             >
               {/* Controles superpuestos */}
               <View style={styles.overlay}>
-                {/* Indicador de modo */}
+                {/* Indicador de modo y estado */}
                 <View style={styles.topControls}>
                   <Surface style={styles.modeIndicator}>
                     <Text variant="bodySmall" style={{ color: theme.colors.onPrimary }}>
                       {currentMode === 'photo' ? '📸 FOTO' : '🎬 VIDEO'}
                     </Text>
                   </Surface>
+                  {!isCameraReady && (
+                    <Surface style={[styles.modeIndicator, { backgroundColor: 'rgba(255,165,0,0.8)', marginLeft: 8 }]}>
+                      <Text variant="bodySmall" style={{ color: theme.colors.onPrimary }}>
+                        ⏳ PREPARANDO...
+                      </Text>
+                    </Surface>
+                  )}
+                  {isProcessing && (
+                    <Surface style={[styles.modeIndicator, { backgroundColor: 'rgba(0,255,0,0.8)', marginLeft: 8 }]}>
+                      <Text variant="bodySmall" style={{ color: theme.colors.onPrimary }}>
+                        📤 SUBIENDO...
+                      </Text>
+                    </Surface>
+                  )}
                 </View>
 
                 {/* Controles inferiores */}
@@ -243,10 +318,16 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
                   <IconButton
                     icon="camera-switch"
                     size={24}
-                    iconColor={theme.colors.onPrimary}
-                    style={styles.controlButton}
-                    onPress={toggleCameraFacing}
-                    disabled={isRecording || isProcessing}
+                    iconColor={!isCameraReady ? theme.colors.onSurfaceDisabled : theme.colors.onPrimary}
+                    style={[
+                      styles.controlButton,
+                      !isCameraReady && { backgroundColor: 'rgba(128,128,128,0.3)' }
+                    ]}
+                    onPress={() => {
+                      console.log('🔄 Cambiando cámara');
+                      toggleCameraFacing();
+                    }}
+                    disabled={isRecording || isProcessing || !isCameraReady}
                   />
 
                   {/* Botón principal de captura */}
@@ -258,19 +339,35 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
                     }
                     size={isRecording ? 40 : 50}
                     iconColor={
+                      !isCameraReady ? theme.colors.onSurfaceDisabled :
                       isRecording ? theme.colors.error : 
                       isProcessing ? theme.colors.secondary :
                       theme.colors.onPrimary
                     }
                     style={[
                       styles.captureButton,
-                      isRecording && styles.recordingButton
+                      isRecording && styles.recordingButton,
+                      !isCameraReady && { backgroundColor: 'rgba(128,128,128,0.5)' }
                     ]}
-                    onPress={
-                      isRecording ? stopRecording :
-                      currentMode === 'video' ? startRecording : takePicture
-                    }
-                    disabled={isProcessing}
+                    onPress={() => {
+                      console.log('🔘 Botón de captura presionado');
+                      console.log('Modo actual:', currentMode);
+                      console.log('Está grabando:', isRecording);
+                      console.log('Está procesando:', isProcessing);
+                      console.log('Cámara lista:', isCameraReady);
+                      
+                      if (isRecording) {
+                        console.log('🛑 Ejecutando stopRecording');
+                        stopRecording();
+                      } else if (currentMode === 'video') {
+                        console.log('🎬 Ejecutando startRecording');
+                        startRecording();
+                      } else {
+                        console.log('📸 Ejecutando takePicture');
+                        takePicture();
+                      }
+                    }}
+                    disabled={isProcessing || !isCameraReady}
                   />
 
                   {/* Botón de cambiar modo (solo si permite both) */}
@@ -278,10 +375,16 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
                     <IconButton
                       icon={currentMode === 'photo' ? 'video' : 'camera'}
                       size={24}
-                      iconColor={theme.colors.onPrimary}
-                      style={styles.controlButton}
-                      onPress={toggleMode}
-                      disabled={isRecording || isProcessing}
+                      iconColor={!isCameraReady ? theme.colors.onSurfaceDisabled : theme.colors.onPrimary}
+                      style={[
+                        styles.controlButton,
+                        !isCameraReady && { backgroundColor: 'rgba(128,128,128,0.3)' }
+                      ]}
+                      onPress={() => {
+                        console.log('🔄 Cambiando modo a:', currentMode === 'photo' ? 'video' : 'photo');
+                        toggleMode();
+                      }}
+                      disabled={isRecording || isProcessing || !isCameraReady}
                     />
                   ) : (
                     <View style={styles.controlButton} />
@@ -291,12 +394,19 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
             </CameraView>
           </Surface>
 
-          {/* Estado de procesamiento */}
-          {isProcessing && (
+          {/* Estado de procesamiento y debug */}
+          {(isProcessing || !isCameraReady) && (
             <View style={styles.processingContainer}>
-              <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
-                🔄 Subiendo a Supabase Storage...
-              </Text>
+              {isProcessing && (
+                <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
+                  🔄 Subiendo a Supabase Storage...
+                </Text>
+              )}
+              {!isCameraReady && !isProcessing && (
+                <Text variant="bodySmall" style={{ color: theme.colors.secondary }}>
+                  ⏳ Preparando cámara...
+                </Text>
+              )}
             </View>
           )}
         </Dialog.Content>
