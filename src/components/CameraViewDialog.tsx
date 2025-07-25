@@ -289,37 +289,95 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
               facing={facing}
               mode={currentMode}
               onCameraReady={onCameraReady}
-            >
-              {/* Controles superpuestos */}
-              <View style={styles.overlay}>
-                {/* Indicador de modo y estado */}
-                <View style={styles.topControls}>
-                  <Surface style={styles.modeIndicator}>
+            />
+            
+            {/* Controles superpuestos usando absolute positioning */}
+            <View style={styles.overlay}>
+              {/* Indicador de modo y estado */}
+              <View style={styles.topControls}>
+                <Surface style={styles.modeIndicator}>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onPrimary }}>
+                    {currentMode === 'photo' ? '📸 FOTO' : '🎬 VIDEO'}
+                  </Text>
+                </Surface>
+                {!isCameraReady && (
+                  <Surface style={[styles.modeIndicator, { backgroundColor: 'rgba(255,165,0,0.8)', marginLeft: 8 }]}>
                     <Text variant="bodySmall" style={{ color: theme.colors.onPrimary }}>
-                      {currentMode === 'photo' ? '📸 FOTO' : '🎬 VIDEO'}
+                      ⏳ PREPARANDO...
                     </Text>
                   </Surface>
-                  {!isCameraReady && (
-                    <Surface style={[styles.modeIndicator, { backgroundColor: 'rgba(255,165,0,0.8)', marginLeft: 8 }]}>
-                      <Text variant="bodySmall" style={{ color: theme.colors.onPrimary }}>
-                        ⏳ PREPARANDO...
-                      </Text>
-                    </Surface>
-                  )}
-                  {isProcessing && (
-                    <Surface style={[styles.modeIndicator, { backgroundColor: 'rgba(0,255,0,0.8)', marginLeft: 8 }]}>
-                      <Text variant="bodySmall" style={{ color: theme.colors.onPrimary }}>
-                        📤 SUBIENDO...
-                      </Text>
-                    </Surface>
-                  )}
-                </View>
+                )}
+                {isProcessing && (
+                  <Surface style={[styles.modeIndicator, { backgroundColor: 'rgba(0,255,0,0.8)', marginLeft: 8 }]}>
+                    <Text variant="bodySmall" style={{ color: theme.colors.onPrimary }}>
+                      📤 SUBIENDO...
+                    </Text>
+                  </Surface>
+                )}
+              </View>
 
-                {/* Controles inferiores */}
-                <View style={styles.bottomControls}>
-                  {/* Botón de cambiar cámara */}
+              {/* Controles inferiores */}
+              <View style={styles.bottomControls}>
+                {/* Botón de cambiar cámara */}
+                <IconButton
+                  icon="camera-switch"
+                  size={24}
+                  iconColor={!isCameraReady ? theme.colors.onSurfaceDisabled : theme.colors.onPrimary}
+                  style={[
+                    styles.controlButton,
+                    !isCameraReady && { backgroundColor: 'rgba(128,128,128,0.3)' }
+                  ]}
+                  onPress={() => {
+                    console.log('🔄 Cambiando cámara');
+                    toggleCameraFacing();
+                  }}
+                  disabled={isRecording || isProcessing || !isCameraReady}
+                />
+
+                {/* Botón principal de captura */}
+                <IconButton
+                  icon={
+                    isProcessing ? 'upload' : 
+                    isRecording ? 'stop' : 
+                    currentMode === 'video' ? 'record' : 'camera'
+                  }
+                  size={isRecording ? 40 : 50}
+                  iconColor={
+                    !isCameraReady ? theme.colors.onSurfaceDisabled :
+                    isRecording ? theme.colors.error : 
+                    isProcessing ? theme.colors.secondary :
+                    theme.colors.onPrimary
+                  }
+                  style={[
+                    styles.captureButton,
+                    isRecording && styles.recordingButton,
+                    !isCameraReady && { backgroundColor: 'rgba(128,128,128,0.5)' }
+                  ]}
+                  onPress={() => {
+                    console.log('🔘 Botón de captura presionado');
+                    console.log('Modo actual:', currentMode);
+                    console.log('Está grabando:', isRecording);
+                    console.log('Está procesando:', isProcessing);
+                    console.log('Cámara lista:', isCameraReady);
+                    
+                    if (isRecording) {
+                      console.log('🛑 Ejecutando stopRecording');
+                      stopRecording();
+                    } else if (currentMode === 'video') {
+                      console.log('🎬 Ejecutando startRecording');
+                      startRecording();
+                    } else {
+                      console.log('📸 Ejecutando takePicture');
+                      takePicture();
+                    }
+                  }}
+                  disabled={isProcessing || !isCameraReady}
+                />
+
+                {/* Botón de cambiar modo (solo si permite both) */}
+                {mediaType === 'both' ? (
                   <IconButton
-                    icon="camera-switch"
+                    icon={currentMode === 'photo' ? 'video' : 'camera'}
                     size={24}
                     iconColor={!isCameraReady ? theme.colors.onSurfaceDisabled : theme.colors.onPrimary}
                     style={[
@@ -327,74 +385,16 @@ export const CameraViewDialog: React.FC<CameraViewDialogProps> = ({
                       !isCameraReady && { backgroundColor: 'rgba(128,128,128,0.3)' }
                     ]}
                     onPress={() => {
-                      console.log('🔄 Cambiando cámara');
-                      toggleCameraFacing();
+                      console.log('🔄 Cambiando modo a:', currentMode === 'photo' ? 'video' : 'photo');
+                      toggleMode();
                     }}
                     disabled={isRecording || isProcessing || !isCameraReady}
                   />
-
-                  {/* Botón principal de captura */}
-                  <IconButton
-                    icon={
-                      isProcessing ? 'upload' : 
-                      isRecording ? 'stop' : 
-                      currentMode === 'video' ? 'record' : 'camera'
-                    }
-                    size={isRecording ? 40 : 50}
-                    iconColor={
-                      !isCameraReady ? theme.colors.onSurfaceDisabled :
-                      isRecording ? theme.colors.error : 
-                      isProcessing ? theme.colors.secondary :
-                      theme.colors.onPrimary
-                    }
-                    style={[
-                      styles.captureButton,
-                      isRecording && styles.recordingButton,
-                      !isCameraReady && { backgroundColor: 'rgba(128,128,128,0.5)' }
-                    ]}
-                    onPress={() => {
-                      console.log('🔘 Botón de captura presionado');
-                      console.log('Modo actual:', currentMode);
-                      console.log('Está grabando:', isRecording);
-                      console.log('Está procesando:', isProcessing);
-                      console.log('Cámara lista:', isCameraReady);
-                      
-                      if (isRecording) {
-                        console.log('🛑 Ejecutando stopRecording');
-                        stopRecording();
-                      } else if (currentMode === 'video') {
-                        console.log('🎬 Ejecutando startRecording');
-                        startRecording();
-                      } else {
-                        console.log('📸 Ejecutando takePicture');
-                        takePicture();
-                      }
-                    }}
-                    disabled={isProcessing || !isCameraReady}
-                  />
-
-                  {/* Botón de cambiar modo (solo si permite both) */}
-                  {mediaType === 'both' ? (
-                    <IconButton
-                      icon={currentMode === 'photo' ? 'video' : 'camera'}
-                      size={24}
-                      iconColor={!isCameraReady ? theme.colors.onSurfaceDisabled : theme.colors.onPrimary}
-                      style={[
-                        styles.controlButton,
-                        !isCameraReady && { backgroundColor: 'rgba(128,128,128,0.3)' }
-                      ]}
-                      onPress={() => {
-                        console.log('🔄 Cambiando modo a:', currentMode === 'photo' ? 'video' : 'photo');
-                        toggleMode();
-                      }}
-                      disabled={isRecording || isProcessing || !isCameraReady}
-                    />
-                  ) : (
-                    <View style={styles.controlButton} />
-                  )}
-                </View>
+                ) : (
+                  <View style={styles.controlButton} />
+                )}
               </View>
-            </CameraView>
+            </View>
           </Surface>
 
           {/* Estado de procesamiento y debug */}
@@ -443,14 +443,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     height: screenHeight * 0.5,
     maxHeight: 400,
+    position: 'relative', // Necesario para absolute positioning
   },
   camera: {
     flex: 1,
   },
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'transparent',
     justifyContent: 'space-between',
+    zIndex: 1, // Asegurar que esté encima de la cámara
   },
   topControls: {
     flexDirection: 'row',
