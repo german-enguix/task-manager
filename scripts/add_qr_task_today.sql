@@ -11,6 +11,7 @@ DO $$
 DECLARE
     -- Variables para IDs
     assigned_user_id UUID;
+    user_email TEXT;
     task_id UUID := gen_random_uuid();
     
     -- IDs de subtareas
@@ -28,20 +29,23 @@ BEGIN
 -- 1. OBTENER USUARIO ASIGNADO
 -- =============================================
 
--- Buscar primer usuario disponible (priorizar zizi o german)
+-- Buscar específicamente a ZIZI
 SELECT p.id INTO assigned_user_id 
 FROM profiles p 
 JOIN auth.users u ON p.id = u.id 
-WHERE u.email IN ('zizi@taskmanager.com', 'german@taskmanager.com', 'albert@taskmanager.com')
-ORDER BY 
-  CASE 
-    WHEN u.email = 'zizi@taskmanager.com' THEN 1
-    WHEN u.email = 'german@taskmanager.com' THEN 2
-    ELSE 3
-  END
+WHERE u.email = 'zizi@taskmanager.com'
 LIMIT 1;
 
--- Si no hay usuarios específicos, usar cualquier usuario activo
+-- Si ZIZI no existe, buscar cualquier usuario con email que contenga 'zizi'
+IF assigned_user_id IS NULL THEN
+    SELECT p.id INTO assigned_user_id 
+    FROM profiles p 
+    JOIN auth.users u ON p.id = u.id 
+    WHERE LOWER(u.email) LIKE '%zizi%'
+    LIMIT 1;
+END IF;
+
+-- Si no hay usuarios zizi, usar cualquier usuario activo
 IF assigned_user_id IS NULL THEN
     SELECT id INTO assigned_user_id 
     FROM profiles 
@@ -51,10 +55,15 @@ END IF;
 
 -- Verificar que tenemos un usuario
 IF assigned_user_id IS NULL THEN
-    RAISE EXCEPTION 'No se encontró ningún usuario para asignar la tarea';
+    RAISE EXCEPTION 'No se encontró el usuario ZIZI (zizi@taskmanager.com) ni ningún usuario alternativo en la base de datos. Verifica que existen usuarios creados.';
 END IF;
 
-RAISE NOTICE '👤 Usuario asignado: %', assigned_user_id;
+-- Obtener info del usuario para debug
+SELECT u.email INTO user_email 
+FROM auth.users u 
+WHERE u.id = assigned_user_id;
+
+RAISE NOTICE '👤 Usuario asignado: % (email: %)', assigned_user_id, COALESCE(user_email, 'email no encontrado');
 
 -- =============================================
 -- 2. CREAR TAREA PRINCIPAL
@@ -79,7 +88,7 @@ INSERT INTO tasks (
     'Realizar verificación completa de equipos escaneando sus códigos QR identificadores. Esta tarea incluye verificación obligatoria de maquinaria crítica y opcional de herramientas secundarias.',
     'not_started',
     'high',
-    CURRENT_DATE::timestamptz + INTERVAL '1 day', -- Vence mañana
+    '2024-07-26'::timestamptz, -- Vence HOY (26/07)
     120, -- 2 horas estimadas
     'Control de Activos',
     'Planta Industrial - Sección A',
@@ -203,9 +212,9 @@ RAISE NOTICE '';
 RAISE NOTICE '🎉 ¡TAREA CON QR SCANNER CREADA EXITOSAMENTE!';
 RAISE NOTICE '';
 RAISE NOTICE '📋 RESUMEN:';
-RAISE NOTICE '   📅 Fecha: %', CURRENT_DATE;
+RAISE NOTICE '   📅 Fecha vencimiento: 2024-07-26 (HOY)';
 RAISE NOTICE '   🆔 Tarea ID: %', task_id;
-RAISE NOTICE '   👤 Asignado a: %', assigned_user_id;
+RAISE NOTICE '   👤 Asignado a ZIZI: %', assigned_user_id;
 RAISE NOTICE '   📍 Ubicación: Planta Industrial - Sección A';
 RAISE NOTICE '';
 RAISE NOTICE '🎯 SUBTAREAS CREADAS:';
