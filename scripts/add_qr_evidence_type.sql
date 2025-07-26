@@ -18,11 +18,15 @@ RAISE NOTICE '🔍 Verificando enum evidence_type actual...';
 
 -- Mostrar valores actuales
 RAISE NOTICE 'Valores actuales del enum evidence_type:';
-PERFORM pg_notify('enum_values', string_agg(enumlabel, ', '))
-FROM pg_enum e
-JOIN pg_type t ON e.enumtypid = t.oid 
-WHERE t.typname = 'evidence_type'
-ORDER BY e.enumsortorder;
+FOR rec IN (
+    SELECT enumlabel 
+    FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid 
+    WHERE t.typname = 'evidence_type'
+    ORDER BY e.enumsortorder
+) LOOP
+    RAISE NOTICE '   • %', rec.enumlabel;
+END LOOP;
 
 -- =============================================
 -- 2. AÑADIR VALOR 'QR' SI NO EXISTE
