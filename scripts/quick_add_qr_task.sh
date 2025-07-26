@@ -35,14 +35,28 @@ if ! command -v psql &> /dev/null; then
     exit 1
 fi
 
-# Ejecutar el script SQL
-echo "🚀 Ejecutando script SQL..."
+# Ejecutar scripts SQL
+echo "🚀 Ejecutando scripts SQL..."
 echo ""
 
 # Construir la conexión URL para psql
 DB_URL="postgresql://postgres.${SUPABASE_URL#*://}:${SUPABASE_SERVICE_ROLE_KEY}@${SUPABASE_URL#*://}/postgres"
 
-# Ejecutar el script
+# PASO 1: Añadir 'qr' al enum evidence_type
+echo "📝 Paso 1: Actualizando enum evidence_type..."
+psql "$DB_URL" -f "$(dirname "$0")/add_qr_evidence_type.sql"
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Error actualizando enum evidence_type"
+    echo "💡 Intenta ejecutar manualmente: add_qr_evidence_type.sql"
+    exit 1
+fi
+
+echo ""
+echo "📝 Paso 2: Creando tarea con QR..."
+
+# PASO 2: Crear la tarea QR
 psql "$DB_URL" -f "$(dirname "$0")/add_qr_task_today.sql"
 
 if [ $? -eq 0 ]; then

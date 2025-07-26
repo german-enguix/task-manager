@@ -34,6 +34,19 @@ Este directorio contiene scripts para crear una tarea de prueba con subtareas de
 
 ## 🚀 Cómo ejecutar
 
+### **⚠️ PASO PREVIO REQUERIDO:**
+
+**PRIMERO** debes añadir 'qr' al enum evidence_type:
+
+```bash
+# Opción A: SQL Editor de Supabase
+# 1. Ve a Supabase SQL Editor
+# 2. Copia y ejecuta: scripts/add_qr_evidence_type.sql
+
+# Opción B: psql directo  
+psql "tu_connection_string" -f scripts/add_qr_evidence_type.sql
+```
+
 ### **Opción 1: Script automático (Recomendado)**
 
 ```bash
