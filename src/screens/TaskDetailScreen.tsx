@@ -34,7 +34,7 @@ import {
   TaskProblemReport,
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
-import { ProblemReportDialog, NFCDialog, LocationDialog, LocationViewer, AudioDialog, AudioViewer, SignatureDialog, SignatureViewer, CameraDialog, MediaViewer } from '@/components';
+import { ProblemReportDialog, NFCDialog, QRDialog, LocationDialog, LocationViewer, AudioDialog, AudioViewer, SignatureDialog, SignatureViewer, CameraDialog, MediaViewer } from '@/components';
 
 interface TaskDetailScreenProps {
   taskId: string;
@@ -55,6 +55,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [showNFCDialog, setShowNFCDialog] = useState(false);
   const [currentNFCSubtask, setCurrentNFCSubtask] = useState<TaskSubtask | null>(null);
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [currentQRSubtask, setCurrentQRSubtask] = useState<TaskSubtask | null>(null);
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
   const [currentSignatureSubtask, setCurrentSignatureSubtask] = useState<TaskSubtask | null>(null);
   const [showSignatureViewer, setShowSignatureViewer] = useState(false);
@@ -374,6 +376,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       return;
     }
 
+    // Si es evidencia QR, mostrar el diálogo específico
+    if (subtask.evidenceRequirement.type === EvidenceType.QR) {
+      setCurrentQRSubtask(subtask);
+      setShowQRDialog(true);
+      return;
+    }
+
     // Si es evidencia de firma, mostrar el diálogo específico
     if (subtask.evidenceRequirement.type === EvidenceType.SIGNATURE) {
       setCurrentSignatureSubtask(subtask);
@@ -437,6 +446,31 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const handleNFCDismiss = () => {
     setShowNFCDialog(false);
     setCurrentNFCSubtask(null);
+  };
+
+  const handleQRSuccess = async () => {
+    if (!currentQRSubtask || !task) return;
+    
+    // Cerrar el diálogo QR
+    setShowQRDialog(false);
+    
+    try {
+      // Simular la captura de evidencia QR y marcar como completada
+      await simulateQREvidenceCapture(currentQRSubtask);
+      
+      console.log('✅ QR evidence captured and subtask completed');
+    } catch (error) {
+      console.error('❌ Error completing QR evidence:', error);
+      Alert.alert('Error', 'No se pudo completar la evidencia QR. Inténtalo de nuevo.');
+    } finally {
+      // Limpiar la subtarea actual
+      setCurrentQRSubtask(null);
+    }
+  };
+
+  const handleQRDismiss = () => {
+    setShowQRDialog(false);
+    setCurrentQRSubtask(null);
   };
 
   const handleSignatureSuccess = async (signatureData: string) => {
@@ -865,6 +899,89 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
    };
 
+  const simulateQREvidenceCapture = async (subtask: TaskSubtask) => {
+    if (!task || !subtask.evidenceRequirement) return;
+    
+    try {
+      // Actualizar en Supabase: marcar subtarea como completada
+      const completedAt = new Date();
+      await supabaseService.updateSubtask(subtask.id, {
+        isCompleted: true,
+        completedAt: completedAt
+      });
+
+      // Simular datos QR (en una implementación real, vendría del escáner QR)
+      const qrData = {
+        qrCode: `QR_${Date.now()}`,
+        scannedAt: new Date().toISOString(),
+        content: 'task_verification_code',
+        format: 'QR_CODE'
+      };
+
+      // Guardar la evidencia en la base de datos
+      await supabaseService.addSubtaskEvidence(
+        subtask.id,
+        subtask.evidenceRequirement.id,
+        subtask.evidenceRequirement.type,
+        `${subtask.evidenceRequirement.title} - Completada`,
+        'Evidencia QR capturada correctamente',
+        undefined, // filePath
+        qrData // data
+      );
+      
+      // Actualizar subtarea con evidencia completada Y marcada como completada
+      const updatedSubtasks = task.subtasks.map(s => {
+        if (s.id === subtask.id) {
+          return {
+            ...s,
+            isCompleted: true,
+            completedAt: completedAt,
+            evidence: {
+              id: `subtask-evidence-${Date.now()}`,
+              subtaskId: subtask.id,
+              type: subtask.evidenceRequirement!.type,
+              title: `${subtask.evidenceRequirement!.title} - Completada`,
+              description: 'Evidencia QR capturada correctamente',
+              createdAt: new Date(),
+              completedBy: 'Usuario Actual',
+              data: qrData,
+            },
+          };
+        }
+        return s;
+      });
+      
+      // Calcular el nuevo estado de la tarea basándose en las subtareas y el timer
+      const newTaskStatus = calculateTaskStatus(updatedSubtasks, task.timer);
+      
+      const updatedTask = { 
+        ...task, 
+        subtasks: updatedSubtasks,
+        status: newTaskStatus
+      };
+      setTask(updatedTask);
+
+      // Actualizar el estado de la tarea en la base de datos si cambió
+      if (newTaskStatus !== task.status) {
+        try {
+          await supabaseService.updateTask(taskId, { status: newTaskStatus });
+          console.log('✅ Task status updated to:', newTaskStatus);
+          
+          // Log del cambio de estado (visible en consola)
+          const statusText = getStatusText(newTaskStatus);
+          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
+        } catch (error) {
+          console.error('❌ Error updating task status:', error);
+        }
+      }
+
+      console.log('✅ QR evidence saved successfully to database');
+    } catch (error) {
+      console.error('❌ Error saving QR evidence:', error);
+      Alert.alert('Error', 'No se pudo guardar la evidencia QR. Inténtalo de nuevo.');
+    }
+   };
+
   const captureRealLocationEvidence = async (subtask: TaskSubtask, realLocationData: any) => {
     if (!task || !subtask.evidenceRequirement || !realLocationData) return;
     
@@ -1246,6 +1363,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         return 'map-marker';
       case EvidenceType.NFC:
         return 'nfc';
+      case EvidenceType.QR:
+        return 'qrcode';
       default:
         return 'file';
     }
@@ -1267,6 +1386,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         return 'Obtener ubicación';
       case EvidenceType.NFC:
         return 'Escanear NFC';
+      case EvidenceType.QR:
+        return 'Escanear QR';
       default:
         return 'Completar';
     }
@@ -1284,6 +1405,8 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         return 'GPS';
       case EvidenceType.NFC:
         return 'NFC';
+      case EvidenceType.QR:
+        return 'QR';
       default:
         return 'Evidencia';
     }
@@ -1723,7 +1846,9 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                           (subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE && 
                            subtask.evidenceRequirement.type !== EvidenceType.LOCATION &&
                            subtask.evidenceRequirement.type !== EvidenceType.AUDIO &&
-                           subtask.evidenceRequirement.type !== EvidenceType.PHOTO_VIDEO)
+                           subtask.evidenceRequirement.type !== EvidenceType.PHOTO_VIDEO &&
+                           subtask.evidenceRequirement.type !== EvidenceType.NFC &&
+                           subtask.evidenceRequirement.type !== EvidenceType.QR)
                         }
                         onPress={
                           subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
@@ -1747,6 +1872,10 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                           ? 'Ver Audio'
                           : subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO
                           ? (subtask.evidence?.data?.type === 'video' ? 'Ver Video' : 'Ver Imagen')
+                          : subtask.evidenceRequirement.type === EvidenceType.QR
+                          ? 'Evidencia completada'
+                          : subtask.evidenceRequirement.type === EvidenceType.NFC
+                          ? 'Evidencia completada'
                           : 'Evidencia completada'}
                       </Button>
                     ) : (
@@ -1940,6 +2069,15 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         onSuccess={handleNFCSuccess}
         title={currentNFCSubtask?.evidenceRequirement?.title || 'Escanear NFC'}
         description={currentNFCSubtask?.evidenceRequirement?.description || 'Acerca tu dispositivo al tag NFC para registrar la evidencia'}
+      />
+
+      {/* QR Dialog */}
+      <QRDialog
+        visible={showQRDialog}
+        onDismiss={handleQRDismiss}
+        onSuccess={handleQRSuccess}
+        title={currentQRSubtask?.evidenceRequirement?.title || 'Escanear QR'}
+        description={currentQRSubtask?.evidenceRequirement?.description || 'Apunta la cámara hacia el código QR para registrar la evidencia'}
       />
 
       {/* Signature Dialog */}

@@ -32,6 +32,7 @@ export enum EvidenceType {
   SIGNATURE = 'signature',
   LOCATION = 'location', // GPS
   NFC = 'nfc', // Near Field Communication
+  QR = 'qr', // QR Code scanner
 }
 
 export enum CommentType {
