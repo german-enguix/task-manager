@@ -18,7 +18,9 @@ import {
   ProgressBar,
   useTheme,
   Icon,
-  TextInput
+  TextInput,
+  Portal,
+  Dialog
 } from 'react-native-paper';
 import { 
   Task, 
@@ -73,6 +75,9 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [currentCameraSubtask, setCurrentCameraSubtask] = useState<TaskSubtask | null>(null);
   const [showMediaViewer, setShowMediaViewer] = useState(false);
   const [currentMediaData, setCurrentMediaData] = useState<any>(null);
+  const [showDeleteReportDialog, setShowDeleteReportDialog] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<TaskProblemReport | null>(null);
+  const [isDeletingReport, setIsDeletingReport] = useState(false);
 
   useEffect(() => {
     loadUserAndTask();
@@ -1625,6 +1630,52 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
   };
 
+  const handleDeleteReport = (report: TaskProblemReport) => {
+    console.log('🗑️ Initiating delete for report:', report.title);
+    setReportToDelete(report);
+    setShowDeleteReportDialog(true);
+  };
+
+  const handleConfirmDeleteReport = async () => {
+    if (!reportToDelete || !task) return;
+
+    setIsDeletingReport(true);
+    
+    try {
+      console.log('🗑️ Deleting problem report:', reportToDelete.id);
+      
+      // Eliminar el reporte en Supabase
+      await supabaseService.deleteTaskProblemReport(reportToDelete.id);
+      
+      // Actualizar estado local - remover el reporte eliminado
+      const updatedTask = {
+        ...task,
+        problemReports: task.problemReports.filter(report => report.id !== reportToDelete.id)
+      };
+      setTask(updatedTask);
+      
+      console.log('✅ Report deleted and local state updated');
+      Alert.alert('Éxito', 'Reporte eliminado correctamente.');
+      
+    } catch (error) {
+      console.error('❌ Error deleting problem report:', error);
+      Alert.alert('Error', `No se pudo eliminar el reporte: ${error.message || error}`);
+    } finally {
+      setIsDeletingReport(false);
+      setShowDeleteReportDialog(false);
+      setReportToDelete(null);
+    }
+  };
+
+  const handleCancelDeleteReport = () => {
+    setShowDeleteReportDialog(false);
+    setReportToDelete(null);
+  };
+
+  const canDeleteReport = (report: TaskProblemReport): boolean => {
+    return currentUserId === report.userId;
+  };
+
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return theme.colors.error;
@@ -1986,18 +2037,31 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                         {problem.title}
                       </Text>
                     </View>
-                    <Chip 
-                      mode="outlined" 
-                      style={[styles.severityChip, { 
-                        borderColor: getSeverityColor(problem.severity)
-                      }]}
-                      textStyle={[styles.severityChipText, {
-                        color: getSeverityColor(problem.severity)
-                      }]}
-                      compact
-                    >
-                      {getSeverityLabel(problem.severity)}
-                    </Chip>
+                    <View style={styles.problemHeaderRight}>
+                      <Chip 
+                        mode="outlined" 
+                        style={[styles.severityChip, { 
+                          borderColor: getSeverityColor(problem.severity)
+                        }]}
+                        textStyle={[styles.severityChipText, {
+                          color: getSeverityColor(problem.severity)
+                        }]}
+                        compact
+                      >
+                        {getSeverityLabel(problem.severity)}
+                      </Chip>
+                      {canDeleteReport(problem) && (
+                        <IconButton
+                          icon="delete"
+                          size={20}
+                          iconColor={theme.colors.error}
+                          mode="contained-tonal"
+                          style={styles.deleteReportButton}
+                          onPress={() => handleDeleteReport(problem)}
+                          disabled={isDeletingReport}
+                        />
+                      )}
+                    </View>
                   </View>
                   
                   <Text variant="bodyMedium" style={styles.problemDescription}>
@@ -2061,6 +2125,57 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         onSubmit={handleSubmitProblemReport}
         isSubmitting={isSubmittingReport}
       />
+
+      {/* Delete Report Confirmation Dialog */}
+      <Portal>
+        <Dialog 
+          visible={showDeleteReportDialog} 
+          onDismiss={handleCancelDeleteReport}
+          style={styles.deleteDialog}
+        >
+          <Dialog.Icon icon="delete-alert" />
+          <Dialog.Title style={styles.deleteDialogTitle}>
+            Eliminar reporte
+          </Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.deleteDialogContent}>
+              ¿Estás seguro de que quieres eliminar este reporte de problema?
+            </Text>
+            {reportToDelete && (
+              <View style={styles.reportPreview}>
+                <Icon
+                  source={getReportTypeIcon(reportToDelete.reportType)}
+                  size={16}
+                  color={getSeverityColor(reportToDelete.severity)}
+                />
+                <Text variant="bodySmall" style={styles.reportPreviewText}>
+                  {reportToDelete.title}
+                </Text>
+              </View>
+            )}
+            <Text variant="bodySmall" style={styles.deleteWarning}>
+              Esta acción no se puede deshacer.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions style={styles.deleteDialogActions}>
+            <Button 
+              onPress={handleCancelDeleteReport}
+              disabled={isDeletingReport}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              mode="contained" 
+              buttonColor={theme.colors.error}
+              onPress={handleConfirmDeleteReport}
+              loading={isDeletingReport}
+              disabled={isDeletingReport}
+            >
+              Eliminar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       {/* NFC Dialog */}
       <NFCDialog
@@ -2284,6 +2399,16 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  problemHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteReportButton: {
+    margin: 0,
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    borderColor: 'rgba(244, 67, 54, 0.2)',
+  },
   problemTitle: {
     marginLeft: 8,
     fontWeight: '600',
@@ -2426,5 +2551,42 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  deleteDialog: {
+    borderRadius: 16,
+  },
+  deleteDialogTitle: {
+    textAlign: 'center',
+    color: '#d32f2f',
+    fontWeight: '600',
+  },
+  deleteDialogContent: {
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 22,
+  },
+  reportPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 12,
+    gap: 8,
+  },
+  reportPreviewText: {
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'center',
+  },
+  deleteWarning: {
+    textAlign: 'center',
+    color: '#d32f2f',
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  deleteDialogActions: {
+    paddingTop: 8,
   },
 }); 

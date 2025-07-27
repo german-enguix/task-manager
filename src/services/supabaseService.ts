@@ -2010,19 +2010,58 @@ export class SupabaseService {
 
   async deleteTaskProblemReport(reportId: string): Promise<void> {
     try {
+      console.log('🗑️ Attempting to delete problem report:', reportId);
+      
+      // Verificar autenticación
+      const user = await this.getCurrentUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Verificar que el usuario es el autor del reporte
+      const { data: reportData, error: fetchError } = await supabase
+        .from('task_problem_reports')
+        .select('user_id, title')
+        .eq('id', reportId)
+        .single();
+
+      if (fetchError) {
+        console.error('❌ Error fetching report for permission check:', fetchError);
+        throw new Error('No se pudo verificar los permisos del reporte');
+      }
+
+      if (!reportData) {
+        throw new Error('Reporte no encontrado');
+      }
+
+      // Verificar que el usuario actual es el autor
+      if (reportData.user_id !== user.id) {
+        console.error('❌ Permission denied: User is not the author');
+        console.error('Report author:', reportData.user_id);
+        console.error('Current user:', user.id);
+        throw new Error('Solo el autor del reporte puede eliminarlo');
+      }
+
+      console.log('✅ Permission validated - user is the author');
+      console.log('Deleting report:', reportData.title);
+
+      // Eliminar el reporte
       const { error } = await supabase
         .from('task_problem_reports')
         .delete()
         .eq('id', reportId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error during deletion:', error);
+        throw error;
+      }
 
       console.log('✅ Problem report deleted successfully');
     } catch (error) {
       console.error('❌ Error deleting task problem report:', error);
       throw error;
     }
-    }
+  }
  
   // ========== HELPERS ==========
   
