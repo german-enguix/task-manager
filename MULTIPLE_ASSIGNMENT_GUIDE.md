@@ -13,9 +13,11 @@ Ahora puedes **asignar múltiples usuarios a la misma tarea**, permitiendo **col
 
 ### **📝 Ejecución Manual (SQL Editor):**
 Si prefieres ejecutar manualmente en Supabase:
-1. Copia el contenido de `scripts/migrate_assigned_to_array.sql`
+1. Copia el contenido de `scripts/migrate_assigned_to_array_fixed.sql` ⚡ (versión mejorada)
 2. Pégalo en **Supabase > SQL Editor**
 3. Ejecuta el script
+
+> **💡 Nota:** Usamos la versión `_fixed.sql` que maneja automáticamente las dependencias de políticas RLS.
 
 ## 🛠️ **Cambios Técnicos Realizados**
 

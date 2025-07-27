@@ -40,8 +40,8 @@ DB_URL="postgresql://postgres.${SUPABASE_URL#*://}:${SUPABASE_SERVICE_ROLE_KEY}@
 echo "🔄 EJECUTANDO MIGRACIÓN..."
 echo ""
 
-# Ejecutar migración
-psql "$DB_URL" -f "$(dirname "$0")/migrate_assigned_to_array.sql"
+# Ejecutar migración mejorada que maneja dependencias RLS
+psql "$DB_URL" -f "$(dirname "$0")/migrate_assigned_to_array_fixed.sql"
 
 if [ $? -eq 0 ]; then
     echo ""
