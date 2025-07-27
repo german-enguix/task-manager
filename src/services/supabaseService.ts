@@ -425,6 +425,110 @@ export class SupabaseService {
 
 
 
+  // ========== TASK ASSIGNMENT HELPERS ==========
+  
+  async addUserToTask(taskId: string, userId: string): Promise<void> {
+    try {
+      console.log('➕ Adding user to task:', { taskId, userId });
+      
+      // Primero obtener la tarea actual
+      const { data: task, error: fetchError } = await supabase
+        .from('tasks')
+        .select('assigned_to')
+        .eq('id', taskId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Crear nuevo array con el usuario agregado (si no está ya)
+      const currentAssigned = task.assigned_to || [];
+      const newAssigned = currentAssigned.includes(userId) 
+        ? currentAssigned 
+        : [...currentAssigned, userId];
+
+      // Actualizar la tarea
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({ assigned_to: newAssigned })
+        .eq('id', taskId);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ User added to task successfully');
+    } catch (error) {
+      console.error('❌ Error adding user to task:', error);
+      throw error;
+    }
+  }
+
+  async removeUserFromTask(taskId: string, userId: string): Promise<void> {
+    try {
+      console.log('➖ Removing user from task:', { taskId, userId });
+      
+      // Primero obtener la tarea actual
+      const { data: task, error: fetchError } = await supabase
+        .from('tasks')
+        .select('assigned_to')
+        .eq('id', taskId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Crear nuevo array sin el usuario
+      const currentAssigned = task.assigned_to || [];
+      const newAssigned = currentAssigned.filter(id => id !== userId);
+
+      // Actualizar la tarea
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({ assigned_to: newAssigned.length > 0 ? newAssigned : null })
+        .eq('id', taskId);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ User removed from task successfully');
+    } catch (error) {
+      console.error('❌ Error removing user from task:', error);
+      throw error;
+    }
+  }
+
+  async replaceTaskAssignment(taskId: string, userIds: string[]): Promise<void> {
+    try {
+      console.log('🔄 Replacing task assignment:', { taskId, userIds });
+      
+      // Actualizar la tarea con la nueva asignación
+      const { error } = await supabase
+        .from('tasks')
+        .update({ assigned_to: userIds.length > 0 ? userIds : null })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      console.log('✅ Task assignment replaced successfully');
+    } catch (error) {
+      console.error('❌ Error replacing task assignment:', error);
+      throw error;
+    }
+  }
+
+  async getTaskAssignees(taskId: string): Promise<string[]> {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('assigned_to')
+        .eq('id', taskId)
+        .single();
+
+      if (error) throw error;
+
+      return data.assigned_to || [];
+    } catch (error) {
+      console.error('❌ Error getting task assignees:', error);
+      throw error;
+    }
+  }
+
   // ========== TASKS ==========
   
   async getTasks(userId?: string): Promise<Task[]> {
@@ -445,7 +549,8 @@ export class SupabaseService {
         .order('created_at', { ascending: false })
 
       if (userId) {
-        query = query.eq('assigned_to', userId)
+        // Usar operador de array para verificar si el usuario está en el array assigned_to
+        query = query.contains('assigned_to', [userId])
       }
 
       const { data, error } = await query

@@ -41,7 +41,7 @@ export interface Database {
           estimated_duration: number | null
           project_name: string
           location: string
-          assigned_to: string | null
+          assigned_to: string[] | null
           project_id: string | null
           timer_total_elapsed: number
           timer_is_running: boolean
@@ -60,7 +60,7 @@ export interface Database {
           estimated_duration?: number | null
           project_name: string
           location: string
-          assigned_to?: string | null
+          assigned_to?: string[] | null
           project_id?: string | null
           created_at?: string
           updated_at?: string
@@ -75,7 +75,7 @@ export interface Database {
           estimated_duration?: number | null
           project_name?: string
           location?: string
-          assigned_to?: string | null
+          assigned_to?: string[] | null
           project_id?: string | null
           created_at?: string
           updated_at?: string

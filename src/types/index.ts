@@ -298,7 +298,7 @@ export interface Task {
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
-  assignedTo?: string;
+  assignedTo?: string[];
 }
 
 // Day System Types
