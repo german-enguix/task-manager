@@ -1119,13 +1119,7 @@ export const mockProjects: Project[] = [
     
     // Equipos y recursos
     assignedTo: [], // Array de UUIDs de usuarios
-    requiredResources: [
-      'Equipo de inspección de seguridad',
-      'Herramientas de mantenimiento',
-      'Dispositivos de calibración',
-      'EPIs completos',
-      'Documentación técnica',
-    ],
+    tags: [], // Array de etiquetas (se cargan desde BD)
     
     // Metadatos
     createdAt: new Date('2025-01-08T09:00:00'),
@@ -1185,13 +1179,7 @@ export const mockProjects: Project[] = [
     
     // Equipos y recursos
     assignedTo: [], // Array de UUIDs de usuarios
-    requiredResources: [
-      'Sensores IoT (50 unidades)',
-      'Gateway de comunicación',
-      'Cables de red',
-      'Herramientas de instalación',
-      'Software de configuración',
-    ],
+    tags: [], // Array de etiquetas (se cargan desde BD)
     
     // Metadatos
     createdAt: new Date('2025-01-05T10:00:00'),
@@ -1254,13 +1242,7 @@ export const mockProjects: Project[] = [
     
     // Equipos y recursos
     assignedTo: [], // Array de UUIDs de usuarios
-    requiredResources: [
-      'Extractores industriales (12 unidades)',
-      'Filtros HEPA',
-      'Conductos de ventilación',
-      'Herramientas especializadas',
-      'Andamios y equipos de altura',
-    ],
+    tags: [], // Array de etiquetas (se cargan desde BD)
     
     // Metadatos
     createdAt: new Date('2024-11-15T09:00:00'),

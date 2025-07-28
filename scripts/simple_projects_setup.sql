@@ -56,9 +56,9 @@ CREATE TABLE IF NOT EXISTS projects (
   -- Campos adicionales requeridos por la app
   estimated_duration INTEGER DEFAULT 30,
   actual_duration INTEGER,
-  required_resources TEXT[] DEFAULT '{}',
   created_by UUID,
   assigned_to UUID[] DEFAULT '{}',
+  tag_ids UUID[] DEFAULT '{}',
   
   -- Metadatos
   created_at TIMESTAMPTZ DEFAULT NOW(),

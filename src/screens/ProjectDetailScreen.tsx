@@ -44,6 +44,38 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
     }
   };
 
+  const handleMarkAsRead = async (observationId: string, isRead: boolean) => {
+    try {
+      console.log(`🔄 Marking observation as ${isRead ? 'read' : 'unread'}`);
+      
+      // Actualizar en Supabase
+      await supabaseService.markObservationAsRead(observationId, isRead);
+      
+      // Actualizar estado local del proyecto
+      setProject(prevProject => {
+        if (!prevProject) return prevProject;
+        
+        return {
+          ...prevProject,
+          observations: prevProject.observations.map(obs => 
+            obs.id === observationId 
+              ? { 
+                  ...obs, 
+                  isRead, 
+                  readAt: isRead ? new Date() : undefined 
+                }
+              : obs
+          )
+        };
+      });
+      
+      console.log(`✅ Observation marked as ${isRead ? 'read' : 'unread'} successfully`);
+    } catch (error) {
+      console.error('❌ Error marking observation as read:', error);
+      // Aquí podrías mostrar un toast o snackbar con el error
+    }
+  };
+
   // Loading State
   if (loading) {
     return (
@@ -220,26 +252,45 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
           {formatObservationDate(observation.date)}
         </Text>
         
-        <View style={styles.observationStatus}>
-          {observation.isResolved ? (
-            <Chip 
-              mode="flat"
-              style={styles.resolvedChip}
-              textStyle={styles.resolvedChipText}
-              icon="check-circle"
-            >
-              Resuelto
-            </Chip>
-          ) : (
-            <Chip 
-              mode="flat"
-              style={styles.pendingChip}
-              textStyle={styles.pendingChipText}
-              icon="clock"
-            >
-              Pendiente
-            </Chip>
-          )}
+        <View style={styles.observationActions}>
+          <View style={styles.observationStatus}>
+            {observation.isResolved ? (
+              <Chip 
+                mode="flat"
+                style={styles.resolvedChip}
+                textStyle={styles.resolvedChipText}
+                icon="check-circle"
+              >
+                Resuelto
+              </Chip>
+            ) : (
+              <Chip 
+                mode="flat"
+                style={styles.pendingChip}
+                textStyle={styles.pendingChipText}
+                icon="clock"
+              >
+                Pendiente
+              </Chip>
+            )}
+          </View>
+          
+          {/* Botón marcar como leído */}
+          <Chip 
+            mode={observation.isRead ? "flat" : "outlined"}
+            style={[
+              styles.readStatusChip,
+              observation.isRead ? styles.readChip : styles.unreadChip
+            ]}
+            textStyle={[
+              styles.readStatusChipText,
+              observation.isRead ? styles.readChipText : styles.unreadChipText
+            ]}
+            icon={observation.isRead ? "eye-check" : "eye"}
+            onPress={() => handleMarkAsRead(observation.id, !observation.isRead)}
+          >
+            {observation.isRead ? 'Leído' : 'Marcar como leído'}
+          </Chip>
         </View>
       </View>
       
@@ -509,15 +560,31 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
           </Card.Content>
         </Card>
 
-        {/* Resources */}
+        {/* Tags */}
         <Card style={styles.card}>
-          <Card.Title title="Recursos requeridos" />
+          <Card.Title title="Etiquetas del proyecto" />
           <Card.Content>
-            {project.requiredResources.map((resource, index) => (
-              <View key={index} style={styles.resourceItem}>
-                <Text variant="bodyMedium">• {resource}</Text>
+            {project.tags && project.tags.length > 0 ? (
+              <View style={styles.tagsContainer}>
+                {project.tags.map((tag) => (
+                  <Chip
+                    key={tag.id}
+                    mode="outlined"
+                    style={[
+                      styles.tagChip,
+                      { borderColor: tag.color, backgroundColor: `${tag.color}15` }
+                    ]}
+                    textStyle={{ color: tag.color }}
+                  >
+                    {tag.name}
+                  </Chip>
+                ))}
               </View>
-            ))}
+            ) : (
+              <Text variant="bodyMedium" style={styles.noTags}>
+                No hay etiquetas asignadas a este proyecto
+              </Text>
+            )}
           </Card.Content>
         </Card>
 
@@ -670,8 +737,32 @@ const styles = StyleSheet.create({
   observationDate: {
     opacity: 0.6,
   },
+  observationActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   observationStatus: {
     alignItems: 'flex-end',
+  },
+  readStatusChip: {
+    height: 28,
+  },
+  readStatusChipText: {
+    fontSize: 10,
+  },
+  readChip: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  },
+  readChipText: {
+    color: '#4CAF50',
+  },
+  unreadChip: {
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    borderColor: '#2196F3',
+  },
+  unreadChipText: {
+    color: '#2196F3',
   },
   resolvedChip: {
     backgroundColor: 'rgba(76, 175, 80, 0.1)',
@@ -708,8 +799,19 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     paddingVertical: 16,
   },
-  resourceItem: {
-    marginBottom: 4,
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  noTags: {
+    textAlign: 'center',
+    opacity: 0.6,
+    paddingVertical: 16,
   },
   bottomSpacer: {
     height: 80,

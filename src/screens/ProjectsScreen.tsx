@@ -159,7 +159,7 @@ export const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
   };
 
   const getUnresolvedObservationsCount = (project: Project) => {
-    return project.observations.filter(obs => !obs.isResolved).length;
+    return project.observations.filter(obs => !obs.isRead).length;
   };
 
   return (
@@ -342,6 +342,32 @@ export const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                     <Text variant="bodySmall" style={styles.observationsText}>
                       {getUnresolvedObservationsCount(project)} observación{getUnresolvedObservationsCount(project) !== 1 ? 'es' : ''} pendiente{getUnresolvedObservationsCount(project) !== 1 ? 's' : ''}
                     </Text>
+                  </View>
+                </View>
+              )}
+              
+              {/* Tags del proyecto */}
+              {project.tags && project.tags.length > 0 && (
+                <View style={styles.tagsSection}>
+                  <View style={styles.tagsHeader}>
+                    <Icon source="tag" size={14} color="#666" />
+                    <Text variant="bodySmall" style={styles.tagsLabel}>Etiquetas:</Text>
+                  </View>
+                  <View style={styles.tagsContainer}>
+                    {project.tags.map((tag) => (
+                      <Chip 
+                        key={tag.id}
+                        mode="outlined" 
+                        compact
+                        style={[
+                          styles.tagChip, 
+                          { borderColor: tag.color, backgroundColor: `${tag.color}15` }
+                        ]}
+                        textStyle={{ color: tag.color, fontSize: 10 }}
+                      >
+                        {tag.name}
+                      </Chip>
+                    ))}
                   </View>
                 </View>
               )}
@@ -553,6 +579,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.6,
     paddingHorizontal: 24,
+  },
+  tagsSection: {
+    marginBottom: 12,
+  },
+  tagsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  tagsLabel: {
+    marginLeft: 6,
+    fontWeight: '500',
+    opacity: 0.8,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  tagChip: {
+    height: 24,
+    marginRight: 4,
+    marginBottom: 4,
   },
 });
 

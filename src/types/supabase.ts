@@ -98,11 +98,11 @@ export interface Database {
           completion_percentage: number
           supervisor_name: string
           supervisor_email: string
-          required_resources: string[]
           created_at: string
           updated_at: string
           created_by: string | null
           assigned_to: string[]
+          tag_ids: string[]
         }
         Insert: {
           id?: string
@@ -120,11 +120,11 @@ export interface Database {
           completion_percentage?: number
           supervisor_name: string
           supervisor_email: string
-          required_resources?: string[]
           created_at?: string
           updated_at?: string
           created_by?: string | null
           assigned_to?: string[]
+          tag_ids?: string[]
         }
         Update: {
           id?: string
@@ -142,11 +142,11 @@ export interface Database {
           completion_percentage?: number
           supervisor_name?: string
           supervisor_email?: string
-          required_resources?: string[]
           created_at?: string
           updated_at?: string
           created_by?: string | null
           assigned_to?: string[]
+          tag_ids?: string[]
         }
       }
       supervisor_observations: {
@@ -162,6 +162,8 @@ export interface Database {
           resolved_at: string | null
           resolved_by: string | null
           resolution: string | null
+          is_read: boolean
+          read_at: string | null
           created_at: string
         }
         Insert: {
@@ -176,6 +178,8 @@ export interface Database {
           resolved_at?: string | null
           resolved_by?: string | null
           resolution?: string | null
+          is_read?: boolean
+          read_at?: string | null
           created_at?: string
         }
         Update: {
@@ -190,6 +194,8 @@ export interface Database {
           resolved_at?: string | null
           resolved_by?: string | null
           resolution?: string | null
+          is_read?: boolean
+          read_at?: string | null
           created_at?: string
         }
       }
@@ -427,6 +433,7 @@ export interface Database {
           created_at?: string
         }
       }
+
       task_timer_sessions: {
         Row: {
           id: string

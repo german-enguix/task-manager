@@ -413,6 +413,8 @@ export interface SupervisorObservation {
   resolvedAt?: Date;
   resolvedBy?: string;
   resolution?: string;
+  isRead: boolean;
+  readAt?: Date;
 }
 
 export interface Project {
@@ -443,9 +445,9 @@ export interface Project {
   // Progreso
   completionPercentage: number;
   
-  // Equipos y recursos
+  // Equipos y etiquetas
   assignedTo: string[]; // Array de user IDs asignados al proyecto
-  requiredResources: string[];
+  tags: Tag[]; // Array de etiquetas asignadas al proyecto
   
   // Metadatos
   createdAt: Date;

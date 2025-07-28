@@ -1212,7 +1212,19 @@ export class SupabaseService {
       }
       
       console.log('✅ Projects loaded successfully:', data?.length || 0, 'projects');
-      return data?.map(this.transformProjectFromSupabase) || []
+      
+      // Transformar proyectos básicos
+      const projects = data?.map(this.transformProjectFromSupabase) || []
+      
+      // Cargar tags para cada proyecto
+      for (const project of projects) {
+        const projectData = data?.find(d => d.id === project.id)
+        if (projectData?.tag_ids) {
+          project.tags = await this.loadProjectTags(projectData.tag_ids)
+        }
+      }
+      
+      return projects
     } catch (error) {
       console.error('❌ Error in getProjects:', error)
       throw error
@@ -1244,7 +1256,17 @@ export class SupabaseService {
 
       if (error) throw error
       
-      return data ? this.transformProjectFromSupabase(data) : null
+      if (!data) return null
+      
+      // Transformar proyecto básico
+      const project = this.transformProjectFromSupabase(data)
+      
+      // Cargar tags del proyecto
+      if (data.tag_ids) {
+        project.tags = await this.loadProjectTags(data.tag_ids)
+      }
+      
+      return project
     } catch (error) {
       console.error('Error fetching project:', error)
       throw error
@@ -1265,7 +1287,7 @@ export class SupabaseService {
         supervisor_name: project.supervisorName,
         supervisor_email: project.supervisorEmail,
         assigned_to: project.assignedTo,
-        required_resources: project.requiredResources,
+        tag_ids: project.tags?.map(tag => tag.id) || [],
         created_by: project.createdBy,
       }
 
@@ -1302,7 +1324,7 @@ export class SupabaseService {
         ...(updates.supervisorName && { supervisor_name: updates.supervisorName }),
         ...(updates.supervisorEmail && { supervisor_email: updates.supervisorEmail }),
         ...(updates.assignedTo && { assigned_to: updates.assignedTo }),
-        ...(updates.requiredResources && { required_resources: updates.requiredResources }),
+        ...(updates.tags && { tag_ids: updates.tags.map(tag => tag.id) }),
         updated_at: new Date().toISOString(),
       }
 
@@ -1340,6 +1362,8 @@ export class SupabaseService {
           resolved_at: observation.resolvedAt?.toISOString() || null,
           resolved_by: observation.resolvedBy || null,
           resolution: observation.resolution || null,
+          is_read: observation.isRead || false,
+          read_at: observation.readAt?.toISOString() || null,
         })
         .select()
         .single()
@@ -1350,6 +1374,33 @@ export class SupabaseService {
     } catch (error) {
       console.error('Error creating supervisor observation:', error)
       throw error
+    }
+  }
+
+  async markObservationAsRead(observationId: string, isRead: boolean = true): Promise<SupervisorObservation> {
+    try {
+      console.log(`🔄 Marking observation ${observationId} as ${isRead ? 'read' : 'unread'}`);
+      
+      const { data, error } = await supabase
+        .from('supervisor_observations')
+        .update({
+          is_read: isRead,
+          read_at: isRead ? new Date().toISOString() : null,
+        })
+        .eq('id', observationId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ Error marking observation as read:', error);
+        throw error;
+      }
+
+      console.log(`✅ Observation marked as ${isRead ? 'read' : 'unread'} successfully`);
+      return this.transformObservationFromSupabase(data);
+    } catch (error) {
+      console.error('❌ Error in markObservationAsRead:', error);
+      throw error;
     }
   }
 
@@ -2257,6 +2308,30 @@ export class SupabaseService {
     }
   }
 
+  // Función auxiliar para cargar tags de un proyecto usando tag_ids
+  private async loadProjectTags(tagIds: string[]): Promise<Tag[]> {
+    if (!tagIds || tagIds.length === 0) {
+      return []
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('tags')
+        .select('*')
+        .in('id', tagIds)
+
+      if (error) {
+        console.error('Error loading project tags:', error)
+        return []
+      }
+
+      return data?.map(tag => this.transformTagFromSupabase(tag)) || []
+    } catch (error) {
+      console.error('Error loading project tags:', error)
+      return []
+    }
+  }
+
   private transformProjectFromSupabase(data: any): Project {
     return {
       id: data.id,
@@ -2281,7 +2356,7 @@ export class SupabaseService {
       
       // Arrays
       assignedTo: data.assigned_to || [],
-      requiredResources: data.required_resources || [],
+      tags: [], // Se cargarán por separado usando tag_ids
       
       // Metadatos
       createdAt: new Date(data.created_at),
@@ -2300,6 +2375,8 @@ export class SupabaseService {
         resolvedAt: obs.resolved_at ? new Date(obs.resolved_at) : undefined,
         resolvedBy: obs.resolved_by || undefined,
         resolution: obs.resolution || undefined,
+        isRead: obs.is_read || false,
+        readAt: obs.read_at ? new Date(obs.read_at) : undefined,
       })) || [],
       taskIds: data.tasks?.map((task: any) => task.id) || [],
       // Añadir tareas completas para facilitar el acceso
@@ -2319,6 +2396,8 @@ export class SupabaseService {
       resolvedAt: data.resolved_at ? new Date(data.resolved_at) : undefined,
       resolvedBy: data.resolved_by || undefined,
       resolution: data.resolution || undefined,
+      isRead: data.is_read || false,
+      readAt: data.read_at ? new Date(data.read_at) : undefined,
     }
   }
 
