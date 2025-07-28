@@ -444,14 +444,13 @@ export interface Project {
   completionPercentage: number;
   
   // Equipos y recursos
-  assignedTeam: string[];
+  assignedTo: string[]; // Array de user IDs asignados al proyecto
   requiredResources: string[];
   
   // Metadatos
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
-  assignedTo?: string;
 }
 
 // Navigation Types

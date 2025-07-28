@@ -1172,6 +1172,8 @@ export class SupabaseService {
   
   async getProjects(userId?: string): Promise<Project[]> {
     try {
+      console.log('🔄 Getting projects from Supabase, userId:', userId);
+      
       let query = supabase
         .from('projects')
         .select(`
@@ -1181,16 +1183,38 @@ export class SupabaseService {
         .order('created_at', { ascending: false })
 
       if (userId) {
-        query = query.eq('assigned_to', userId)
+        // Un usuario puede ver proyectos de 2 formas:
+        // 1. Está asignado al proyecto (assigned_to array)
+        // 2. Es el creador del proyecto (created_by)
+        query = query.or(`assigned_to.cs.{${userId}},created_by.eq.${userId}`)
       }
 
       const { data, error } = await query
 
-      if (error) throw error
+      console.log('📊 Projects query result:', { 
+        hasData: !!data, 
+        count: data?.length || 0,
+        hasError: !!error,
+        errorMessage: error?.message 
+      });
+
+      if (error) {
+        console.error('❌ Error fetching projects:', error);
+        
+        // Si la tabla no existe, mostrar mensaje específico
+        if (error.message?.includes('relation "projects" does not exist')) {
+          console.error('🚨 TABLA PROJECTS NO EXISTE');
+          console.error('💡 SOLUCIÓN: Ejecuta scripts/setup_projects_complete.sql en Supabase');
+          throw new Error('La tabla de proyectos no existe. Ejecuta el script de configuración en Supabase.');
+        }
+        
+        throw error;
+      }
       
+      console.log('✅ Projects loaded successfully:', data?.length || 0, 'projects');
       return data?.map(this.transformProjectFromSupabase) || []
     } catch (error) {
-      console.error('Error fetching projects:', error)
+      console.error('❌ Error in getProjects:', error)
       throw error
     }
   }
@@ -1240,10 +1264,9 @@ export class SupabaseService {
         estimated_duration: project.estimatedDuration,
         supervisor_name: project.supervisorName,
         supervisor_email: project.supervisorEmail,
-        assigned_team: project.assignedTeam,
+        assigned_to: project.assignedTo,
         required_resources: project.requiredResources,
         created_by: project.createdBy,
-        assigned_to: project.assignedTo || null,
       }
 
       const { data, error } = await supabase
@@ -1278,9 +1301,8 @@ export class SupabaseService {
         ...(updates.actualDuration && { actual_duration: updates.actualDuration }),
         ...(updates.supervisorName && { supervisor_name: updates.supervisorName }),
         ...(updates.supervisorEmail && { supervisor_email: updates.supervisorEmail }),
-        ...(updates.assignedTeam && { assigned_team: updates.assignedTeam }),
-        ...(updates.requiredResources && { required_resources: updates.requiredResources }),
         ...(updates.assignedTo && { assigned_to: updates.assignedTo }),
+        ...(updates.requiredResources && { required_resources: updates.requiredResources }),
         updated_at: new Date().toISOString(),
       }
 
@@ -2258,17 +2280,27 @@ export class SupabaseService {
       supervisorEmail: data.supervisor_email,
       
       // Arrays
-      assignedTeam: data.assigned_team || [],
+      assignedTo: data.assigned_to || [],
       requiredResources: data.required_resources || [],
       
       // Metadatos
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
       createdBy: data.created_by || '',
-      assignedTo: data.assigned_to || undefined,
       
       // Observaciones y tareas relacionadas
-      observations: data.supervisor_observations?.map((obs: any) => this.transformObservationFromSupabase(obs)) || [],
+      observations: data.supervisor_observations?.map((obs: any) => ({
+        id: obs.id,
+        supervisorName: obs.supervisor_name,
+        supervisorRole: obs.supervisor_role,
+        observation: obs.observation,
+        date: new Date(obs.date),
+        priority: obs.priority as any,
+        isResolved: obs.is_resolved,
+        resolvedAt: obs.resolved_at ? new Date(obs.resolved_at) : undefined,
+        resolvedBy: obs.resolved_by || undefined,
+        resolution: obs.resolution || undefined,
+      })) || [],
       taskIds: data.tasks?.map((task: any) => task.id) || [],
       // Añadir tareas completas para facilitar el acceso
       tasks: data.tasks?.map((task: any) => this.transformTaskFromSupabase(task)) || [],

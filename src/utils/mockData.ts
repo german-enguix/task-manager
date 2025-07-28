@@ -1118,7 +1118,7 @@ export const mockProjects: Project[] = [
     completionPercentage: 35,
     
     // Equipos y recursos
-    assignedTeam: ['Juan Pérez', 'Carlos Ruiz', 'Ana Martín'],
+    assignedTo: [], // Array de UUIDs de usuarios
     requiredResources: [
       'Equipo de inspección de seguridad',
       'Herramientas de mantenimiento',
@@ -1184,7 +1184,7 @@ export const mockProjects: Project[] = [
     completionPercentage: 0,
     
     // Equipos y recursos
-    assignedTeam: ['Elena Torres', 'Miguel Santos', 'Laura Jiménez'],
+    assignedTo: [], // Array de UUIDs de usuarios
     requiredResources: [
       'Sensores IoT (50 unidades)',
       'Gateway de comunicación',
@@ -1253,7 +1253,7 @@ export const mockProjects: Project[] = [
     completionPercentage: 100,
     
     // Equipos y recursos
-    assignedTeam: ['Pedro Ramírez', 'Sofia López', 'David García'],
+    assignedTo: [], // Array de UUIDs de usuarios
     requiredResources: [
       'Extractores industriales (12 unidades)',
       'Filtros HEPA',
@@ -1281,7 +1281,7 @@ export const getProjectsByStatus = (status: ProjectStatus): Project[] => {
 
 export const getAssignedProjects = (userId: string): Project[] => {
   return mockProjects.filter(project => 
-    project.assignedTo === userId || project.assignedTeam.includes(userId)
+    project.assignedTo.includes(userId)
   );
 };
 

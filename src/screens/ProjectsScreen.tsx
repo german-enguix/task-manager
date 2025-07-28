@@ -215,6 +215,11 @@ export const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
               <Text variant="bodyMedium" style={styles.errorText}>
                 {error}
               </Text>
+              {error.includes('no existe') && (
+                <Text variant="bodySmall" style={styles.errorHint}>
+                  💡 Ejecuta el script setup_projects_complete.sql en el SQL Editor de tu dashboard de Supabase para configurar la tabla de proyectos.
+                </Text>
+              )}
               <IconButton
                 icon="refresh"
                 mode="contained"
@@ -307,7 +312,7 @@ export const ProjectsScreen: React.FC<ProjectsScreenProps> = ({
                   <View style={styles.detailRowContent}>
                     <Icon source="account-group" size={16} color="#666" />
                     <Text variant="bodySmall" style={styles.detailLabel}>
-                      {project.assignedTeam.length} miembro{project.assignedTeam.length !== 1 ? 's' : ''}
+                      {(project.assignedTo || []).length} miembro{(project.assignedTo || []).length !== 1 ? 's' : ''}
                     </Text>
                   </View>
                 </View>
@@ -526,6 +531,15 @@ const styles = StyleSheet.create({
   errorText: {
     marginBottom: 16,
     opacity: 0.7,
+  },
+  errorHint: {
+    marginBottom: 16,
+    opacity: 0.8,
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 12,
+    lineHeight: 16,
   },
   retryButton: {
     alignSelf: 'center',

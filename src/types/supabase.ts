@@ -98,12 +98,11 @@ export interface Database {
           completion_percentage: number
           supervisor_name: string
           supervisor_email: string
-          assigned_team: string[]
           required_resources: string[]
           created_at: string
           updated_at: string
           created_by: string | null
-          assigned_to: string | null
+          assigned_to: string[]
         }
         Insert: {
           id?: string
@@ -121,12 +120,11 @@ export interface Database {
           completion_percentage?: number
           supervisor_name: string
           supervisor_email: string
-          assigned_team?: string[]
           required_resources?: string[]
           created_at?: string
           updated_at?: string
           created_by?: string | null
-          assigned_to?: string | null
+          assigned_to?: string[]
         }
         Update: {
           id?: string
@@ -144,12 +142,11 @@ export interface Database {
           completion_percentage?: number
           supervisor_name?: string
           supervisor_email?: string
-          assigned_team?: string[]
           required_resources?: string[]
           created_at?: string
           updated_at?: string
           created_by?: string | null
-          assigned_to?: string | null
+          assigned_to?: string[]
         }
       }
       supervisor_observations: {

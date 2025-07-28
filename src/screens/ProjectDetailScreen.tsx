@@ -349,7 +349,10 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({
                   <Text variant="bodySmall" style={styles.infoLabel}>Equipo</Text>
                 </View>
                 <Text variant="bodyMedium" style={styles.infoValue}>
-                  {project.assignedTeam.join(', ')}
+                  {(project.assignedTo || []).length > 0 
+                    ? `${(project.assignedTo || []).length} usuario${(project.assignedTo || []).length !== 1 ? 's' : ''} asignado${(project.assignedTo || []).length !== 1 ? 's' : ''}`
+                    : 'Sin usuarios asignados'
+                  }
                 </Text>
               </View>
             </View>
