@@ -24,6 +24,7 @@ export { SupabaseTest } from './SupabaseTest';
 export { ProblemReportDialog } from './ProblemReportDialog';
 export { NFCDialog } from './NFCDialog';
 export { NFCExternalDialog } from './NFCExternalDialog';
+export { QRExternalDialog } from './QRExternalDialog';
 export { QRDialog } from './QRDialog';
 export { LocationDialog } from './LocationDialog';
 export { LocationViewer } from './LocationViewer';

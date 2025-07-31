@@ -25,6 +25,7 @@ interface ProfileScreenProps {
   onLogout?: () => void;
   onSimulateNotification?: () => void;
   onSimulateExternalNFC?: () => void;
+  onSimulateExternalQR?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ 
@@ -32,7 +33,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   toggleTheme,
   onLogout,
   onSimulateNotification,
-  onSimulateExternalNFC
+  onSimulateExternalNFC,
+  onSimulateExternalQR
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -360,6 +362,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 onPress={onSimulateExternalNFC}
               >
                 Simular NFC Externo
+              </Button>
+
+              <Button
+                mode="outlined"
+                icon="qrcode"
+                style={styles.actionButton}
+                onPress={onSimulateExternalQR}
+              >
+                Simular QR Externo
               </Button>
               
               <Button

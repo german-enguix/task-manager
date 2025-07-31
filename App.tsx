@@ -22,6 +22,7 @@ export default function App() {
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0);
   const [simulatedNotification, setSimulatedNotification] = useState<any>(null);
   const [simulatedExternalNFC, setSimulatedExternalNFC] = useState<any>(null);
+  const [simulatedExternalQR, setSimulatedExternalQR] = useState<any>(null);
 
   const theme = isDarkMode ? darkTheme : lightTheme;
 
@@ -342,6 +343,82 @@ export default function App() {
     setSimulatedExternalNFC(null);
   };
 
+  const handleSimulateExternalQR = async () => {
+    try {
+      console.log('📱 Simulating external QR scan...');
+      
+      // Buscar cualquier tarea de Zizi para usar en la simulación
+      let qrTask = null;
+      
+      if (user?.id) {
+        try {
+          // Buscar tareas asignadas a Zizi (cualquier tarea)
+          const { data: tasks } = await supabaseService.supabase
+            .from('tasks')
+            .select(`
+              id,
+              title,
+              description,
+              status,
+              priority,
+              location,
+              project_name,
+              due_date,
+              estimated_duration
+            `)
+            .contains('assigned_to', [user.id])
+            .limit(1);
+
+          if (tasks && tasks.length > 0) {
+            const task = tasks[0];
+            
+            qrTask = {
+              id: task.id,
+              title: task.title,
+              description: task.description,
+              status: task.status,
+              priority: task.priority,
+              location: task.location,
+              projectName: task.project_name,
+              dueDate: task.due_date ? new Date(task.due_date) : undefined,
+              estimatedDuration: task.estimated_duration
+            };
+            
+            console.log('✅ Found task for QR simulation:', qrTask);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching task for QR:', error);
+        }
+      }
+      
+      // Crear la simulación de lectura QR externa
+      const externalQR = {
+        id: 'external-qr-' + Date.now(),
+        qrCode: `QR_TASK_${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        scannedAt: new Date(),
+        source: 'Cámara del dispositivo',
+        task: qrTask,
+        taskId: qrTask?.id || null,
+        success: true
+      };
+
+      // Establecer la simulación QR externa
+      setSimulatedExternalQR(externalQR);
+      
+      // Navegar a la pantalla Home para mostrar el dialog
+      setCurrentScreen('home');
+      
+      console.log('✅ External QR simulation complete:', externalQR);
+    } catch (error) {
+      console.error('❌ Error simulating external QR:', error);
+      Alert.alert('Error', 'No se pudo simular la lectura QR externa. Inténtalo de nuevo.');
+    }
+  };
+
+  const handleExternalQRHandled = () => {
+    setSimulatedExternalQR(null);
+  };
+
   const getCurrentRoute = (): NavigationRoute => {
     switch (currentScreen) {
       case 'home':
@@ -391,6 +468,8 @@ export default function App() {
             onNotificationHandled={handleNotificationHandled}
             simulatedExternalNFC={simulatedExternalNFC}
             onExternalNFCHandled={handleExternalNFCHandled}
+            simulatedExternalQR={simulatedExternalQR}
+            onExternalQRHandled={handleExternalQRHandled}
           />
         );
       case 'projects':
@@ -407,6 +486,7 @@ export default function App() {
             onLogout={performLogout}
             onSimulateNotification={handleSimulateNotification}
         onSimulateExternalNFC={handleSimulateExternalNFC}
+        onSimulateExternalQR={handleSimulateExternalQR}
           />
         );
       case 'taskDetail':

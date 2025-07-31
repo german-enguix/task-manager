@@ -8,7 +8,8 @@ import {
   DayTimeCard, 
   NotificationsBell,
   NotificationDialog,
-  NFCExternalDialog
+  NFCExternalDialog,
+  QRExternalDialog
 } from '@/components';
 
 interface HomeScreenProps {
@@ -20,6 +21,8 @@ interface HomeScreenProps {
   onNotificationHandled?: () => void;
   simulatedExternalNFC?: any;
   onExternalNFCHandled?: () => void;
+  simulatedExternalQR?: any;
+  onExternalQRHandled?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
@@ -30,7 +33,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   simulatedNotification,
   onNotificationHandled,
   simulatedExternalNFC,
-  onExternalNFCHandled
+  onExternalNFCHandled,
+  simulatedExternalQR,
+  onExternalQRHandled
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -60,6 +65,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   
   // Estado para el dialog de NFC externo simulado
   const [isNFCExternalDialogVisible, setIsNFCExternalDialogVisible] = useState(false);
+  
+  // Estado para el dialog de QR externo simulado
+  const [isQRExternalDialogVisible, setIsQRExternalDialogVisible] = useState(false);
 
   // Función para obtener la clave de fecha
   const getDateKey = (date: Date) => {
@@ -143,6 +151,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setIsNFCExternalDialogVisible(true);
     }
   }, [simulatedExternalNFC]);
+
+  // Efecto para mostrar QR externo simulado
+  useEffect(() => {
+    if (simulatedExternalQR) {
+      setIsQRExternalDialogVisible(true);
+    }
+  }, [simulatedExternalQR]);
 
   const loadUserInfo = async () => {
     try {
@@ -636,6 +651,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onExternalNFCHandled?.();
   };
 
+  const handleQRExternalDialogNavigate = () => {
+    setIsQRExternalDialogVisible(false);
+    
+    if (simulatedExternalQR) {
+      // Navegar a la tarea vinculada al QR
+      if (simulatedExternalQR.taskId) {
+        console.log('🎯 Navigating to task from QR:', simulatedExternalQR.taskId);
+        onNavigateToTask(simulatedExternalQR.taskId);
+      }
+    }
+    
+    // Notificar que el QR externo fue manejado
+    onExternalQRHandled?.();
+  };
+
+  const handleQRExternalDialogDismiss = () => {
+    setIsQRExternalDialogVisible(false);
+    onExternalQRHandled?.();
+  };
+
   return (
     <Surface style={styles.container}>
       {/* Main Content */}
@@ -902,6 +937,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         } : undefined}
         onDismiss={handleNFCExternalDialogDismiss}
         onNavigateToSubtask={handleNFCExternalDialogNavigate}
+      />
+
+      {/* Dialog de QR externo simulado */}
+      <QRExternalDialog
+        visible={isQRExternalDialogVisible}
+        task={simulatedExternalQR?.task}
+        qrData={simulatedExternalQR ? {
+          qrCode: simulatedExternalQR.qrCode,
+          scannedAt: simulatedExternalQR.scannedAt,
+          source: simulatedExternalQR.source
+        } : undefined}
+        onDismiss={handleQRExternalDialogDismiss}
+        onNavigateToTask={handleQRExternalDialogNavigate}
       />
     </Surface>
   );
