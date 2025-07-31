@@ -20,6 +20,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0);
+  const [simulatedNotification, setSimulatedNotification] = useState<any>(null);
 
   const theme = isDarkMode ? darkTheme : lightTheme;
 
@@ -191,6 +192,67 @@ export default function App() {
     }
   };
 
+  const handleSimulateNotification = async () => {
+    try {
+      console.log('🔔 Simulating notification...');
+      
+      // Crear una notificación simulada realista
+      const notification = {
+        id: 'simulated-' + Date.now(),
+        title: 'Nueva tarea asignada',
+        message: 'Se te ha asignado una nueva tarea de control de calidad que requiere verificación QR. Por favor, revisa los detalles.',
+        type: 'task_assigned',
+        isUrgent: false,
+        actionRequired: true,
+        actionData: {
+          taskId: null, // Se podría asignar un ID real de tarea
+          message: 'Navegar a tareas'
+        },
+        createdAt: new Date().toISOString()
+      };
+
+      // También crear la notificación real en la base de datos si el usuario está autenticado
+      if (user?.id) {
+        try {
+          const notificationId = await supabaseService.createWorkNotification(
+            user.id,
+            notification.title,
+            notification.message,
+            {
+              type: notification.type,
+              isUrgent: notification.isUrgent,
+              actionRequired: notification.actionRequired,
+              actionType: 'navigate_to_task',
+              actionData: notification.actionData
+            }
+          );
+          
+          // Actualizar el ID de la notificación con el ID real de la base de datos
+          notification.id = notificationId;
+          console.log('✅ Real notification created in database:', notificationId);
+        } catch (error) {
+          console.error('❌ Error creating real notification:', error);
+          // Continuar con la notificación simulada aunque falle la base de datos
+        }
+      }
+
+      // Establecer la notificación simulada
+      setSimulatedNotification(notification);
+      
+      // Navegar a la pantalla Home para mostrar el dialog
+      setCurrentScreen('home');
+      
+      console.log('✅ Notification simulation complete');
+    } catch (error) {
+      console.error('❌ Error simulating notification:', error);
+      Alert.alert('Error', 'No se pudo simular la notificación. Inténtalo de nuevo.');
+    }
+  };
+
+  const handleNotificationHandled = () => {
+    setSimulatedNotification(null);
+  };
+
   const getCurrentRoute = (): NavigationRoute => {
     switch (currentScreen) {
       case 'home':
@@ -236,6 +298,8 @@ export default function App() {
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
             taskRefreshTrigger={taskRefreshTrigger}
+            simulatedNotification={simulatedNotification}
+            onNotificationHandled={handleNotificationHandled}
           />
         );
       case 'projects':
@@ -250,6 +314,7 @@ export default function App() {
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             onLogout={performLogout}
+            onSimulateNotification={handleSimulateNotification}
           />
         );
       case 'taskDetail':
@@ -264,6 +329,8 @@ export default function App() {
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
             taskRefreshTrigger={taskRefreshTrigger}
+            simulatedNotification={simulatedNotification}
+            onNotificationHandled={handleNotificationHandled}
           />
         );
       case 'projectDetail':
@@ -285,6 +352,8 @@ export default function App() {
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
             taskRefreshTrigger={taskRefreshTrigger}
+            simulatedNotification={simulatedNotification}
+            onNotificationHandled={handleNotificationHandled}
           />
         );
     }

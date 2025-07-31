@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, Pressable } from 'react-native';
 import { 
   IconButton,
   Badge,
@@ -89,13 +89,36 @@ export const NotificationsBell: React.FC<NotificationsBellProps> = ({
   };
 
   const handleNotificationPress = (notification: Notification) => {
-    if (!notification.isRead) {
-      onMarkAsRead?.(notification.id);
-    }
+    console.log('🔔 NotificationsBell: Notification clicked!', {
+      id: notification.id,
+      title: notification.title,
+      actionData: notification.actionData,
+      actionRequired: notification.actionRequired
+    });
     
-    if (notification.actionRequired && notification.actionData) {
+    // Primero ejecutar la navegación (no bloquear por marcar como leída)
+    const taskId = notification.actionData?.taskId;
+    
+    if (taskId) {
+      console.log('🚀 Triggering navigation action with taskId:', taskId);
       onNotificationAction?.(notification.id, notification.actionData);
       setIsModalVisible(false);
+    } else {
+      console.log('❌ No actionData.taskId found:', notification.actionData);
+      console.log('ℹ️ This notification needs to be updated with a real taskId');
+      // Cerrar modal aunque no haya navegación
+      setIsModalVisible(false);
+    }
+    
+    // Luego intentar marcar como leída (sin bloquear navegación)
+    if (!notification.isRead) {
+      console.log('📝 Attempting to mark notification as read:', notification.id);
+      // Solo marcar como leída si no es una notificación simulada
+      if (!notification.id.startsWith('simulated-')) {
+        onMarkAsRead?.(notification.id);
+      } else {
+        console.log('⚠️ Skipping mark as read for simulated notification');
+      }
     }
   };
 
@@ -166,11 +189,16 @@ export const NotificationsBell: React.FC<NotificationsBellProps> = ({
                 >
                   {notifications.map((notification, index) => (
                     <View key={notification.id}>
-                      <View
-                        style={[
+                      <Pressable
+                        style={({ pressed }) => [
                           styles.notificationItem,
                           !notification.isRead && styles.unreadNotification,
+                          pressed && styles.notificationPressed,
                         ]}
+                        onPress={() => {
+                          console.log('🖱️ Pressable onPress triggered for:', notification.title);
+                          handleNotificationPress(notification);
+                        }}
                       >
                         <View style={styles.notificationHeader}>
                           <View style={styles.notificationIconRow}>
@@ -191,7 +219,7 @@ export const NotificationsBell: React.FC<NotificationsBellProps> = ({
                           </View>
                           
                           <Text variant="bodySmall" style={styles.notificationTime}>
-                            {formatDate(notification.createdAt)}
+                            {notification.createdAt ? formatDate(notification.createdAt) : 'Ahora'}
                           </Text>
                         </View>
 
@@ -199,25 +227,12 @@ export const NotificationsBell: React.FC<NotificationsBellProps> = ({
                           {notification.message}
                         </Text>
 
-                        {notification.actionRequired && (
-                          <View style={styles.actionRow}>
-                            <Button
-                              mode="contained-tonal"
-                              onPress={() => handleNotificationPress(notification)}
-                              style={styles.actionButton}
-                              labelStyle={styles.actionButtonLabel}
-                            >
-                              {notification.actionLabel || 'Ver más'}
-                            </Button>
-                          </View>
-                        )}
-
                         {!notification.isRead && (
                           <View style={styles.readIndicator}>
                             <View style={styles.unreadDot} />
                           </View>
                         )}
-                      </View>
+                      </Pressable>
                       
                       {index < notifications.length - 1 && (
                         <Divider style={styles.divider} />
@@ -280,9 +295,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     position: 'relative',
+    minHeight: 60, // Asegurar área de toque mínima
   },
   unreadNotification: {
     backgroundColor: 'rgba(33, 150, 243, 0.08)',
+  },
+  notificationPressed: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
   notificationHeader: {
     flexDirection: 'row',
@@ -313,16 +332,7 @@ const styles = StyleSheet.create({
     paddingLeft: 28,
     marginBottom: 8,
   },
-  actionRow: {
-    paddingLeft: 28,
-    marginTop: 4,
-  },
-  actionButton: {
-    alignSelf: 'flex-start',
-  },
-  actionButtonLabel: {
-    fontSize: 12,
-  },
+
   readIndicator: {
     position: 'absolute',
     right: 12,

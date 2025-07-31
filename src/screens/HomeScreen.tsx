@@ -6,7 +6,8 @@ import { supabaseService } from '@/services/supabaseService';
 import { TaskStatus, WorkDay, DayStatus, TimesheetStatus } from '@/types';
 import { 
   DayTimeCard, 
-  NotificationsBell 
+  NotificationsBell,
+  NotificationDialog
 } from '@/components';
 
 interface HomeScreenProps {
@@ -14,13 +15,17 @@ interface HomeScreenProps {
   toggleTheme: () => void;
   onNavigateToTask: (taskId: string) => void;
   taskRefreshTrigger?: number;
+  simulatedNotification?: any;
+  onNotificationHandled?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
   isDarkMode, 
   toggleTheme,
   onNavigateToTask,
-  taskRefreshTrigger
+  taskRefreshTrigger,
+  simulatedNotification,
+  onNotificationHandled
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -44,6 +49,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   // Estado para el usuario autenticado real
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Estado para el dialog de notificación simulada
+  const [isNotificationDialogVisible, setIsNotificationDialogVisible] = useState(false);
 
   // Función para obtener la clave de fecha
   const getDateKey = (date: Date) => {
@@ -113,6 +121,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       loadTasks(workDay.date);
     }
   }, [taskRefreshTrigger, currentUserId, workDay?.date]);
+
+  // Efecto para mostrar notificación simulada
+  useEffect(() => {
+    if (simulatedNotification) {
+      setIsNotificationDialogVisible(true);
+    }
+  }, [simulatedNotification]);
 
   const loadUserInfo = async () => {
     try {
@@ -253,11 +268,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       const notificationsFromDb = await supabaseService.getWorkNotifications(currentUserId);
       const unreadNotificationsFromDb = await supabaseService.getWorkNotifications(currentUserId, true);
       
-      setNotifications(notificationsFromDb);
+      // Mapear las notificaciones de la base de datos al formato esperado por el componente
+      const mappedNotifications = notificationsFromDb.map(notification => {
+        let actionData = notification.action_data;
+        
+        // Si action_data es un string JSON, parsearlo
+        if (typeof actionData === 'string') {
+          try {
+            actionData = JSON.parse(actionData);
+          } catch (error) {
+            console.warn('Error parsing action_data:', error);
+            actionData = null;
+          }
+        }
+        
+        return {
+          id: notification.id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          isRead: notification.is_read,
+          isUrgent: notification.is_urgent,
+          actionRequired: notification.action_required,
+          actionData: actionData,
+          createdAt: new Date(notification.created_at), // Convertir string a Date
+          readAt: notification.read_at ? new Date(notification.read_at) : undefined
+        };
+      });
+      
+      setNotifications(mappedNotifications);
       setUnreadCount(unreadNotificationsFromDb.length);
       
       console.log('✅ Notifications loaded from Supabase:', {
-        total: notificationsFromDb.length,
+        total: mappedNotifications.length,
         unread: unreadNotificationsFromDb.length
       });
     } catch (error) {
@@ -407,19 +450,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleNotificationAction = (notificationId: string, actionData?: any) => {
+    console.log('🔔 Notification action triggered:', { notificationId, actionData });
+    
     if (actionData?.taskId) {
+      console.log('✅ Navigating to task:', actionData.taskId);
       onNavigateToTask(actionData.taskId);
+    } else {
+      console.log('❌ No taskId found in actionData:', actionData);
     }
   };
 
   const handleMarkNotificationAsRead = async (notificationId: string) => {
+    // Verificar si es una notificación simulada
+    if (notificationId.startsWith('simulated-')) {
+      console.log('⚠️ Skipping database update for simulated notification:', notificationId);
+      
+      // Solo actualizar estado local para notificaciones simuladas
+      const updatedNotifications = notifications.map(notif => 
+        notif.id === notificationId 
+          ? { ...notif, isRead: true, readAt: new Date() }
+          : notif
+      );
+      
+      setNotifications(updatedNotifications);
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      return;
+    }
+
     try {
+      console.log('🔄 Marking real notification as read in database:', notificationId);
       await supabaseService.markNotificationAsRead(notificationId);
       
       // Actualizar estado local
       const updatedNotifications = notifications.map(notif => 
         notif.id === notificationId 
-          ? { ...notif, is_read: true, read_at: new Date().toISOString() }
+          ? { ...notif, isRead: true, readAt: new Date() }
           : notif
       );
       
@@ -429,13 +494,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       console.log('✅ Notification marked as read:', notificationId);
     } catch (error) {
       console.error('❌ Error marking notification as read:', error);
+      // No bloquear la funcionalidad por errores de marcado
     }
   };
 
   const handleMarkAllNotificationsAsRead = async () => {
     try {
       // Marcar todas las notificaciones no leídas como leídas
-      const unreadNotifications = notifications.filter(notif => !notif.is_read);
+      const unreadNotifications = notifications.filter(notif => !notif.isRead);
       
       await Promise.all(
         unreadNotifications.map(notif => 
@@ -445,7 +511,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       
       // Actualizar estado local
       const updatedNotifications = notifications.map(notif => 
-        notif.is_read ? notif : { ...notif, is_read: true, read_at: new Date().toISOString() }
+        notif.isRead ? notif : { ...notif, isRead: true, readAt: new Date() }
       );
       
       setNotifications(updatedNotifications);
@@ -503,6 +569,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (!isReadOnly) {
       onNavigateToTask(taskId);
     }
+  };
+
+  const handleNotificationDialogAccept = async () => {
+    setIsNotificationDialogVisible(false);
+    
+    if (simulatedNotification) {
+      // Marcar como leída si tiene ID real
+      if (simulatedNotification.id && simulatedNotification.id !== 'simulated') {
+        try {
+          await supabaseService.markNotificationAsRead(simulatedNotification.id);
+          // Recargar notificaciones
+          await loadNotifications();
+        } catch (error) {
+          console.error('Error marking simulated notification as read:', error);
+        }
+      }
+      
+      // Ejecutar acción si es necesaria
+      if (simulatedNotification.actionRequired && simulatedNotification.actionData?.taskId) {
+        onNavigateToTask(simulatedNotification.actionData.taskId);
+      }
+    }
+    
+    // Notificar que la notificación fue manejada
+    onNotificationHandled?.();
+  };
+
+  const handleNotificationDialogDismiss = () => {
+    setIsNotificationDialogVisible(false);
+    onNotificationHandled?.();
   };
 
   return (
@@ -746,6 +842,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Espacio adicional al final */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Dialog de notificación simulada */}
+      <NotificationDialog
+        visible={isNotificationDialogVisible}
+        notification={simulatedNotification}
+        onDismiss={handleNotificationDialogDismiss}
+        onAccept={handleNotificationDialogAccept}
+        onAction={(actionData) => {
+          if (actionData?.taskId) {
+            onNavigateToTask(actionData.taskId);
+          }
+        }}
+      />
     </Surface>
   );
 };

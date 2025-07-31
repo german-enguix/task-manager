@@ -23,12 +23,14 @@ interface ProfileScreenProps {
   isDarkMode: boolean;
   toggleTheme: () => void;
   onLogout?: () => void;
+  onSimulateNotification?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ 
   isDarkMode, 
   toggleTheme,
-  onLogout
+  onLogout,
+  onSimulateNotification
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -338,6 +340,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 onPress={() => setIsEditModalVisible(true)}
               >
                 Editar Datos
+              </Button>
+
+              <Button
+                mode="contained-tonal"
+                icon="bell-ring"
+                style={styles.actionButton}
+                onPress={onSimulateNotification}
+              >
+                Simular Notificación
               </Button>
               
               <Button

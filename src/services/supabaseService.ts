@@ -1813,15 +1813,105 @@ export class SupabaseService {
   }
 
   async getWorkNotifications(userId: string, unreadOnly: boolean = false): Promise<any[]> {
-    console.log('🔄 getWorkNotifications BYPASSING DB - returning empty array');
-    // Por ahora, devolver array vacío hasta que las tablas estén creadas
-    return [];
+    try {
+      console.log('🔄 Loading work notifications for user:', userId, 'unreadOnly:', unreadOnly);
+      
+      let query = supabase
+        .from('work_notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (unreadOnly) {
+        query = query.eq('is_read', false);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('❌ Error loading work notifications:', error);
+        throw error;
+      }
+      
+      console.log('✅ Work notifications loaded:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error in getWorkNotifications:', error);
+      throw error;
+    }
   }
 
   async markNotificationAsRead(notificationId: string): Promise<void> {
-    console.log('🔄 markNotificationAsRead BYPASSING DB - doing nothing');
-    // Por ahora, no hacer nada hasta que las tablas estén creadas
-    return;
+    try {
+      console.log('🔄 Marking notification as read:', notificationId);
+      
+      const { error } = await supabase
+        .from('work_notifications')
+        .update({ 
+          is_read: true, 
+          read_at: new Date().toISOString() 
+        })
+        .eq('id', notificationId);
+      
+      if (error) {
+        console.error('❌ Error marking notification as read:', error);
+        throw error;
+      }
+      
+      console.log('✅ Notification marked as read:', notificationId);
+    } catch (error) {
+      console.error('❌ Error in markNotificationAsRead:', error);
+      throw error;
+    }
+  }
+
+  async createWorkNotification(
+    userId: string, 
+    title: string, 
+    message: string, 
+    options: {
+      type?: string;
+      isUrgent?: boolean;
+      actionRequired?: boolean;
+      actionType?: string;
+      actionData?: any;
+      workDayId?: string;
+    } = {}
+  ): Promise<string> {
+    try {
+      console.log('🔄 Creating work notification for user:', userId);
+      
+      const notificationData = {
+        user_id: userId,
+        title,
+        message,
+        type: options.type || 'info',
+        is_urgent: options.isUrgent || false,
+        action_required: options.actionRequired || false,
+        action_type: options.actionType || null,
+        action_data: options.actionData || null,
+        work_day_id: options.workDayId || null,
+        is_read: false,
+        created_at: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('work_notifications')
+        .insert([notificationData])
+        .select('id')
+        .single();
+      
+      if (error) {
+        console.error('❌ Error creating work notification:', error);
+        throw error;
+      }
+      
+      console.log('✅ Work notification created:', data.id);
+      return data.id;
+    } catch (error) {
+      console.error('❌ Error in createWorkNotification:', error);
+      throw error;
+    }
   }
 
   // ========== TASK TIMER ==========
