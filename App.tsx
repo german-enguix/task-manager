@@ -21,6 +21,7 @@ export default function App() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0);
   const [simulatedNotification, setSimulatedNotification] = useState<any>(null);
+  const [simulatedExternalNFC, setSimulatedExternalNFC] = useState<any>(null);
 
   const theme = isDarkMode ? darkTheme : lightTheme;
 
@@ -253,6 +254,94 @@ export default function App() {
     setSimulatedNotification(null);
   };
 
+  const handleSimulateExternalNFC = async () => {
+    try {
+      console.log('📡 Simulating external NFC read...');
+      
+      // Buscar una subtarea NFC de Zizi para usar en la simulación
+      let nfcSubtask = null;
+      let taskId = null;
+      
+      if (user?.id) {
+        try {
+          // Buscar tareas de Zizi con subtareas NFC
+          const { data: tasks } = await supabaseService.supabase
+            .from('tasks')
+            .select(`
+              id,
+              title,
+              subtasks!inner (
+                id,
+                title,
+                description,
+                is_completed,
+                subtask_evidence_requirements!inner (
+                  id,
+                  type,
+                  title,
+                  description,
+                  is_required
+                )
+              )
+            `)
+            .contains('assigned_to', [user.id])
+            .eq('subtasks.subtask_evidence_requirements.type', 'nfc')
+            .limit(1);
+
+          if (tasks && tasks.length > 0 && tasks[0].subtasks.length > 0) {
+            const task = tasks[0];
+            const subtask = task.subtasks[0];
+            taskId = task.id;
+            
+            nfcSubtask = {
+              id: subtask.id,
+              title: subtask.title,
+              description: subtask.description,
+              isCompleted: subtask.is_completed,
+              evidenceRequirement: subtask.subtask_evidence_requirements[0] ? {
+                id: subtask.subtask_evidence_requirements[0].id,
+                type: 'nfc',
+                title: subtask.subtask_evidence_requirements[0].title,
+                description: subtask.subtask_evidence_requirements[0].description,
+                isRequired: subtask.subtask_evidence_requirements[0].is_required
+              } : null
+            };
+            
+            console.log('✅ Found NFC subtask:', nfcSubtask);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching NFC subtask:', error);
+        }
+      }
+      
+      // Crear la simulación de lectura NFC externa
+      const externalNFC = {
+        id: 'external-nfc-' + Date.now(),
+        tagId: `NFC_EXTERNAL_${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+        readAt: new Date(),
+        location: 'Área de trabajo - Equipo #3',
+        subtask: nfcSubtask,
+        taskId: taskId,
+        success: true
+      };
+
+      // Establecer la simulación NFC externa
+      setSimulatedExternalNFC(externalNFC);
+      
+      // Navegar a la pantalla Home para mostrar el dialog
+      setCurrentScreen('home');
+      
+      console.log('✅ External NFC simulation complete:', externalNFC);
+    } catch (error) {
+      console.error('❌ Error simulating external NFC:', error);
+      Alert.alert('Error', 'No se pudo simular la lectura NFC externa. Inténtalo de nuevo.');
+    }
+  };
+
+  const handleExternalNFCHandled = () => {
+    setSimulatedExternalNFC(null);
+  };
+
   const getCurrentRoute = (): NavigationRoute => {
     switch (currentScreen) {
       case 'home':
@@ -300,6 +389,8 @@ export default function App() {
             taskRefreshTrigger={taskRefreshTrigger}
             simulatedNotification={simulatedNotification}
             onNotificationHandled={handleNotificationHandled}
+            simulatedExternalNFC={simulatedExternalNFC}
+            onExternalNFCHandled={handleExternalNFCHandled}
           />
         );
       case 'projects':
@@ -315,6 +406,7 @@ export default function App() {
             toggleTheme={toggleTheme}
             onLogout={performLogout}
             onSimulateNotification={handleSimulateNotification}
+        onSimulateExternalNFC={handleSimulateExternalNFC}
           />
         );
       case 'taskDetail':

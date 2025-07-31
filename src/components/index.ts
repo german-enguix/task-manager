@@ -23,6 +23,7 @@ export { SupabaseTest } from './SupabaseTest';
 // Dialog components
 export { ProblemReportDialog } from './ProblemReportDialog';
 export { NFCDialog } from './NFCDialog';
+export { NFCExternalDialog } from './NFCExternalDialog';
 export { QRDialog } from './QRDialog';
 export { LocationDialog } from './LocationDialog';
 export { LocationViewer } from './LocationViewer';

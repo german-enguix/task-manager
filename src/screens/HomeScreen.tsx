@@ -7,7 +7,8 @@ import { TaskStatus, WorkDay, DayStatus, TimesheetStatus } from '@/types';
 import { 
   DayTimeCard, 
   NotificationsBell,
-  NotificationDialog
+  NotificationDialog,
+  NFCExternalDialog
 } from '@/components';
 
 interface HomeScreenProps {
@@ -17,6 +18,8 @@ interface HomeScreenProps {
   taskRefreshTrigger?: number;
   simulatedNotification?: any;
   onNotificationHandled?: () => void;
+  simulatedExternalNFC?: any;
+  onExternalNFCHandled?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
@@ -25,7 +28,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToTask,
   taskRefreshTrigger,
   simulatedNotification,
-  onNotificationHandled
+  onNotificationHandled,
+  simulatedExternalNFC,
+  onExternalNFCHandled
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -52,6 +57,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   
   // Estado para el dialog de notificación simulada
   const [isNotificationDialogVisible, setIsNotificationDialogVisible] = useState(false);
+  
+  // Estado para el dialog de NFC externo simulado
+  const [isNFCExternalDialogVisible, setIsNFCExternalDialogVisible] = useState(false);
 
   // Función para obtener la clave de fecha
   const getDateKey = (date: Date) => {
@@ -128,6 +136,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setIsNotificationDialogVisible(true);
     }
   }, [simulatedNotification]);
+
+  // Efecto para mostrar NFC externo simulado
+  useEffect(() => {
+    if (simulatedExternalNFC) {
+      setIsNFCExternalDialogVisible(true);
+    }
+  }, [simulatedExternalNFC]);
 
   const loadUserInfo = async () => {
     try {
@@ -601,6 +616,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onNotificationHandled?.();
   };
 
+  const handleNFCExternalDialogNavigate = () => {
+    setIsNFCExternalDialogVisible(false);
+    
+    if (simulatedExternalNFC) {
+      // Navegar a la tarea que contiene la subtarea NFC
+      if (simulatedExternalNFC.taskId) {
+        console.log('🎯 Navigating to task with NFC subtask:', simulatedExternalNFC.taskId);
+        onNavigateToTask(simulatedExternalNFC.taskId);
+      }
+    }
+    
+    // Notificar que el NFC externo fue manejado
+    onExternalNFCHandled?.();
+  };
+
+  const handleNFCExternalDialogDismiss = () => {
+    setIsNFCExternalDialogVisible(false);
+    onExternalNFCHandled?.();
+  };
+
   return (
     <Surface style={styles.container}>
       {/* Main Content */}
@@ -854,6 +889,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onNavigateToTask(actionData.taskId);
           }
         }}
+      />
+
+      {/* Dialog de NFC externo simulado */}
+      <NFCExternalDialog
+        visible={isNFCExternalDialogVisible}
+        subtask={simulatedExternalNFC?.subtask}
+        nfcData={simulatedExternalNFC ? {
+          tagId: simulatedExternalNFC.tagId,
+          readAt: simulatedExternalNFC.readAt,
+          location: simulatedExternalNFC.location
+        } : undefined}
+        onDismiss={handleNFCExternalDialogDismiss}
+        onNavigateToSubtask={handleNFCExternalDialogNavigate}
       />
     </Surface>
   );

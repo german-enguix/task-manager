@@ -24,13 +24,15 @@ interface ProfileScreenProps {
   toggleTheme: () => void;
   onLogout?: () => void;
   onSimulateNotification?: () => void;
+  onSimulateExternalNFC?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ 
   isDarkMode, 
   toggleTheme,
   onLogout,
-  onSimulateNotification
+  onSimulateNotification,
+  onSimulateExternalNFC
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -349,6 +351,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 onPress={onSimulateNotification}
               >
                 Simular Notificación
+              </Button>
+
+              <Button
+                mode="outlined"
+                icon="nfc"
+                style={styles.actionButton}
+                onPress={onSimulateExternalNFC}
+              >
+                Simular NFC Externo
               </Button>
               
               <Button
