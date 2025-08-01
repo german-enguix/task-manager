@@ -82,6 +82,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [showDeleteReportDialog, setShowDeleteReportDialog] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<TaskProblemReport | null>(null);
   const [isDeletingReport, setIsDeletingReport] = useState(false);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
 
   useEffect(() => {
     loadUserAndTask();
@@ -447,24 +448,9 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     );
   };
 
-  const handleNFCSuccess = async () => {
-    if (!currentNFCSubtask || !task) return;
-    
-    // Cerrar el diálogo NFC
+  const handleNFCSuccess = (data: any) => {
+    console.log('NFC Success:', data);
     setShowNFCDialog(false);
-    
-    try {
-      // Simular la captura de evidencia NFC y marcar como completada
-      await simulateNFCEvidenceCapture(currentNFCSubtask);
-      
-      console.log('✅ NFC evidence captured and subtask completed');
-    } catch (error) {
-      console.error('❌ Error completing NFC evidence:', error);
-      Alert.alert('Error', 'No se pudo completar la evidencia NFC. Inténtalo de nuevo.');
-    } finally {
-      // Limpiar la subtarea actual
-      setCurrentNFCSubtask(null);
-    }
   };
 
   const handleNFCDismiss = () => {
@@ -472,24 +458,9 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setCurrentNFCSubtask(null);
   };
 
-  const handleQRSuccess = async () => {
-    if (!currentQRSubtask || !task) return;
-    
-    // Cerrar el diálogo QR
+  const handleQRSuccess = (data: any) => {
+    console.log('QR Success:', data);
     setShowQRDialog(false);
-    
-    try {
-      // Simular la captura de evidencia QR y marcar como completada
-      await simulateQREvidenceCapture(currentQRSubtask);
-      
-      console.log('✅ QR evidence captured and subtask completed');
-    } catch (error) {
-      console.error('❌ Error completing QR evidence:', error);
-      Alert.alert('Error', 'No se pudo completar la evidencia QR. Inténtalo de nuevo.');
-    } finally {
-      // Limpiar la subtarea actual
-      setCurrentQRSubtask(null);
-    }
   };
 
   const handleQRDismiss = () => {
@@ -1728,15 +1699,15 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return theme.colors.error;
-      case 'high': return theme.colors.secondary;
-      case 'medium': return theme.colors.primary;
-      case 'low': return theme.colors.outline;
-      default: return theme.colors.outline;
+      case 'critical': return '#d32f2f';
+      case 'high': return '#f57c00';
+      case 'medium': return '#fbc02d';
+      case 'low': return '#388e3c';
+      default: return '#666';
     }
   };
 
-  const getSeverityLabel = (severity: string) => {
+  const getSeverityText = (severity: string) => {
     switch (severity) {
       case 'critical': return 'Crítico';
       case 'high': return 'Alto';
@@ -1758,6 +1729,108 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       case 'other': return 'alert-circle-outline';
       default: return 'alert';
     }
+  };
+
+  // Helper functions for subtasks
+  const getSubtaskStyle = (subtask: TaskSubtask) => {
+    if (subtask.isCompleted) {
+      return [styles.subtask, styles.completedSubtask];
+    }
+    if (isSubtaskBlocked(subtask)) {
+      return [styles.subtask, styles.blockedSubtask];
+    }
+    return styles.subtask;
+  };
+
+  const getSubtaskRightElement = (subtask: TaskSubtask) => {
+    if (isSubtaskBlocked(subtask)) {
+      return (
+        <Icon 
+          source="lock" 
+          size={20} 
+          color={theme.colors.outline}
+        />
+      );
+    }
+    return null;
+  };
+
+  const isSubtaskBlocked = (subtask: TaskSubtask) => {
+    return subtask.requiredEvidence?.some(evidence => evidence.isRequired) && 
+           !subtask.evidence && 
+           !subtask.isCompleted;
+  };
+
+  // Helper functions for evidence
+  const getEvidenceIcon = (evidence: any) => {
+    switch (evidence.type) {
+      case 'photo': return 'camera';
+      case 'video': return 'video';
+      case 'signature': return 'pen';
+      case 'location': return 'map-marker';
+      case 'audio': return 'microphone';
+      case 'nfc': return 'nfc';
+      case 'qr': return 'qrcode';
+      default: return 'attachment';
+    }
+  };
+
+  const getEvidenceColor = (evidence: any, subtask: TaskSubtask) => {
+    return hasEvidence(evidence, subtask) ? '#4CAF50' : theme.colors.outline;
+  };
+
+  const getEvidenceTitle = (evidence: any) => {
+    return evidence.title || evidence.description || 'Evidencia requerida';
+  };
+
+  const getEvidenceStatus = (evidence: any, subtask: TaskSubtask) => {
+    return hasEvidence(evidence, subtask);
+  };
+
+  const hasEvidence = (evidence: any, subtask: TaskSubtask) => {
+    return !!subtask.evidence && subtask.evidence.type === evidence.type;
+  };
+
+  const viewEvidence = (evidence: any, subtask: TaskSubtask) => {
+    // Implementar visualización de evidencia
+    console.log('Viewing evidence:', evidence, subtask);
+  };
+
+  const captureEvidence = (evidence: any, subtask: TaskSubtask) => {
+    // Implementar captura de evidencia
+    console.log('Capturing evidence:', evidence, subtask);
+  };
+
+  const getEvidenceCTA = (evidence: any) => {
+    switch (evidence.type) {
+      case 'photo': return 'Tomar foto';
+      case 'video': return 'Grabar video';
+      case 'signature': return 'Firmar';
+      case 'location': return 'Obtener ubicación';
+      case 'audio': return 'Grabar audio';
+      case 'nfc': return 'Escanear NFC';
+      case 'qr': return 'Escanear QR';
+      default: return 'Capturar evidencia';
+    }
+  };
+
+  const playVoiceComment = (audioUri: string) => {
+    // Implementar reproducción de audio
+    console.log('Playing voice comment:', audioUri);
+  };
+
+  const deleteComment = (commentId: string) => {
+    // Implementar eliminación de comentario
+    console.log('Deleting comment:', commentId);
+  };
+
+  const handleDeleteReport = (reportId: string) => {
+    if (isReadOnly) {
+      Alert.alert('Acción no permitida', 'No puedes eliminar reportes de días pasados.');
+      return;
+    }
+    // Implementar eliminación de reporte
+    console.log('Deleting report:', reportId);
   };
 
   if (!task) {
