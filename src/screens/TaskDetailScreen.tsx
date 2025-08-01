@@ -20,7 +20,8 @@ import {
   Icon,
   TextInput,
   Portal,
-  Dialog
+  Dialog,
+  Appbar
 } from 'react-native-paper';
 import { 
   Task, 
@@ -1772,17 +1773,19 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   return (
     <Surface style={styles.container}>
-      <ScrollView style={styles.content}>
-        {/* Header integrado */}
-        <View style={styles.header}>
-          {/* Fila superior: botón atrás y badges */}
-          <View style={styles.headerTop}>
-            <IconButton
-              icon="chevron-left"
-              size={24}
-              onPress={onGoBack}
-              style={styles.backButton}
-            />
+      {/* AppBar Sticky - Medium Flexible */}
+      <Appbar.Header 
+        mode="medium" 
+        style={styles.appBar}
+        statusBarHeight={0}
+      >
+        {/* Botón de volver */}
+        <Appbar.BackAction onPress={onGoBack} />
+        
+        {/* Contenido del AppBar */}
+        <View style={styles.appBarContent}>
+          {/* Chips de estado en la parte superior derecha */}
+          <View style={styles.appBarTop}>
             <View style={styles.statusContainer}>
               {isReadOnly && (
                 <Chip 
@@ -1814,17 +1817,21 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             </View>
           </View>
           
-          {/* Título ocupando todo el ancho */}
-          <View style={styles.headerTitle}>
-            <Text variant="headlineMedium">
-              {task.title}
-            </Text>
+          {/* Título */}
+          <View style={styles.appBarTitle}>
+            <Appbar.Content 
+              title={task.title}
+              titleStyle={styles.appBarTitleText}
+            />
           </View>
         </View>
+      </Appbar.Header>
 
+      {/* Contenido Scrolleable */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Información de la tarea */}
         <View style={styles.taskInfo}>
-          <Text variant="bodyMedium" style={styles.taskDescription}>
+          <Text variant="bodyMedium" style={styles.description}>
             {task.description}
           </Text>
           
@@ -1872,31 +1879,39 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
         {/* Temporizador */}
         <Card style={styles.card}>
+          <Card.Title title="Temporizador de Trabajo" />
           <Card.Content>
-            {/* Temporizador principal */}
-            <View style={styles.timerSection}>
-              <Text variant="bodySmall" style={styles.timerLabel}>
-                {task.timer.sessions.length} sesiones registradas
-              </Text>
-              <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
-                {timerDisplay}
-              </Text>
-            </View>
-            
-            {/* Controles del temporizador */}
-            <View style={styles.timerControls}>
+            <View style={styles.timerContainer}>
+              <Text variant="headlineSmall">{timerDisplay}</Text>
               <Button 
-                mode={task.timer.isRunning ? "outlined" : "contained"}
+                mode="contained" 
                 onPress={toggleTimer}
-                icon={task.timer.isRunning ? "pause" : "play"}
                 style={styles.timerButton}
                 disabled={isReadOnly}
               >
-                {isReadOnly 
-                  ? 'Timer - Solo lectura' 
-                  : (task.timer.isRunning ? 'Pausar' : 'Iniciar temporizador')
-                }
+                {isReadOnly ? 'Timer - Solo lectura' : 
+                 task.timer?.isRunning ? 'Pausar' : 'Iniciar'}
               </Button>
+              <Text variant="bodySmall" style={styles.timerInfo}>
+                {task.timer?.totalElapsed ? `Total acumulado: ${formatDuration(task.timer.totalElapsed)}` : 'No hay tiempo registrado'}
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Progreso de la tarea */}
+        <Card style={styles.card}>
+          <Card.Title title="Progreso de la Tarea" />
+          <Card.Content>
+            <View style={styles.progressContainer}>
+              <Text variant="bodyLarge">
+                {completedSubtasks} de {totalSubtasks} subtareas completadas
+              </Text>
+              <ProgressBar 
+                progress={progress} 
+                style={styles.progressBar}
+                color={progress === 1 ? theme.colors.primary : theme.colors.secondary}
+              />
             </View>
           </Card.Content>
         </Card>
@@ -1905,291 +1920,222 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         <Card style={styles.card}>
           <Card.Title title="Subtareas" />
           <Card.Content>
-            <View style={styles.progressContainer}>
-              <Text variant="bodyMedium">
-                {completedSubtasks} de {totalSubtasks} completadas
-              </Text>
-              <ProgressBar progress={progress} style={styles.progressBar} />
-            </View>
-            
-            {task.subtasks.map((subtask) => (
-              <View key={subtask.id} style={styles.subtaskContainer}>
+            {task.subtasks.map((subtask, index) => (
+              <View key={subtask.id}>
                 <List.Item
                   title={subtask.title}
                   description={subtask.description}
+                  style={getSubtaskStyle(subtask)}
                   left={() => (
-                    <View style={styles.subtaskCheckContainer}>
-                      {isSubtaskBlocked(subtask) ? (
+                    <Checkbox
+                      status={subtask.isCompleted ? 'checked' : 'unchecked'}
+                      onPress={() => toggleSubtask(subtask.id)}
+                      disabled={isReadOnly}
+                    />
+                  )}
+                  right={() => getSubtaskRightElement(subtask)}
+                />
+                
+                {/* Evidencia requerida */}
+                {subtask.requiredEvidence && subtask.requiredEvidence.map((evidence, evidenceIndex) => (
+                  <View key={evidenceIndex} style={styles.evidenceRequirement}>
+                    <View style={styles.evidenceHeader}>
+                      <Icon 
+                        source={getEvidenceIcon(evidence)} 
+                        size={16} 
+                        color={getEvidenceColor(evidence, subtask)} 
+                      />
+                      <Text variant="bodySmall" style={styles.evidenceTitle}>
+                        {getEvidenceTitle(evidence)}
+                      </Text>
+                      {getEvidenceStatus(evidence, subtask) && (
                         <Icon 
-                          source="lock" 
-                          size={24} 
-                          color={theme.colors.outline}
-                        />
-                      ) : (
-                        <Checkbox
-                          status={getSubtaskCheckboxStatus(subtask)}
-                          onPress={() => toggleSubtask(subtask.id)}
-                          disabled={isReadOnly}
+                          source="check-circle" 
+                          size={16} 
+                          color="#4CAF50" 
                         />
                       )}
                     </View>
-                  )}
-                  style={[
-                    styles.subtask,
-                    subtask.isCompleted && styles.completedSubtask,
-                    isSubtaskBlocked(subtask) && styles.blockedSubtask
-                  ]}
-                />
-                
-                {/* CTA de evidencia */}
-                {subtask.evidenceRequirement && (
-                  <View style={styles.evidenceInfo}>
-                    {(() => {
-                      // DEBUG: Logging para verificar estado de evidencia
-                      const hasEvidence = !!subtask.evidence;
-                      console.log(`🔍 Rendering subtask ${subtask.id}: hasEvidence=${hasEvidence}, evidenceType=${subtask.evidence?.type}`);
-                      return hasEvidence;
-                    })() ? (
-                      <Button 
-                        mode="outlined"
-                        icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
-                        disabled={
-                          (subtask.evidenceRequirement.type === EvidenceType.SIGNATURE && 
-                           (!subtask.evidence.data || 
-                            typeof subtask.evidence.data !== 'string' || 
-                            subtask.evidence.data.trim() === '')) ||
-                          (subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE && 
-                           subtask.evidenceRequirement.type !== EvidenceType.LOCATION &&
-                           subtask.evidenceRequirement.type !== EvidenceType.AUDIO &&
-                           subtask.evidenceRequirement.type !== EvidenceType.PHOTO_VIDEO &&
-                           subtask.evidenceRequirement.type !== EvidenceType.NFC &&
-                           subtask.evidenceRequirement.type !== EvidenceType.QR)
-                        }
-                        onPress={
-                          subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
-                            ? () => handleViewSignature(subtask)
-                            : subtask.evidenceRequirement.type === EvidenceType.LOCATION
-                            ? () => handleViewLocation(subtask)
-                            : subtask.evidenceRequirement.type === EvidenceType.AUDIO
-                            ? () => handleViewAudio(subtask)
-                            : subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO
-                            ? () => handleViewMedia(subtask)
-                            : undefined
-                        }
-                        style={styles.evidenceCompletedButton}
-                        labelStyle={styles.evidenceCompletedButtonText}
-                      >
-                        {subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
-                          ? 'Ver Firma' 
-                          : subtask.evidenceRequirement.type === EvidenceType.LOCATION
-                          ? 'Ver Ubicación'
-                          : subtask.evidenceRequirement.type === EvidenceType.AUDIO
-                          ? 'Ver Audio'
-                          : subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO
-                          ? (subtask.evidence?.data?.type === 'video' ? 'Ver Video' : 'Ver Imagen')
-                          : subtask.evidenceRequirement.type === EvidenceType.QR
-                          ? 'Evidencia completada'
-                          : subtask.evidenceRequirement.type === EvidenceType.NFC
-                          ? 'Evidencia completada'
-                          : 'Evidencia completada'}
-                      </Button>
+                    
+                    <Text variant="bodySmall" style={styles.evidenceDescription}>
+                      {evidence.description}
+                    </Text>
+                    
+                    {hasEvidence(evidence, subtask) ? (
+                      <View style={styles.evidenceActions}>
+                        <Button 
+                          mode="outlined" 
+                          onPress={() => viewEvidence(evidence, subtask)}
+                          style={styles.evidenceActionButton}
+                          compact
+                        >
+                          Ver evidencia
+                        </Button>
+                      </View>
                     ) : (
-                      <Button 
-                        mode={subtask.evidenceRequirement.isRequired ? "contained" : "outlined"}
-                        icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
-                        onPress={() => handleSubtaskEvidence(subtask)}
-                        style={styles.evidenceActionButton}
-                        buttonColor={subtask.evidenceRequirement.isRequired ? theme.colors.error : undefined}
-                        disabled={isReadOnly}
-                      >
-                        {isReadOnly 
-                          ? 'Solo lectura' 
-                          : getSubtaskEvidenceActionText(subtask.evidenceRequirement)
-                        }
-                      </Button>
+                      <View style={styles.evidenceActions}>
+                        <Button 
+                          mode="contained" 
+                          onPress={() => captureEvidence(evidence, subtask)}
+                          style={styles.evidenceActionButton}
+                          compact
+                          disabled={isReadOnly}
+                        >
+                          {isReadOnly ? 'Solo lectura' : getEvidenceCTA(evidence)}
+                        </Button>
+                      </View>
                     )}
                   </View>
-                )}
+                ))}
+                
+                {index < task.subtasks.length - 1 && <Divider />}
               </View>
             ))}
           </Card.Content>
         </Card>
 
-
-
         {/* Comentarios */}
         <Card style={styles.card}>
           <Card.Title title="Comentarios" />
           <Card.Content>
-            {task.comments.length > 0 ? (
+            {task.comments && task.comments.length > 0 ? (
               task.comments.map((comment) => (
                 <View key={comment.id} style={styles.commentItem}>
                   <View style={styles.commentHeader}>
                     <View style={styles.commentHeaderLeft}>
-                      <Text variant="bodySmall" style={styles.commentAuthor}>
-                        {comment.author}
+                      <Text variant="bodyMedium" style={styles.commentAuthor}>
+                        {comment.authorName}
                       </Text>
                       <Text variant="bodySmall" style={styles.commentDate}>
-                        {comment.createdAt.toLocaleDateString('es-ES')}
+                        {comment.createdAt.toLocaleDateString('es-ES')} {comment.createdAt.toLocaleTimeString('es-ES')}
                       </Text>
                     </View>
-                    {isCommentAuthor(comment) && (
+                    {comment.userId === currentUserId && (
                       <IconButton
                         icon="delete"
-                        size={18}
-                        iconColor={theme.colors.error}
-                        onPress={() => deleteComment(comment.id, comment.content)}
+                        size={20}
+                        onPress={() => deleteComment(comment.id)}
                         style={styles.deleteButton}
+                        disabled={isDeletingComment || isReadOnly}
                       />
                     )}
                   </View>
-                  <Text variant="bodyMedium">{comment.content}</Text>
-                  {comment.type === CommentType.VOICE && (
-                    <Chip icon="microphone" mode="outlined" style={styles.voiceChip}>
-                      Nota de voz
-                    </Chip>
+                  
+                  {comment.type === 'text' ? (
+                    <Text variant="bodyMedium">{comment.content}</Text>
+                  ) : (
+                    <View>
+                      <Chip 
+                        mode="outlined" 
+                        style={styles.voiceChip}
+                        icon="microphone"
+                        onPress={() => playVoiceComment(comment.content)}
+                      >
+                        Mensaje de voz
+                      </Chip>
+                    </View>
                   )}
                 </View>
               ))
             ) : (
-              <Text variant="bodyMedium" style={styles.emptyText}>
-                No hay comentarios registrados
+              <Text variant="bodyMedium" style={styles.emptyState}>
+                No hay comentarios aún
               </Text>
             )}
             
+            {/* Input para nuevos comentarios */}
             <View style={styles.commentInputContainer}>
               <TextInput
                 mode="outlined"
-                placeholder={isReadOnly ? "Solo lectura - No puedes agregar comentarios" : "Escribe un comentario..."}
+                placeholder={isReadOnly ? "Solo lectura - No puedes comentar" : "Escribe un comentario..."}
                 value={commentText}
                 onChangeText={setCommentText}
-                onSubmitEditing={addTextComment}
-                returnKeyType="send"
                 style={styles.commentInput}
-                dense
+                multiline
+                numberOfLines={2}
                 disabled={isReadOnly}
               />
               <IconButton
                 icon="send"
-                mode="contained"
+                size={24}
                 onPress={addTextComment}
-                disabled={isReadOnly || commentText.trim() === ''}
                 style={styles.sendButton}
-                size={20}
+                disabled={isReadOnly || commentText.trim() === ''}
               />
               <IconButton
                 icon="microphone"
-                mode="contained"
+                size={24}
                 onPress={addVoiceComment}
                 style={styles.microphoneButton}
-                size={20}
                 disabled={isReadOnly}
               />
             </View>
           </Card.Content>
         </Card>
 
-        {/* Problemas reportados */}
+        {/* Reportes de problemas */}
         <Card style={styles.card}>
-          <Card.Title title="Problemas Reportados" />
+          <Card.Title title="Reportes de Problemas" />
           <Card.Content>
-            {task.problemReports.length > 0 ? (
-              task.problemReports.map((problem) => (
-                <View key={problem.id} style={styles.problemItem}>
+            {task.problemReports && task.problemReports.length > 0 ? (
+              task.problemReports.map((report) => (
+                <View key={report.id} style={styles.problemItem}>
                   <View style={styles.problemHeader}>
                     <View style={styles.problemHeaderLeft}>
-                      <Icon
-                        source={getReportTypeIcon(problem.reportType)}
-                        size={20}
-                        color={getSeverityColor(problem.severity)}
-                      />
-                      <Text variant="titleMedium" style={styles.problemTitle}>
-                        {problem.title}
-                      </Text>
-                    </View>
-                    <View style={styles.problemHeaderRight}>
                       <Chip 
                         mode="outlined" 
-                        style={[styles.severityChip, { 
-                          borderColor: getSeverityColor(problem.severity)
-                        }]}
-                        textStyle={[styles.severityChipText, {
-                          color: getSeverityColor(problem.severity)
-                        }]}
+                        style={[styles.severityChip, { borderColor: getSeverityColor(report.severity) }]}
+                        textStyle={{ color: getSeverityColor(report.severity), fontSize: 10 }}
                         compact
                       >
-                        {getSeverityLabel(problem.severity)}
+                        {getSeverityText(report.severity)}
                       </Chip>
-                      {canDeleteReport(problem) && (
-                        <IconButton
-                          icon="delete"
-                          size={20}
-                          iconColor={theme.colors.error}
-                          mode="contained-tonal"
-                          style={styles.deleteReportButton}
-                          onPress={() => handleDeleteReport(problem)}
-                          disabled={isDeletingReport || isReadOnly}
-                        />
-                      )}
+                      <Text variant="bodySmall" style={styles.problemDate}>
+                        {report.createdAt.toLocaleDateString('es-ES')} - {report.reporterName}
+                      </Text>
                     </View>
-                  </View>
-                  
-                  <Text variant="bodyMedium" style={styles.problemDescription}>
-                    {problem.description}
-                  </Text>
-                  
-                  <View style={styles.problemFooter}>
-                    <Text variant="bodySmall" style={styles.problemMeta}>
-                      Reportado por {problem.author} • {problem.reportedAt.toLocaleDateString('es-ES')}
-                    </Text>
-                    
-                    {problem.resolvedAt && (
-                      <View style={styles.resolvedContainer}>
-                        <Icon
-                          source="check-circle"
-                          size={16}
-                          color={theme.colors.primary}
-                        />
-                        <Text variant="bodySmall" style={styles.resolvedText}>
-                          Resuelto el {problem.resolvedAt.toLocaleDateString('es-ES')}
-                        </Text>
-                      </View>
+                    {report.reporterId === currentUserId && (
+                      <IconButton
+                        icon="delete"
+                        size={20}
+                        onPress={() => handleDeleteReport(report.id)}
+                        style={styles.deleteButton}
+                        disabled={isDeletingReport || isReadOnly}
+                      />
                     )}
                   </View>
                   
-                  {problem.resolution && (
-                    <View style={styles.resolutionContainer}>
-                      <Text variant="bodySmall" style={styles.resolutionLabel}>
-                        Resolución:
-                      </Text>
-                      <Text variant="bodySmall" style={styles.resolutionText}>
-                        {problem.resolution}
-                      </Text>
-                    </View>
+                  <Text variant="bodyMedium" style={styles.problemDescription}>
+                    {report.description}
+                  </Text>
+                  
+                  {report.status && (
+                    <Chip 
+                      mode="flat" 
+                      style={styles.statusChip}
+                      textStyle={styles.statusText}
+                      compact
+                    >
+                      Estado: {report.status}
+                    </Chip>
                   )}
                 </View>
               ))
             ) : (
-              <Text variant="bodyMedium" style={styles.emptyText}>
-                No hay problemas reportados
+              <Text variant="bodyMedium" style={styles.emptyState}>
+                No hay reportes de problemas
               </Text>
             )}
             
-            {isReadOnly && task.problemReports.length > 0 && (
-              <View style={styles.readOnlyIndicator}>
-                <View style={styles.readOnlyRow}>
-                  <Icon source="lock" size={14} color="#666" />
-                  <Text variant="bodySmall" style={styles.readOnlyText}>
-                    Solo lectura - No puedes modificar reportes de días pasados
-                  </Text>
-                </View>
-              </View>
+            {isReadOnly && (
+              <Text variant="bodySmall" style={styles.readOnlyMessage}>
+                Solo lectura - No puedes modificar reportes de días pasados
+              </Text>
             )}
             
             <Button 
-              mode="outlined" 
-              icon="alert" 
-              onPress={reportProblem}
+              mode="contained" 
+              onPress={() => setShowProblemDialog(true)}
               style={styles.reportButton}
               disabled={isSubmittingReport || isReadOnly}
             >
@@ -2197,157 +2143,105 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             </Button>
           </Card.Content>
         </Card>
+
+        {/* Espacio adicional al final */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Problem Report Dialog */}
+      {/* Dialogs */}
       <ProblemReportDialog
         visible={showProblemDialog}
         onDismiss={() => setShowProblemDialog(false)}
-        onSubmit={handleSubmitProblemReport}
+        onSubmit={reportProblem}
         isSubmitting={isSubmittingReport}
       />
 
-      {/* Delete Report Confirmation Dialog */}
+      <NFCDialog
+        visible={showNFCDialog}
+        onDismiss={() => setShowNFCDialog(false)}
+        onSuccess={handleNFCSuccess}
+      />
+
+      <QRDialog
+        visible={showQRDialog}
+        onDismiss={() => setShowQRDialog(false)}
+        onSuccess={handleQRSuccess}
+      />
+
+      <SignatureDialog
+        visible={showSignatureDialog}
+        onDismiss={() => setShowSignatureDialog(false)}
+        onSave={handleSignatureSave}
+      />
+
       <Portal>
-        <Dialog 
-          visible={showDeleteReportDialog} 
-          onDismiss={handleCancelDeleteReport}
-          style={styles.deleteDialog}
-        >
-          <Dialog.Icon icon="delete-alert" />
-          <Dialog.Title style={styles.deleteDialogTitle}>
-            Eliminar reporte
-          </Dialog.Title>
+        <Dialog visible={showSignatureViewer} onDismiss={() => setShowSignatureViewer(false)}>
+          <Dialog.Title>Firma</Dialog.Title>
           <Dialog.Content>
-            <Text variant="bodyMedium" style={styles.deleteDialogContent}>
-              ¿Estás seguro de que quieres eliminar este reporte de problema?
-            </Text>
-            {reportToDelete && (
-              <View style={styles.reportPreview}>
-                <Icon
-                  source={getReportTypeIcon(reportToDelete.reportType)}
-                  size={16}
-                  color={getSeverityColor(reportToDelete.severity)}
-                />
-                <Text variant="bodySmall" style={styles.reportPreviewText}>
-                  {reportToDelete.title}
-                </Text>
-              </View>
-            )}
-            <Text variant="bodySmall" style={styles.deleteWarning}>
-              Esta acción no se puede deshacer.
-            </Text>
+            <SignatureViewer signature={currentSignatureData} />
           </Dialog.Content>
-          <Dialog.Actions style={styles.deleteDialogActions}>
-            <Button 
-              onPress={handleCancelDeleteReport}
-              disabled={isDeletingReport}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              mode="contained" 
-              buttonColor={theme.colors.error}
-              onPress={handleConfirmDeleteReport}
-              loading={isDeletingReport}
-              disabled={isDeletingReport}
-            >
-              Eliminar
-            </Button>
+          <Dialog.Actions>
+            <Button onPress={() => setShowSignatureViewer(false)}>Cerrar</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
 
-      {/* NFC Dialog */}
-      <NFCDialog
-        visible={showNFCDialog}
-        onDismiss={handleNFCDismiss}
-        onSuccess={handleNFCSuccess}
-        title={currentNFCSubtask?.evidenceRequirement?.title || 'Escanear NFC'}
-        description={currentNFCSubtask?.evidenceRequirement?.description || 'Acerca tu dispositivo al tag NFC para registrar la evidencia'}
-      />
-
-      {/* QR Dialog */}
-      <QRDialog
-        visible={showQRDialog}
-        onDismiss={handleQRDismiss}
-        onSuccess={handleQRSuccess}
-        title={currentQRSubtask?.evidenceRequirement?.title || 'Escanear QR'}
-        description={currentQRSubtask?.evidenceRequirement?.description || 'Apunta la cámara hacia el código QR para registrar la evidencia'}
-      />
-
-      {/* Signature Dialog */}
-      <SignatureDialog
-        visible={showSignatureDialog}
-        onDismiss={handleSignatureDismiss}
-        onSuccess={handleSignatureSuccess}
-        title={currentSignatureSubtask?.evidenceRequirement?.title || 'Firma Digital'}
-        description={currentSignatureSubtask?.evidenceRequirement?.description || 'Dibuja tu firma en el cuadro de abajo'}
-      />
-
-      {/* Signature Viewer */}
-      <SignatureViewer
-        visible={showSignatureViewer}
-        onDismiss={handleSignatureViewerDismiss}
-        signatureData={currentSignatureData}
-        title="Firma Digital Capturada"
-      />
-
-      {/* Location Dialog */}
       <LocationDialog
         visible={showLocationDialog}
-        onDismiss={handleLocationDismiss}
-        onSuccess={handleLocationSuccess}
-        title={currentLocationSubtask?.evidenceRequirement?.title || 'Obtener Ubicación'}
-        description={currentLocationSubtask?.evidenceRequirement?.description || 'Obteniendo tu ubicación actual mediante GPS'}
+        onDismiss={() => setShowLocationDialog(false)}
+        onSave={handleLocationSave}
       />
 
-      {/* Location Viewer */}
-      <LocationViewer
-        visible={showLocationViewer}
-        onDismiss={handleLocationViewerDismiss}
-        locationData={currentLocationData}
-        title="Ubicación Registrada"
-      />
+      <Portal>
+        <Dialog visible={showLocationViewer} onDismiss={() => setShowLocationViewer(false)}>
+          <Dialog.Title>Ubicación</Dialog.Title>
+          <Dialog.Content>
+            <LocationViewer location={currentLocationData} />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowLocationViewer(false)}>Cerrar</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
-      {/* Audio Dialog */}
       <AudioDialog
         visible={showAudioDialog}
-        onDismiss={handleAudioDismiss}
-        onSuccess={handleAudioSuccess}
-        title={currentAudioSubtask?.evidenceRequirement?.title || 'Grabar Audio'}
-        description={currentAudioSubtask?.evidenceRequirement?.description || 'Presiona grabar para capturar evidencia de audio'}
+        onDismiss={() => setShowAudioDialog(false)}
+        onSave={handleAudioSave}
       />
 
-      {/* Audio Viewer */}
-      <AudioViewer
-        visible={showAudioViewer}
-        onDismiss={handleAudioViewerDismiss}
-        audioData={currentAudioData}
-        title="Audio Registrado"
-      />
+      <Portal>
+        <Dialog visible={showAudioViewer} onDismiss={() => setShowAudioViewer(false)}>
+          <Dialog.Title>Audio</Dialog.Title>
+          <Dialog.Content>
+            <AudioViewer audio={currentAudioData} />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowAudioViewer(false)}>Cerrar</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
-      {/* Camera Dialog */}
       <CameraDialog
         visible={showCameraDialog}
-        onCancel={handleCameraDismiss}
-        onSuccess={handleMediaSuccess}
-        title={currentCameraSubtask?.evidenceRequirement?.title || 'Capturar Media'}
-        description={currentCameraSubtask?.evidenceRequirement?.description || 'Captura una foto o video como evidencia'}
-        config={{
-          mediaTypes: currentCameraSubtask?.evidenceRequirement?.config?.allowVideo ? 'both' : 'photo',
-          quality: 0.8,
-          videoMaxDuration: 60,
-          allowsEditing: true
-        }}
+        onDismiss={() => setShowCameraDialog(false)}
+        onCapture={handleCameraCapture}
       />
 
-      {/* Media Viewer */}
-      <MediaViewer
-        visible={showMediaViewer}
-        onDismiss={handleMediaViewerDismiss}
-        mediaData={currentMediaData}
-      />
+      <Portal>
+        <Dialog visible={showMediaViewer} onDismiss={() => setShowMediaViewer(false)}>
+          <Dialog.Title>Media</Dialog.Title>
+          <Dialog.Content>
+            <MediaViewer 
+              mediaType={currentMediaData?.type || 'image'}
+              mediaUri={currentMediaData?.uri || ''}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowMediaViewer(false)}>Cerrar</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </Surface>
   );
 };
@@ -2356,19 +2250,73 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 16,
+  appBar: {
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  headerTop: {
-    flexDirection: 'row',
+  appBarContent: {
+    flex: 1,
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    paddingHorizontal: 8,
   },
-  headerTitle: {
-    alignItems: 'flex-start',
+  appBarTop: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  appBarTitle: {
+    flex: 1,
+  },
+  appBarTitleText: {
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 28,
+  },
+  content: {
+    flex: 1,
+  },
+  taskInfo: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  description: {
+    marginBottom: 16,
+    lineHeight: 22,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  tagChip: {
+    alignSelf: 'flex-start',
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  taskMeta: {
+    gap: 8,
+  },
+  taskMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  taskProject: {
+    flex: 1,
+  },
+  taskLocation: {
+    flex: 1,
+  },
+  taskDueDate: {
+    flex: 1,
   },
   statusContainer: {
     flexDirection: 'row',
@@ -2380,12 +2328,13 @@ const styles = StyleSheet.create({
   priorityBadge: {
     alignSelf: 'flex-start',
   },
-  content: {
-    flex: 1,
-  },
   card: {
     margin: 16,
     marginBottom: 8,
+  },
+  timerContainer: {
+    alignItems: 'center',
+    gap: 12,
   },
   timerButton: {
     minWidth: 120,
@@ -2400,6 +2349,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     marginTop: 8,
+    height: 8,
   },
   subtask: {
     paddingVertical: 4,
@@ -2411,6 +2361,31 @@ const styles = StyleSheet.create({
   blockedSubtask: {
     paddingVertical: 4,
     opacity: 0.6,
+  },
+  evidenceRequirement: {
+    marginLeft: 16,
+    marginRight: 16,
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: 8,
+  },
+  evidenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  evidenceTitle: {
+    marginLeft: 8,
+    fontWeight: '600',
+    flex: 1,
+  },
+  evidenceDescription: {
+    marginBottom: 8,
+    opacity: 0.7,
+  },
+  evidenceActions: {
+    alignItems: 'flex-start',
   },
   evidenceActionButton: {
     alignSelf: 'center',
@@ -2463,10 +2438,10 @@ const styles = StyleSheet.create({
   problemItem: {
     marginBottom: 16,
     padding: 16,
-    backgroundColor: 'rgba(255,0,0,0.05)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 0, 0, 0.05)',
+    borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: 'rgba(255,0,0,0.3)',
+    borderLeftColor: '#FF5722',
   },
   problemHeader: {
     flexDirection: 'row',
@@ -2475,199 +2450,41 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   problemHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
     flex: 1,
-    marginRight: 12,
+    gap: 4,
   },
-  problemHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  deleteReportButton: {
-    margin: 0,
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
-    borderColor: 'rgba(244, 67, 54, 0.2)',
-  },
-  problemTitle: {
-    marginLeft: 8,
-    fontWeight: '600',
-    flex: 1,
+  problemDate: {
+    opacity: 0.6,
   },
   problemDescription: {
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  problemFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 8,
-  },
-  problemMeta: {
-    opacity: 0.7,
-    flex: 1,
-  },
-  resolvedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  resolvedText: {
-    marginLeft: 4,
-    color: '#4CAF50',
-    fontWeight: '500',
-  },
-  resolutionContainer: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#4CAF50',
-  },
-  resolutionLabel: {
-    fontWeight: '600',
-    marginBottom: 4,
-    color: '#4CAF50',
-  },
-  resolutionText: {
-    lineHeight: 18,
   },
   severityChip: {
     alignSelf: 'flex-start',
   },
-  severityChipText: {
-    fontSize: 10,
-    fontWeight: '600',
+  reportButton: {
+    marginTop: 16,
   },
-  emptyText: {
+  emptyState: {
     textAlign: 'center',
     opacity: 0.6,
     marginVertical: 16,
   },
-  taskInfo: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  taskDescription: {
-    marginBottom: 12,
-  },
-  taskMeta: {
-    gap: 8,
-  },
-  taskMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  taskProject: {
-    color: '#2196F3',
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  taskLocation: {
-    color: '#4CAF50',
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  taskDueDate: {
-    color: '#666',
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  reportButton: {
-    marginTop: 16,
-  },
-  backButton: {
-    marginRight: 8,
-  },
-  timerSection: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  timerLabel: {
-    color: '#666',
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  timerDisplay: {
-    fontWeight: '700',
-  },
-  timerControls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  subtaskContainer: {
-    marginBottom: 12,
-  },
-  subtaskCheckContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 40,
-  },
-  evidenceInfo: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-  },
-  evidenceCompletedButton: {
-    alignSelf: 'center',
-    marginTop: 8,
-  },
-  evidenceCompletedButtonText: {
-    fontSize: 12,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  tagChip: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    marginBottom: 4,
-  },
-  tagText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  deleteDialog: {
-    borderRadius: 16,
-  },
-  deleteDialogTitle: {
+  readOnlyMessage: {
     textAlign: 'center',
-    color: '#d32f2f',
-    fontWeight: '600',
-  },
-  deleteDialogContent: {
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  reportPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 12,
-    gap: 8,
-  },
-  reportPreviewText: {
-    fontWeight: '500',
-    flex: 1,
-    textAlign: 'center',
-  },
-  deleteWarning: {
-    textAlign: 'center',
-    color: '#d32f2f',
-    fontWeight: '500',
+    opacity: 0.6,
+    marginVertical: 8,
     fontStyle: 'italic',
   },
-  deleteDialogActions: {
-    paddingTop: 8,
+  statusChip: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  bottomSpacer: {
+    height: 100,
   },
 }); 
