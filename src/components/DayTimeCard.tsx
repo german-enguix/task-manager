@@ -165,46 +165,26 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
 
       case TimesheetStatus.IN_PROGRESS:
         return (
-          <View style={styles.controlButtons}>
-            <Button
-              mode="outlined"
-              onPress={onPauseTimesheet}
-              style={styles.actionButton}
-              icon="pause"
-            >
-              Pausar
-            </Button>
-            <Button
-              mode="contained"
-              onPress={onFinishTimesheet}
-              style={styles.actionButton}
-              icon="check"
-            >
-              Finalizar
-            </Button>
-          </View>
+          <Button
+            mode="contained"
+            onPress={onPauseTimesheet}
+            style={styles.startButton}
+            icon="pause"
+          >
+            Pausar
+          </Button>
         );
 
       case TimesheetStatus.PAUSED:
         return (
-          <View style={styles.controlButtons}>
-            <Button
-              mode="contained"
-              onPress={onStartTimesheet}
-              style={styles.actionButton}
-              icon="play"
-            >
-              Reanudar
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={onFinishTimesheet}
-              style={styles.actionButton}
-              icon="check"
-            >
-              Finalizar
-            </Button>
-          </View>
+          <Button
+            mode="contained"
+            onPress={onStartTimesheet}
+            style={styles.startButton}
+            icon="play"
+          >
+            Reanudar
+          </Button>
         );
 
       default:
