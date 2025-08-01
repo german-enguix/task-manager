@@ -16,6 +16,7 @@ import { WorkDay, TimesheetStatus, DayStatus } from '@/types';
 
 interface DayTimeCardProps {
   workDay: WorkDay;
+  tasks: any[]; // Array de tareas del día
   onDateChange: (date: Date) => void;
   onStartTimesheet: () => void;
   onPauseTimesheet: () => void;
@@ -27,6 +28,7 @@ interface DayTimeCardProps {
 
 export const DayTimeCard: React.FC<DayTimeCardProps> = ({
   workDay,
+  tasks,
   onDateChange,
   onStartTimesheet,
   onPauseTimesheet,
@@ -51,17 +53,53 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     return Math.floor((currentTime.getTime() - timesheet.currentSessionStart.getTime()) / 1000);
   };
 
-  const getTotalDisplayDuration = (): number => {
-    // Si hay una sesión activa, sumar el tiempo de la sesión actual al tiempo total
+  // Calcular tiempo actual de tareas en ejecución
+  const getTasksCurrentTime = (): number => {
+    if (!tasks || tasks.length === 0) return 0;
+    
+    let totalTaskTime = 0;
+    
+    tasks.forEach(task => {
+      if (task.timer) {
+        // Sumar tiempo acumulado de la tarea
+        totalTaskTime += task.timer.totalElapsed || 0;
+        
+        // Si la tarea está corriendo, agregar tiempo de sesión actual
+        if (task.timer.isRunning && task.timer.currentSessionStart) {
+          const sessionTime = Math.floor((currentTime.getTime() - task.timer.currentSessionStart.getTime()) / 1000);
+          totalTaskTime += sessionTime;
+        }
+      }
+    });
+    
+    return totalTaskTime;
+  };
+
+  // Obtener número de tareas con timer activo
+  const getActiveTasksCount = (): number => {
+    if (!tasks || tasks.length === 0) return 0;
+    return tasks.filter(task => task.timer?.isRunning).length;
+  };
+
+  // Tiempo del día (independiente)
+  const getDayOnlyDuration = (): number => {
     const currentSessionDuration = timesheet.status === TimesheetStatus.IN_PROGRESS ? getCurrentSessionDuration() : 0;
-    const totalDuration = timesheet.totalDuration + currentSessionDuration;
+    return timesheet.totalDuration + currentSessionDuration;
+  };
+
+  const getTotalDisplayDuration = (): number => {
+    // Tiempo del día + tiempo de todas las tareas
+    const dayTime = getDayOnlyDuration();
+    const tasksTime = getTasksCurrentTime();
+    const totalDuration = dayTime + tasksTime;
     
     // Debug: log the calculation
-    if (timesheet.status === TimesheetStatus.IN_PROGRESS) {
-      console.log('⏰ Timer calculation:', {
-        totalDuration: timesheet.totalDuration,
-        currentSessionDuration,
-        finalTotal: totalDuration,
+    if (timesheet.status === TimesheetStatus.IN_PROGRESS || getActiveTasksCount() > 0) {
+      console.log('⏰ Combined timer calculation:', {
+        dayTime: dayTime,
+        tasksTime: tasksTime,
+        totalDuration: totalDuration,
+        activeTasksCount: getActiveTasksCount(),
         sessionStart: timesheet.currentSessionStart?.toLocaleTimeString(),
         currentTime: currentTime.toLocaleTimeString()
       });
@@ -217,15 +255,49 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
               <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
                 {formatDuration(getTotalDisplayDuration())}
               </Text>
-              {timesheet.status === TimesheetStatus.IN_PROGRESS && (
+              {(timesheet.status === TimesheetStatus.IN_PROGRESS || getActiveTasksCount() > 0) && (
                 <View style={styles.runningIndicator}>
                   <Icon source="play-circle" size={16} color={theme.colors.primary} />
                   <Text variant="bodySmall" style={[styles.runningText, { color: theme.colors.primary }]}>
-                    En marcha
+                    {timesheet.status === TimesheetStatus.IN_PROGRESS && getActiveTasksCount() > 0 
+                      ? `Día + ${getActiveTasksCount()} tarea${getActiveTasksCount() > 1 ? 's' : ''} activa${getActiveTasksCount() > 1 ? 's' : ''}`
+                      : timesheet.status === TimesheetStatus.IN_PROGRESS 
+                      ? 'Timer del día activo'
+                      : `${getActiveTasksCount()} tarea${getActiveTasksCount() > 1 ? 's' : ''} activa${getActiveTasksCount() > 1 ? 's' : ''}`
+                    }
                   </Text>
                 </View>
               )}
             </View>
+            
+            {/* Desglose de tiempo */}
+            {(getDayOnlyDuration() > 0 || getTasksCurrentTime() > 0) && (
+              <View style={styles.timeBreakdown}>
+                {getDayOnlyDuration() > 0 && (
+                  <View style={styles.breakdownItem}>
+                    <Icon source="calendar-today" size={12} color="#666" />
+                    <Text variant="bodySmall" style={styles.breakdownText}>
+                      Día: {formatDuration(getDayOnlyDuration())}
+                    </Text>
+                    {timesheet.status === TimesheetStatus.IN_PROGRESS && (
+                      <Icon source="play" size={10} color={theme.colors.primary} />
+                    )}
+                  </View>
+                )}
+                {getTasksCurrentTime() > 0 && (
+                  <View style={styles.breakdownItem}>
+                    <Icon source="clipboard-text" size={12} color="#666" />
+                    <Text variant="bodySmall" style={styles.breakdownText}>
+                      Tareas: {formatDuration(getTasksCurrentTime())}
+                    </Text>
+                    {getActiveTasksCount() > 0 && (
+                      <Icon source="play" size={10} color={theme.colors.primary} />
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+            
             <Text variant="bodySmall" style={styles.timerLabel}>
               Tiempo total trabajado
             </Text>
@@ -348,5 +420,20 @@ const styles = StyleSheet.create({
   completedText: {
     color: '#4CAF50',
     fontWeight: '500',
+  },
+  timeBreakdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 8,
+  },
+  breakdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  breakdownText: {
+    fontSize: 12,
+    color: '#666',
   },
 }); 

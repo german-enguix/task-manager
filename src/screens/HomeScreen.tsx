@@ -24,6 +24,7 @@ interface HomeScreenProps {
   onExternalNFCHandled?: () => void;
   simulatedExternalQR?: any;
   onExternalQRHandled?: () => void;
+  onTaskTimerChange?: () => void; // Callback para cambios en timers de tareas
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
@@ -36,7 +37,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   simulatedExternalNFC,
   onExternalNFCHandled,
   simulatedExternalQR,
-  onExternalQRHandled
+  onExternalQRHandled,
+  onTaskTimerChange
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -69,6 +71,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   
   // Estado para el dialog de QR externo simulado
   const [isQRExternalDialogVisible, setIsQRExternalDialogVisible] = useState(false);
+
+  // Estado para forzar re-render del timer cuando cambien timers de tareas
+  const [timerUpdateTrigger, setTimerUpdateTrigger] = useState(0);
+
+  // Función para notificar cambios en timers de tareas
+  const handleTaskTimerChange = () => {
+    console.log('⏰ Task timer change detected, updating day timer display');
+    setTimerUpdateTrigger(prev => prev + 1);
+    
+    // Notificar al componente padre si hay callback
+    if (onTaskTimerChange) {
+      onTaskTimerChange();
+    }
+  };
 
   // Función para obtener la clave de fecha
   const getDateKey = (date: Date) => {
@@ -898,6 +914,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             ) : workDay ? (
               <DayTimeCard
                 workDay={workDay}
+                tasks={tasks}
                 onDateChange={handleDateChange}
                 onStartTimesheet={handleStartTimesheet}
                 onPauseTimesheet={handlePauseTimesheet}
