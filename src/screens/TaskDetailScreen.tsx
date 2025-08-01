@@ -2046,7 +2046,10 @@ const addTextComment = async () => {
                         {comment.authorName}
                       </Text>
                       <Text variant="bodySmall" style={styles.commentDate}>
-                        {comment.createdAt.toLocaleDateString('es-ES')} {comment.createdAt.toLocaleTimeString('es-ES')}
+                        {comment.createdAt ? 
+                          `${comment.createdAt.toLocaleDateString('es-ES')} ${comment.createdAt.toLocaleTimeString('es-ES')}` : 
+                          'Fecha no disponible'
+                        }
                       </Text>
                     </View>
                     {comment.userId === currentUserId && (
@@ -2130,7 +2133,10 @@ const addTextComment = async () => {
                         {getSeverityText(report.severity)}
                       </Chip>
                       <Text variant="bodySmall" style={styles.problemDate}>
-                        {report.createdAt.toLocaleDateString('es-ES')} - {report.reporterName}
+                        {report.createdAt ? 
+                          `${report.createdAt.toLocaleDateString('es-ES')} - ${report.reporterName}` : 
+                          `Sin fecha - ${report.reporterName}`
+                        }
                       </Text>
                     </View>
                     {report.reporterId === currentUserId && (
