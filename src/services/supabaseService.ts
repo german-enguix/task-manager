@@ -1676,6 +1676,7 @@ export class SupabaseService {
   }
 
   async deleteTaskComment(commentId: string): Promise<void> {
+    console.log('🚨 INICIO deleteTaskComment - commentId:', commentId);
     try {
       console.log('🗑️ Deleting comment:', commentId);
       
@@ -1685,12 +1686,16 @@ export class SupabaseService {
         throw new Error('Usuario no autenticado');
       }
 
+      console.log('🔍 Current user for deletion:', currentUser.id);
+
       // Verificar que el comentario pertenece al usuario actual
       const { data: comment, error: fetchError } = await supabase
         .from('task_comments')
         .select('user_id, content')
         .eq('id', commentId)
         .single();
+
+      console.log('🔍 Comment fetch result:', { comment, fetchError });
 
       if (fetchError) {
         console.error('❌ Error fetching comment for deletion:', fetchError);
@@ -1701,6 +1706,12 @@ export class SupabaseService {
         throw new Error('Comentario no encontrado');
       }
 
+      console.log('🔍 Comment ownership verification:', {
+        commentUserId: comment.user_id,
+        currentUserId: currentUser.id,
+        matches: comment.user_id === currentUser.id
+      });
+
       if (comment.user_id !== currentUser.id) {
         throw new Error('Solo puedes borrar tus propios comentarios');
       }
@@ -1708,19 +1719,31 @@ export class SupabaseService {
       console.log('✅ User authorized to delete comment:', comment.content.substring(0, 30) + '...');
 
       // Proceder con el borrado
+      console.log('🚀 Attempting to delete from database...');
       const { error } = await supabase
         .from('task_comments')
         .delete()
         .eq('id', commentId);
 
+      console.log('🔍 Delete result:', { error });
+
       if (error) {
-        console.error('❌ Error deleting comment:', error);
+        console.error('❌ Supabase delete error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
 
-      console.log('✅ Comment deleted successfully:', commentId);
+      console.log('✅ Comment deleted successfully from database:', commentId);
     } catch (error) {
-      console.error('❌ Error deleting task comment:', error);
+      console.error('❌ Error deleting task comment:', {
+        error: error,
+        message: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }

@@ -20,8 +20,7 @@ import {
   Icon,
   TextInput,
   Portal,
-  Dialog,
-  Appbar
+  Dialog
 } from 'react-native-paper';
 import { 
   Task, 
@@ -38,7 +37,6 @@ import {
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
 import { isDayReadOnly } from '@/utils/dateUtils';
-import { formatDuration } from '@/utils';
 import { ProblemReportDialog, NFCDialog, QRDialog, LocationDialog, LocationViewer, AudioDialog, AudioViewer, SignatureDialog, SignatureViewer, CameraDialog, MediaViewer } from '@/components';
 
 interface TaskDetailScreenProps {
@@ -82,6 +80,10 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [showDeleteReportDialog, setShowDeleteReportDialog] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<TaskProblemReport | null>(null);
   const [isDeletingReport, setIsDeletingReport] = useState(false);
+  
+  // Estados para dialog de borrar comentarios
+  const [showDeleteCommentDialog, setShowDeleteCommentDialog] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<{ id: string; content: string } | null>(null);
   const [isDeletingComment, setIsDeletingComment] = useState(false);
 
   useEffect(() => {
@@ -448,9 +450,24 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     );
   };
 
-  const handleNFCSuccess = (data: any) => {
-    console.log('NFC Success:', data);
+  const handleNFCSuccess = async () => {
+    if (!currentNFCSubtask || !task) return;
+    
+    // Cerrar el diálogo NFC
     setShowNFCDialog(false);
+    
+    try {
+      // Simular la captura de evidencia NFC y marcar como completada
+      await simulateNFCEvidenceCapture(currentNFCSubtask);
+      
+      console.log('✅ NFC evidence captured and subtask completed');
+    } catch (error) {
+      console.error('❌ Error completing NFC evidence:', error);
+      Alert.alert('Error', 'No se pudo completar la evidencia NFC. Inténtalo de nuevo.');
+    } finally {
+      // Limpiar la subtarea actual
+      setCurrentNFCSubtask(null);
+    }
   };
 
   const handleNFCDismiss = () => {
@@ -458,9 +475,24 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setCurrentNFCSubtask(null);
   };
 
-  const handleQRSuccess = (data: any) => {
-    console.log('QR Success:', data);
+  const handleQRSuccess = async () => {
+    if (!currentQRSubtask || !task) return;
+    
+    // Cerrar el diálogo QR
     setShowQRDialog(false);
+    
+    try {
+      // Simular la captura de evidencia QR y marcar como completada
+      await simulateQREvidenceCapture(currentQRSubtask);
+      
+      console.log('✅ QR evidence captured and subtask completed');
+    } catch (error) {
+      console.error('❌ Error completing QR evidence:', error);
+      Alert.alert('Error', 'No se pudo completar la evidencia QR. Inténtalo de nuevo.');
+    } finally {
+      // Limpiar la subtarea actual
+      setCurrentQRSubtask(null);
+    }
   };
 
   const handleQRDismiss = () => {
@@ -1425,11 +1457,16 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       return 'unchecked'; // Mantener unchecked pero se mostrará candado
     }
     
-      // En cualquier otro caso, normal
-  return 'unchecked';
-};
+    // En cualquier otro caso, normal
+    return 'unchecked';
+  };
 
-const addTextComment = async () => {
+  const isSubtaskBlocked = (subtask: TaskSubtask) => {
+    // Bloqueado solo si: evidencia requerida + no hay evidencia + no está completada
+    return subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted;
+  };
+
+  const addTextComment = async () => {
     console.log('🔄 addTextComment called');
     
     if (isReadOnly) {
@@ -1532,41 +1569,25 @@ const addTextComment = async () => {
   };
 
   const deleteComment = async (commentId: string, commentContent: string) => {
-    Alert.alert(
-      'Borrar Comentario',
-      `¿Estás seguro de que quieres borrar este comentario?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Borrar', style: 'destructive', onPress: async () => {
-          try {
-            console.log('🗑️ Deleting comment:', commentId);
-            
-            // Borrar comentario de la base de datos
-            await supabaseService.deleteTaskComment(commentId);
-            
-            // Actualizar estado local - remover el comentario borrado
-            if (task) {
-              const updatedTask = {
-                ...task,
-                comments: task.comments.filter(comment => comment.id !== commentId)
-              };
-              setTask(updatedTask);
-            }
-            
-            console.log('✅ Comment deleted successfully');
-            Alert.alert('Éxito', 'Comentario borrado correctamente');
-          } catch (error) {
-            console.error('❌ Error deleting comment:', error);
-            Alert.alert('Error', `No se pudo borrar el comentario: ${error.message || error}`);
-          }
-        }},
-      ]
-    );
+    console.log('🗑️ deleteComment called with:', { commentId, commentContent: commentContent.substring(0, 30) + '...' });
+    console.log('🔍 Current state:', { currentUserId, isReadOnly });
+    
+    if (isReadOnly) {
+      console.log('❌ Delete comment blocked: read-only mode (past day)');
+      Alert.alert('Acción no permitida', 'No puedes borrar comentarios en días pasados.');
+      return;
+    }
+    
+    // Mostrar dialog de confirmación
+    console.log('📋 Setting up delete comment dialog...');
+    setCommentToDelete({ id: commentId, content: commentContent });
+    setShowDeleteCommentDialog(true);
   };
 
   const isCommentAuthor = (comment: TaskComment): boolean => {
     if (!currentUserId) {
       console.log('⚠️ No current user ID available for comment ownership check');
+      console.log('🔍 Current user state:', currentUserId);
       return false;
     }
     
@@ -1576,7 +1597,11 @@ const addTextComment = async () => {
       commentUserId: comment.userId,
       currentUserId: currentUserId,
       isAuthor: isAuthor,
-      author: comment.author
+      author: comment.author,
+      commentUserIdType: typeof comment.userId,
+      currentUserIdType: typeof currentUserId,
+      strictEquals: comment.userId === currentUserId,
+      looseEquals: comment.userId == currentUserId
     });
     
     return isAuthor;
@@ -1694,15 +1719,15 @@ const addTextComment = async () => {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return '#d32f2f';
-      case 'high': return '#f57c00';
-      case 'medium': return '#fbc02d';
-      case 'low': return '#388e3c';
-      default: return '#666';
+      case 'critical': return theme.colors.error;
+      case 'high': return theme.colors.secondary;
+      case 'medium': return theme.colors.primary;
+      case 'low': return theme.colors.outline;
+      default: return theme.colors.outline;
     }
   };
 
-  const getSeverityText = (severity: string) => {
+  const getSeverityLabel = (severity: string) => {
     switch (severity) {
       case 'critical': return 'Crítico';
       case 'high': return 'Alto';
@@ -1726,101 +1751,49 @@ const addTextComment = async () => {
     }
   };
 
-  // Helper functions for subtasks
-  const getSubtaskStyle = (subtask: TaskSubtask) => {
-    if (subtask.isCompleted) {
-      return [styles.subtask, styles.completedSubtask];
-    }
-    if (isSubtaskBlocked(subtask)) {
-      return [styles.subtask, styles.blockedSubtask];
-    }
-    return styles.subtask;
+  // Funciones para el dialog de borrar comentarios
+  const handleCancelDeleteComment = () => {
+    console.log('🚫 User cancelled comment deletion dialog');
+    setShowDeleteCommentDialog(false);
+    setCommentToDelete(null);
   };
 
-  const getSubtaskRightElement = (subtask: TaskSubtask) => {
-    if (isSubtaskBlocked(subtask)) {
-      return (
-        <Icon 
-          source="lock" 
-          size={20} 
-          color={theme.colors.outline}
-        />
-      );
-    }
-    return null;
-  };
+  const handleConfirmDeleteComment = async () => {
+    if (!commentToDelete || !task) return;
 
-  const isSubtaskBlocked = (subtask: TaskSubtask) => {
-    return subtask.requiredEvidence?.some(evidence => evidence.isRequired) && 
-           !subtask.evidence && 
-           !subtask.isCompleted;
-  };
-
-  // Helper functions for evidence
-  const getEvidenceColor = (evidence: any, subtask: TaskSubtask) => {
-    return hasEvidence(evidence, subtask) ? '#4CAF50' : theme.colors.outline;
-  };
-
-  const getEvidenceTitle = (evidence: any) => {
-    return evidence.title || evidence.description || 'Evidencia requerida';
-  };
-
-  const getEvidenceStatus = (evidence: any, subtask: TaskSubtask) => {
-    return hasEvidence(evidence, subtask);
-  };
-
-  const hasEvidence = (evidence: any, subtask: TaskSubtask) => {
-    return !!subtask.evidence && subtask.evidence.type === evidence.type;
-  };
-
-  const viewEvidence = (evidence: any, subtask: TaskSubtask) => {
-    // Implementar visualización de evidencia
-    console.log('Viewing evidence:', evidence, subtask);
-  };
-
-  const captureEvidence = (evidence: any, subtask: TaskSubtask) => {
-    // Implementar captura de evidencia
-    console.log('Capturing evidence:', evidence, subtask);
-  };
-
-  const getEvidenceCTA = (evidence: any) => {
-    switch (evidence.type) {
-      case 'photo': return 'Tomar foto';
-      case 'video': return 'Grabar video';
-      case 'signature': return 'Firmar';
-      case 'location': return 'Obtener ubicación';
-      case 'audio': return 'Grabar audio';
-      case 'nfc': return 'Escanear NFC';
-      case 'qr': return 'Escanear QR';
-      default: return 'Capturar evidencia';
+    setIsDeletingComment(true);
+    
+    try {
+      console.log('✅ User confirmed comment deletion - proceeding...');
+      console.log('🗑️ Deleting comment:', commentToDelete.id);
+      console.log('🔍 About to call supabaseService.deleteTaskComment...');
+      
+      // Borrar comentario de la base de datos
+      await supabaseService.deleteTaskComment(commentToDelete.id);
+      
+      console.log('🎉 supabaseService.deleteTaskComment completed successfully');
+      
+      // Actualizar estado local - remover el comentario borrado
+      const updatedTask = {
+        ...task,
+        comments: task.comments.filter(comment => comment.id !== commentToDelete.id)
+      };
+      setTask(updatedTask);
+      console.log('🔄 Local task state updated, new comment count:', updatedTask.comments.length);
+      
+      console.log('✅ Comment deleted and local state updated');
+      Alert.alert('Éxito', 'Comentario borrado correctamente.');
+      
+    } catch (error) {
+      console.error('❌ Error deleting comment:', error);
+      console.error('❌ Error details:', error.message, error.stack);
+      Alert.alert('Error', `No se pudo borrar el comentario: ${error.message || error}`);
+    } finally {
+      setIsDeletingComment(false);
+      setShowDeleteCommentDialog(false);
+      setCommentToDelete(null);
     }
   };
-
-  const handleSignatureSave = (signature: string) => {
-    console.log('Signature saved:', signature);
-    setCurrentSignatureData(signature);
-    setShowSignatureDialog(false);
-  };
-
-  const handleLocationSave = (location: any) => {
-    console.log('Location saved:', location);
-    setCurrentLocationData(location);
-    setShowLocationDialog(false);
-  };
-
-  const handleAudioSave = (audio: any) => {
-    console.log('Audio saved:', audio);
-    setCurrentAudioData(audio);
-    setShowAudioDialog(false);
-  };
-
-  const handleCameraCapture = (media: any) => {
-    console.log('Camera capture:', media);
-    setCurrentMediaData(media);
-    setShowCameraDialog(false);
-  };
-
-
 
   if (!task) {
     return (
@@ -1836,19 +1809,17 @@ const addTextComment = async () => {
 
   return (
     <Surface style={styles.container}>
-      {/* AppBar Sticky - Medium Flexible */}
-      <Appbar.Header 
-        mode="medium" 
-        style={styles.appBar}
-        statusBarHeight={0}
-      >
-        {/* Botón de volver */}
-        <Appbar.BackAction onPress={onGoBack} />
-        
-        {/* Contenido del AppBar */}
-        <View style={styles.appBarContent}>
-          {/* Chips de estado en la parte superior derecha */}
-          <View style={styles.appBarTop}>
+      <ScrollView style={styles.content}>
+        {/* Header integrado */}
+        <View style={styles.header}>
+          {/* Fila superior: botón atrás y badges */}
+          <View style={styles.headerTop}>
+            <IconButton
+              icon="chevron-left"
+              size={24}
+              onPress={onGoBack}
+              style={styles.backButton}
+            />
             <View style={styles.statusContainer}>
               {isReadOnly && (
                 <Chip 
@@ -1880,21 +1851,17 @@ const addTextComment = async () => {
             </View>
           </View>
           
-          {/* Título */}
-          <View style={styles.appBarTitle}>
-            <Appbar.Content 
-              title={task.title}
-              titleStyle={styles.appBarTitleText}
-            />
+          {/* Título ocupando todo el ancho */}
+          <View style={styles.headerTitle}>
+            <Text variant="headlineMedium">
+              {task.title}
+            </Text>
           </View>
         </View>
-      </Appbar.Header>
 
-      {/* Contenido Scrolleable */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Información de la tarea */}
         <View style={styles.taskInfo}>
-          <Text variant="bodyMedium" style={styles.description}>
+          <Text variant="bodyMedium" style={styles.taskDescription}>
             {task.description}
           </Text>
           
@@ -1942,39 +1909,31 @@ const addTextComment = async () => {
 
         {/* Temporizador */}
         <Card style={styles.card}>
-          <Card.Title title="Temporizador de Trabajo" />
           <Card.Content>
-            <View style={styles.timerContainer}>
-              <Text variant="headlineSmall">{timerDisplay}</Text>
+            {/* Temporizador principal */}
+            <View style={styles.timerSection}>
+              <Text variant="bodySmall" style={styles.timerLabel}>
+                {task.timer.sessions.length} sesiones registradas
+              </Text>
+              <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
+                {timerDisplay}
+              </Text>
+            </View>
+            
+            {/* Controles del temporizador */}
+            <View style={styles.timerControls}>
               <Button 
-                mode="contained" 
+                mode={task.timer.isRunning ? "outlined" : "contained"}
                 onPress={toggleTimer}
+                icon={task.timer.isRunning ? "pause" : "play"}
                 style={styles.timerButton}
                 disabled={isReadOnly}
               >
-                {isReadOnly ? 'Timer - Solo lectura' : 
-                 task.timer?.isRunning ? 'Pausar' : 'Iniciar'}
+                {isReadOnly 
+                  ? 'Timer - Solo lectura' 
+                  : (task.timer.isRunning ? 'Pausar' : 'Iniciar temporizador')
+                }
               </Button>
-              <Text variant="bodySmall" style={styles.timerInfo}>
-                {task.timer?.totalElapsed ? `Total acumulado: ${formatDuration(task.timer.totalElapsed)}` : 'No hay tiempo registrado'}
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Progreso de la tarea */}
-        <Card style={styles.card}>
-          <Card.Title title="Progreso de la Tarea" />
-          <Card.Content>
-            <View style={styles.progressContainer}>
-              <Text variant="bodyLarge">
-                {completedSubtasks} de {totalSubtasks} subtareas completadas
-              </Text>
-              <ProgressBar 
-                progress={progress} 
-                style={styles.progressBar}
-                color={progress === 1 ? theme.colors.primary : theme.colors.secondary}
-              />
             </View>
           </Card.Content>
         </Card>
@@ -1983,243 +1942,304 @@ const addTextComment = async () => {
         <Card style={styles.card}>
           <Card.Title title="Subtareas" />
           <Card.Content>
-            {task.subtasks.map((subtask, index) => (
-              <View key={subtask.id}>
+            <View style={styles.progressContainer}>
+              <Text variant="bodyMedium">
+                {completedSubtasks} de {totalSubtasks} completadas
+              </Text>
+              <ProgressBar progress={progress} style={styles.progressBar} />
+            </View>
+            
+            {task.subtasks.map((subtask) => (
+              <View key={subtask.id} style={styles.subtaskContainer}>
                 <List.Item
                   title={subtask.title}
                   description={subtask.description}
-                  style={getSubtaskStyle(subtask)}
                   left={() => (
-                    <Checkbox
-                      status={subtask.isCompleted ? 'checked' : 'unchecked'}
-                      onPress={() => toggleSubtask(subtask.id)}
-                      disabled={isReadOnly}
-                    />
-                  )}
-                  right={() => getSubtaskRightElement(subtask)}
-                />
-                
-                {/* Evidencia requerida */}
-                {subtask.evidenceRequirement && (
-                  <View style={styles.evidenceRequirement}>
-                    <View style={styles.evidenceHeader}>
-                      <Icon 
-                        source={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)} 
-                        size={16} 
-                        color={subtask.evidence ? '#4CAF50' : theme.colors.outline}
-                      />
-                      <Text variant="bodySmall" style={styles.evidenceTitle}>
-                        {subtask.evidenceRequirement.title || getEvidenceTypeName(subtask.evidenceRequirement.type)}
-                      </Text>
-                      {subtask.evidence && (
+                    <View style={styles.subtaskCheckContainer}>
+                      {isSubtaskBlocked(subtask) ? (
                         <Icon 
-                          source="check-circle" 
-                          size={16} 
-                          color="#4CAF50" 
+                          source="lock" 
+                          size={24} 
+                          color={theme.colors.outline}
+                        />
+                      ) : (
+                        <Checkbox
+                          status={getSubtaskCheckboxStatus(subtask)}
+                          onPress={() => toggleSubtask(subtask.id)}
+                          disabled={isReadOnly}
                         />
                       )}
                     </View>
-                    
-                    <Text variant="bodySmall" style={styles.evidenceDescription}>
-                      {subtask.evidenceRequirement.description}
-                    </Text>
-                    
-                    {subtask.evidence ? (
-                      <View style={styles.evidenceActions}>
-                        <Button 
-                          mode="outlined" 
-                          onPress={() => {
-                            // Usar las funciones originales de visualización
-                            if (subtask.evidenceRequirement!.type === EvidenceType.SIGNATURE) {
-                              setCurrentSignatureData(subtask.evidence.data);
-                              setShowSignatureViewer(true);
-                            } else if (subtask.evidenceRequirement!.type === EvidenceType.LOCATION) {
-                              setCurrentLocationData(subtask.evidence.data);
-                              setShowLocationViewer(true);
-                            } else if (subtask.evidenceRequirement!.type === EvidenceType.AUDIO) {
-                              setCurrentAudioData(subtask.evidence.data);
-                              setShowAudioViewer(true);
-                            } else if (subtask.evidenceRequirement!.type === EvidenceType.PHOTO_VIDEO) {
-                              setCurrentMediaData(subtask.evidence.data);
-                              setShowMediaViewer(true);
-                            }
-                          }}
-                          style={styles.evidenceActionButton}
-                          compact
-                        >
-                          Ver evidencia
-                        </Button>
-                      </View>
+                  )}
+                  style={[
+                    styles.subtask,
+                    subtask.isCompleted && styles.completedSubtask,
+                    isSubtaskBlocked(subtask) && styles.blockedSubtask
+                  ]}
+                />
+                
+                {/* CTA de evidencia */}
+                {subtask.evidenceRequirement && (
+                  <View style={styles.evidenceInfo}>
+                    {(() => {
+                      // DEBUG: Logging para verificar estado de evidencia
+                      const hasEvidence = !!subtask.evidence;
+                      console.log(`🔍 Rendering subtask ${subtask.id}: hasEvidence=${hasEvidence}, evidenceType=${subtask.evidence?.type}`);
+                      return hasEvidence;
+                    })() ? (
+                      <Button 
+                        mode="outlined"
+                        icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
+                        disabled={
+                          (subtask.evidenceRequirement.type === EvidenceType.SIGNATURE && 
+                           (!subtask.evidence.data || 
+                            typeof subtask.evidence.data !== 'string' || 
+                            subtask.evidence.data.trim() === '')) ||
+                          (subtask.evidenceRequirement.type !== EvidenceType.SIGNATURE && 
+                           subtask.evidenceRequirement.type !== EvidenceType.LOCATION &&
+                           subtask.evidenceRequirement.type !== EvidenceType.AUDIO &&
+                           subtask.evidenceRequirement.type !== EvidenceType.PHOTO_VIDEO &&
+                           subtask.evidenceRequirement.type !== EvidenceType.NFC &&
+                           subtask.evidenceRequirement.type !== EvidenceType.QR)
+                        }
+                        onPress={
+                          subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
+                            ? () => handleViewSignature(subtask)
+                            : subtask.evidenceRequirement.type === EvidenceType.LOCATION
+                            ? () => handleViewLocation(subtask)
+                            : subtask.evidenceRequirement.type === EvidenceType.AUDIO
+                            ? () => handleViewAudio(subtask)
+                            : subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO
+                            ? () => handleViewMedia(subtask)
+                            : undefined
+                        }
+                        style={styles.evidenceCompletedButton}
+                        labelStyle={styles.evidenceCompletedButtonText}
+                      >
+                        {subtask.evidenceRequirement.type === EvidenceType.SIGNATURE 
+                          ? 'Ver Firma' 
+                          : subtask.evidenceRequirement.type === EvidenceType.LOCATION
+                          ? 'Ver Ubicación'
+                          : subtask.evidenceRequirement.type === EvidenceType.AUDIO
+                          ? 'Ver Audio'
+                          : subtask.evidenceRequirement.type === EvidenceType.PHOTO_VIDEO
+                          ? (subtask.evidence?.data?.type === 'video' ? 'Ver Video' : 'Ver Imagen')
+                          : subtask.evidenceRequirement.type === EvidenceType.QR
+                          ? 'Evidencia completada'
+                          : subtask.evidenceRequirement.type === EvidenceType.NFC
+                          ? 'Evidencia completada'
+                          : 'Evidencia completada'}
+                      </Button>
                     ) : (
-                      <View style={styles.evidenceActions}>
-                        <Button 
-                          mode="contained" 
-                          onPress={() => handleSubtaskEvidence(subtask)}
-                          style={styles.evidenceActionButton}
-                          compact
-                          disabled={isReadOnly}
-                        >
-                          {isReadOnly ? 'Solo lectura' : getSubtaskEvidenceActionText(subtask.evidenceRequirement)}
-                        </Button>
-                      </View>
+                      <Button 
+                        mode={subtask.evidenceRequirement.isRequired ? "contained" : "outlined"}
+                        icon={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)}
+                        onPress={() => handleSubtaskEvidence(subtask)}
+                        style={styles.evidenceActionButton}
+                        buttonColor={subtask.evidenceRequirement.isRequired ? theme.colors.error : undefined}
+                        disabled={isReadOnly}
+                      >
+                        {isReadOnly 
+                          ? 'Solo lectura' 
+                          : getSubtaskEvidenceActionText(subtask.evidenceRequirement)
+                        }
+                      </Button>
                     )}
                   </View>
                 )}
-                
-                {index < task.subtasks.length - 1 && <Divider />}
               </View>
             ))}
           </Card.Content>
         </Card>
 
+
+
         {/* Comentarios */}
         <Card style={styles.card}>
           <Card.Title title="Comentarios" />
           <Card.Content>
-            {task.comments && task.comments.length > 0 ? (
-              task.comments.map((comment) => (
+            {task.comments.length > 0 ? (
+              task.comments.map((comment) => {
+                // Log temporal para debugging
+                console.log('🔍 DEBUG: Comment in UI:', {
+                  commentId: comment.id,
+                  author: comment.author,
+                  userId: comment.userId,
+                  content: comment.content.substring(0, 30) + '...',
+                  isAuthor: isCommentAuthor(comment),
+                  currentUserId: currentUserId,
+                  isReadOnly: isReadOnly
+                });
+                
+                return (
                 <View key={comment.id} style={styles.commentItem}>
                   <View style={styles.commentHeader}>
                     <View style={styles.commentHeaderLeft}>
-                      <Text variant="bodyMedium" style={styles.commentAuthor}>
-                        {comment.authorName}
+                      <Text variant="bodySmall" style={styles.commentAuthor}>
+                        {comment.author}
                       </Text>
                       <Text variant="bodySmall" style={styles.commentDate}>
-                        {comment.createdAt ? 
-                          `${comment.createdAt.toLocaleDateString('es-ES')} ${comment.createdAt.toLocaleTimeString('es-ES')}` : 
-                          'Fecha no disponible'
-                        }
+                        {comment.createdAt.toLocaleDateString('es-ES')}
                       </Text>
                     </View>
-                    {comment.userId === currentUserId && (
+                    {isCommentAuthor(comment) && !isReadOnly && (
                       <IconButton
                         icon="delete"
-                        size={20}
+                        size={18}
+                        iconColor={theme.colors.error}
                         onPress={() => deleteComment(comment.id, comment.content)}
                         style={styles.deleteButton}
-                        disabled={isDeletingComment || isReadOnly}
                       />
                     )}
                   </View>
-                  
-                  {comment.type === 'text' ? (
-                    <Text variant="bodyMedium">{comment.content}</Text>
-                  ) : (
-                    <View>
-                      <Chip 
-                        mode="outlined" 
-                        style={styles.voiceChip}
-                        icon="microphone"
-                        onPress={() => playVoiceComment(comment.content)}
-                      >
-                        Mensaje de voz
-                      </Chip>
-                    </View>
+                  <Text variant="bodyMedium">{comment.content}</Text>
+                  {comment.type === CommentType.VOICE && (
+                    <Chip icon="microphone" mode="outlined" style={styles.voiceChip}>
+                      Nota de voz
+                    </Chip>
                   )}
                 </View>
-              ))
+                );
+              })
             ) : (
-              <Text variant="bodyMedium" style={styles.emptyState}>
-                No hay comentarios aún
+              <Text variant="bodyMedium" style={styles.emptyText}>
+                No hay comentarios registrados
               </Text>
             )}
             
-            {/* Input para nuevos comentarios */}
             <View style={styles.commentInputContainer}>
               <TextInput
                 mode="outlined"
-                placeholder={isReadOnly ? "Solo lectura - No puedes comentar" : "Escribe un comentario..."}
+                placeholder={isReadOnly ? "Solo lectura - No puedes agregar comentarios" : "Escribe un comentario..."}
                 value={commentText}
                 onChangeText={setCommentText}
+                onSubmitEditing={addTextComment}
+                returnKeyType="send"
                 style={styles.commentInput}
-                multiline
-                numberOfLines={2}
+                dense
                 disabled={isReadOnly}
               />
               <IconButton
                 icon="send"
-                size={24}
+                mode="contained"
                 onPress={addTextComment}
-                style={styles.sendButton}
                 disabled={isReadOnly || commentText.trim() === ''}
+                style={styles.sendButton}
+                size={20}
               />
               <IconButton
                 icon="microphone"
-                size={24}
+                mode="contained"
                 onPress={addVoiceComment}
                 style={styles.microphoneButton}
+                size={20}
                 disabled={isReadOnly}
               />
             </View>
           </Card.Content>
         </Card>
 
-        {/* Reportes de problemas */}
+        {/* Problemas reportados */}
         <Card style={styles.card}>
-          <Card.Title title="Reportes de Problemas" />
+          <Card.Title title="Problemas Reportados" />
           <Card.Content>
-            {task.problemReports && task.problemReports.length > 0 ? (
-              task.problemReports.map((report) => (
-                <View key={report.id} style={styles.problemItem}>
+            {task.problemReports.length > 0 ? (
+              task.problemReports.map((problem) => (
+                <View key={problem.id} style={styles.problemItem}>
                   <View style={styles.problemHeader}>
                     <View style={styles.problemHeaderLeft}>
-                      <Chip 
-                        mode="outlined" 
-                        style={[styles.severityChip, { borderColor: getSeverityColor(report.severity) }]}
-                        textStyle={{ color: getSeverityColor(report.severity), fontSize: 10 }}
-                        compact
-                      >
-                        {getSeverityText(report.severity)}
-                      </Chip>
-                      <Text variant="bodySmall" style={styles.problemDate}>
-                        {report.createdAt ? 
-                          `${report.createdAt.toLocaleDateString('es-ES')} - ${report.reporterName}` : 
-                          `Sin fecha - ${report.reporterName}`
-                        }
+                      <Icon
+                        source={getReportTypeIcon(problem.reportType)}
+                        size={20}
+                        color={getSeverityColor(problem.severity)}
+                      />
+                      <Text variant="titleMedium" style={styles.problemTitle}>
+                        {problem.title}
                       </Text>
                     </View>
-                    {report.userId === currentUserId && (
-                      <IconButton
-                        icon="delete"
-                        size={20}
-                        onPress={() => handleDeleteReport(report)}
-                        style={styles.deleteButton}
-                        disabled={isDeletingReport || isReadOnly}
-                      />
-                    )}
+                    <View style={styles.problemHeaderRight}>
+                      <Chip 
+                        mode="outlined" 
+                        style={[styles.severityChip, { 
+                          borderColor: getSeverityColor(problem.severity)
+                        }]}
+                        textStyle={[styles.severityChipText, {
+                          color: getSeverityColor(problem.severity)
+                        }]}
+                        compact
+                      >
+                        {getSeverityLabel(problem.severity)}
+                      </Chip>
+                      {canDeleteReport(problem) && (
+                        <IconButton
+                          icon="delete"
+                          size={20}
+                          iconColor={theme.colors.error}
+                          mode="contained-tonal"
+                          style={styles.deleteReportButton}
+                          onPress={() => handleDeleteReport(problem)}
+                          disabled={isDeletingReport || isReadOnly}
+                        />
+                      )}
+                    </View>
                   </View>
                   
                   <Text variant="bodyMedium" style={styles.problemDescription}>
-                    {report.description}
+                    {problem.description}
                   </Text>
                   
-                  {report.status && (
-                    <Chip 
-                      mode="flat" 
-                      style={styles.statusChip}
-                      textStyle={styles.statusText}
-                      compact
-                    >
-                      Estado: {report.status}
-                    </Chip>
+                  <View style={styles.problemFooter}>
+                    <Text variant="bodySmall" style={styles.problemMeta}>
+                      Reportado por {problem.author} • {problem.reportedAt.toLocaleDateString('es-ES')}
+                    </Text>
+                    
+                    {problem.resolvedAt && (
+                      <View style={styles.resolvedContainer}>
+                        <Icon
+                          source="check-circle"
+                          size={16}
+                          color={theme.colors.primary}
+                        />
+                        <Text variant="bodySmall" style={styles.resolvedText}>
+                          Resuelto el {problem.resolvedAt.toLocaleDateString('es-ES')}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  {problem.resolution && (
+                    <View style={styles.resolutionContainer}>
+                      <Text variant="bodySmall" style={styles.resolutionLabel}>
+                        Resolución:
+                      </Text>
+                      <Text variant="bodySmall" style={styles.resolutionText}>
+                        {problem.resolution}
+                      </Text>
+                    </View>
                   )}
                 </View>
               ))
             ) : (
-              <Text variant="bodyMedium" style={styles.emptyState}>
-                No hay reportes de problemas
+              <Text variant="bodyMedium" style={styles.emptyText}>
+                No hay problemas reportados
               </Text>
             )}
             
-            {isReadOnly && (
-              <Text variant="bodySmall" style={styles.readOnlyMessage}>
-                Solo lectura - No puedes modificar reportes de días pasados
-              </Text>
+            {isReadOnly && task.problemReports.length > 0 && (
+              <View style={styles.readOnlyIndicator}>
+                <View style={styles.readOnlyRow}>
+                  <Icon source="lock" size={14} color="#666" />
+                  <Text variant="bodySmall" style={styles.readOnlyText}>
+                    Solo lectura - No puedes modificar reportes de días pasados
+                  </Text>
+                </View>
+              </View>
             )}
             
             <Button 
-              mode="contained" 
-              onPress={() => setShowProblemDialog(true)}
+              mode="outlined" 
+              icon="alert" 
+              onPress={reportProblem}
               style={styles.reportButton}
               disabled={isSubmittingReport || isReadOnly}
             >
@@ -2227,102 +2247,200 @@ const addTextComment = async () => {
             </Button>
           </Card.Content>
         </Card>
-
-        {/* Espacio adicional al final */}
-        <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Dialogs */}
+      {/* Problem Report Dialog */}
       <ProblemReportDialog
         visible={showProblemDialog}
         onDismiss={() => setShowProblemDialog(false)}
-        onSubmit={reportProblem}
+        onSubmit={handleSubmitProblemReport}
         isSubmitting={isSubmittingReport}
       />
 
+      {/* Delete Report Confirmation Dialog */}
+      <Portal>
+        <Dialog 
+          visible={showDeleteReportDialog} 
+          onDismiss={handleCancelDeleteReport}
+          style={styles.deleteDialog}
+        >
+          <Dialog.Icon icon="delete-alert" />
+          <Dialog.Title style={styles.deleteDialogTitle}>
+            Eliminar reporte
+          </Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.deleteDialogContent}>
+              ¿Estás seguro de que quieres eliminar este reporte de problema?
+            </Text>
+            {reportToDelete && (
+              <View style={styles.reportPreview}>
+                <Icon
+                  source={getReportTypeIcon(reportToDelete.reportType)}
+                  size={16}
+                  color={getSeverityColor(reportToDelete.severity)}
+                />
+                <Text variant="bodySmall" style={styles.reportPreviewText}>
+                  {reportToDelete.title}
+                </Text>
+              </View>
+            )}
+            <Text variant="bodySmall" style={styles.deleteWarning}>
+              Esta acción no se puede deshacer.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions style={styles.deleteDialogActions}>
+            <Button 
+              onPress={handleCancelDeleteReport}
+              disabled={isDeletingReport}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              mode="contained" 
+              buttonColor={theme.colors.error}
+              onPress={handleConfirmDeleteReport}
+              loading={isDeletingReport}
+              disabled={isDeletingReport}
+            >
+              Eliminar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* NFC Dialog */}
       <NFCDialog
         visible={showNFCDialog}
-        onDismiss={() => setShowNFCDialog(false)}
+        onDismiss={handleNFCDismiss}
         onSuccess={handleNFCSuccess}
+        title={currentNFCSubtask?.evidenceRequirement?.title || 'Escanear NFC'}
+        description={currentNFCSubtask?.evidenceRequirement?.description || 'Acerca tu dispositivo al tag NFC para registrar la evidencia'}
       />
 
+      {/* QR Dialog */}
       <QRDialog
         visible={showQRDialog}
-        onDismiss={() => setShowQRDialog(false)}
+        onDismiss={handleQRDismiss}
         onSuccess={handleQRSuccess}
+        title={currentQRSubtask?.evidenceRequirement?.title || 'Escanear QR'}
+        description={currentQRSubtask?.evidenceRequirement?.description || 'Apunta la cámara hacia el código QR para registrar la evidencia'}
       />
 
+      {/* Signature Dialog */}
       <SignatureDialog
         visible={showSignatureDialog}
-        onDismiss={() => setShowSignatureDialog(false)}
-        onSave={handleSignatureSave}
+        onDismiss={handleSignatureDismiss}
+        onSuccess={handleSignatureSuccess}
+        title={currentSignatureSubtask?.evidenceRequirement?.title || 'Firma Digital'}
+        description={currentSignatureSubtask?.evidenceRequirement?.description || 'Dibuja tu firma en el cuadro de abajo'}
       />
 
-      <Portal>
-        <Dialog visible={showSignatureViewer} onDismiss={() => setShowSignatureViewer(false)}>
-          <Dialog.Title>Firma</Dialog.Title>
-          <Dialog.Content>
-            <SignatureViewer signature={currentSignatureData} />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowSignatureViewer(false)}>Cerrar</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      {/* Signature Viewer */}
+      <SignatureViewer
+        visible={showSignatureViewer}
+        onDismiss={handleSignatureViewerDismiss}
+        signatureData={currentSignatureData}
+        title="Firma Digital Capturada"
+      />
 
+      {/* Location Dialog */}
       <LocationDialog
         visible={showLocationDialog}
-        onDismiss={() => setShowLocationDialog(false)}
-        onSave={handleLocationSave}
+        onDismiss={handleLocationDismiss}
+        onSuccess={handleLocationSuccess}
+        title={currentLocationSubtask?.evidenceRequirement?.title || 'Obtener Ubicación'}
+        description={currentLocationSubtask?.evidenceRequirement?.description || 'Obteniendo tu ubicación actual mediante GPS'}
       />
 
-      <Portal>
-        <Dialog visible={showLocationViewer} onDismiss={() => setShowLocationViewer(false)}>
-          <Dialog.Title>Ubicación</Dialog.Title>
-          <Dialog.Content>
-            <LocationViewer location={currentLocationData} />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowLocationViewer(false)}>Cerrar</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      {/* Location Viewer */}
+      <LocationViewer
+        visible={showLocationViewer}
+        onDismiss={handleLocationViewerDismiss}
+        locationData={currentLocationData}
+        title="Ubicación Registrada"
+      />
 
+      {/* Audio Dialog */}
       <AudioDialog
         visible={showAudioDialog}
-        onDismiss={() => setShowAudioDialog(false)}
-        onSave={handleAudioSave}
+        onDismiss={handleAudioDismiss}
+        onSuccess={handleAudioSuccess}
+        title={currentAudioSubtask?.evidenceRequirement?.title || 'Grabar Audio'}
+        description={currentAudioSubtask?.evidenceRequirement?.description || 'Presiona grabar para capturar evidencia de audio'}
       />
 
-      <Portal>
-        <Dialog visible={showAudioViewer} onDismiss={() => setShowAudioViewer(false)}>
-          <Dialog.Title>Audio</Dialog.Title>
-          <Dialog.Content>
-            <AudioViewer audio={currentAudioData} />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowAudioViewer(false)}>Cerrar</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      {/* Audio Viewer */}
+      <AudioViewer
+        visible={showAudioViewer}
+        onDismiss={handleAudioViewerDismiss}
+        audioData={currentAudioData}
+        title="Audio Registrado"
+      />
 
+      {/* Camera Dialog */}
       <CameraDialog
         visible={showCameraDialog}
-        onDismiss={() => setShowCameraDialog(false)}
-        onCapture={handleCameraCapture}
+        onCancel={handleCameraDismiss}
+        onSuccess={handleMediaSuccess}
+        title={currentCameraSubtask?.evidenceRequirement?.title || 'Capturar Media'}
+        description={currentCameraSubtask?.evidenceRequirement?.description || 'Captura una foto o video como evidencia'}
+        config={{
+          mediaTypes: currentCameraSubtask?.evidenceRequirement?.config?.allowVideo ? 'both' : 'photo',
+          quality: 0.8,
+          videoMaxDuration: 60,
+          allowsEditing: true
+        }}
       />
 
+      {/* Media Viewer */}
+      <MediaViewer
+        visible={showMediaViewer}
+        onDismiss={handleMediaViewerDismiss}
+        mediaData={currentMediaData}
+      />
+
+      {/* Delete Comment Confirmation Dialog */}
       <Portal>
-        <Dialog visible={showMediaViewer} onDismiss={() => setShowMediaViewer(false)}>
-          <Dialog.Title>Media</Dialog.Title>
+        <Dialog 
+          visible={showDeleteCommentDialog} 
+          onDismiss={handleCancelDeleteComment}
+          style={styles.deleteDialog}
+        >
+          <Dialog.Icon icon="delete-alert" />
+          <Dialog.Title style={styles.deleteDialogTitle}>
+            Eliminar comentario
+          </Dialog.Title>
           <Dialog.Content>
-            <MediaViewer 
-              mediaType={currentMediaData?.type || 'image'}
-              mediaUri={currentMediaData?.uri || ''}
-            />
+            <Text variant="bodyMedium" style={styles.deleteDialogContent}>
+              ¿Estás seguro de que quieres eliminar este comentario?
+            </Text>
+            {commentToDelete && (
+              <View style={styles.commentPreview}>
+                <Text variant="bodySmall" style={styles.commentPreviewText}>
+                  {commentToDelete.content}
+                </Text>
+              </View>
+            )}
+            <Text variant="bodySmall" style={styles.deleteWarning}>
+              Esta acción no se puede deshacer.
+            </Text>
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowMediaViewer(false)}>Cerrar</Button>
+          <Dialog.Actions style={styles.deleteDialogActions}>
+            <Button 
+              onPress={handleCancelDeleteComment}
+              disabled={isDeletingComment}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              mode="contained" 
+              buttonColor={theme.colors.error}
+              onPress={handleConfirmDeleteComment}
+              loading={isDeletingComment}
+              disabled={isDeletingComment}
+            >
+              Eliminar
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -2334,73 +2452,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  appBar: {
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  appBarContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-  },
-  appBarTop: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  appBarTitle: {
-    flex: 1,
-  },
-  appBarTitleText: {
-    fontSize: 22,
-    fontWeight: '600',
-    lineHeight: 28,
-  },
-  content: {
-    flex: 1,
-  },
-  taskInfo: {
+  header: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
-  description: {
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  tagsContainer: {
+  headerTop: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  tagChip: {
-    alignSelf: 'flex-start',
-  },
-  tagText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  taskMeta: {
-    gap: 8,
-  },
-  taskMetaRow: {
-    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 12,
   },
-  taskProject: {
-    flex: 1,
-  },
-  taskLocation: {
-    flex: 1,
-  },
-  taskDueDate: {
-    flex: 1,
+  headerTitle: {
+    alignItems: 'flex-start',
   },
   statusContainer: {
     flexDirection: 'row',
@@ -2412,13 +2476,12 @@ const styles = StyleSheet.create({
   priorityBadge: {
     alignSelf: 'flex-start',
   },
+  content: {
+    flex: 1,
+  },
   card: {
     margin: 16,
     marginBottom: 8,
-  },
-  timerContainer: {
-    alignItems: 'center',
-    gap: 12,
   },
   timerButton: {
     minWidth: 120,
@@ -2433,7 +2496,6 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     marginTop: 8,
-    height: 8,
   },
   subtask: {
     paddingVertical: 4,
@@ -2445,31 +2507,6 @@ const styles = StyleSheet.create({
   blockedSubtask: {
     paddingVertical: 4,
     opacity: 0.6,
-  },
-  evidenceRequirement: {
-    marginLeft: 16,
-    marginRight: 16,
-    marginBottom: 12,
-    padding: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    borderRadius: 8,
-  },
-  evidenceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  evidenceTitle: {
-    marginLeft: 8,
-    fontWeight: '600',
-    flex: 1,
-  },
-  evidenceDescription: {
-    marginBottom: 8,
-    opacity: 0.7,
-  },
-  evidenceActions: {
-    alignItems: 'flex-start',
   },
   evidenceActionButton: {
     alignSelf: 'center',
@@ -2522,10 +2559,10 @@ const styles = StyleSheet.create({
   problemItem: {
     marginBottom: 16,
     padding: 16,
-    backgroundColor: 'rgba(255, 0, 0, 0.05)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,0,0,0.05)',
+    borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF5722',
+    borderLeftColor: 'rgba(255,0,0,0.3)',
   },
   problemHeader: {
     flexDirection: 'row',
@@ -2534,41 +2571,209 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   problemHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
-    gap: 4,
+    marginRight: 12,
   },
-  problemDate: {
-    opacity: 0.6,
+  problemHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteReportButton: {
+    margin: 0,
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    borderColor: 'rgba(244, 67, 54, 0.2)',
+  },
+  problemTitle: {
+    marginLeft: 8,
+    fontWeight: '600',
+    flex: 1,
   },
   problemDescription: {
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  problemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  problemMeta: {
+    opacity: 0.7,
+    flex: 1,
+  },
+  resolvedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  resolvedText: {
+    marginLeft: 4,
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  resolutionContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50',
+  },
+  resolutionLabel: {
+    fontWeight: '600',
+    marginBottom: 4,
+    color: '#4CAF50',
+  },
+  resolutionText: {
+    lineHeight: 18,
   },
   severityChip: {
     alignSelf: 'flex-start',
   },
-  reportButton: {
-    marginTop: 16,
+  severityChipText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
-  emptyState: {
+  emptyText: {
     textAlign: 'center',
     opacity: 0.6,
     marginVertical: 16,
   },
-  readOnlyMessage: {
-    textAlign: 'center',
-    opacity: 0.6,
-    marginVertical: 8,
-    fontStyle: 'italic',
+  taskInfo: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
-  statusChip: {
-    alignSelf: 'flex-start',
+  taskDescription: {
+    marginBottom: 12,
+  },
+  taskMeta: {
+    gap: 8,
+  },
+  taskMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  taskProject: {
+    color: '#2196F3',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  taskLocation: {
+    color: '#4CAF50',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  taskDueDate: {
+    color: '#666',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  reportButton: {
+    marginTop: 16,
+  },
+  backButton: {
+    marginRight: 8,
+  },
+  timerSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timerLabel: {
+    color: '#666',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  timerDisplay: {
+    fontWeight: '700',
+  },
+  timerControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  subtaskContainer: {
+    marginBottom: 12,
+  },
+  subtaskCheckContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 40,
+  },
+  evidenceInfo: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+  },
+  evidenceCompletedButton: {
+    alignSelf: 'center',
     marginTop: 8,
   },
-  statusText: {
-    fontSize: 10,
+  evidenceCompletedButtonText: {
+    fontSize: 12,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  tagChip: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  deleteDialog: {
+    borderRadius: 16,
+  },
+  deleteDialogTitle: {
+    textAlign: 'center',
+    color: '#d32f2f',
     fontWeight: '600',
   },
-  bottomSpacer: {
-    height: 100,
+  deleteDialogContent: {
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 22,
+  },
+  reportPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 12,
+    gap: 8,
+  },
+  reportPreviewText: {
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'center',
+  },
+  deleteWarning: {
+    textAlign: 'center',
+    color: '#d32f2f',
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  deleteDialogActions: {
+    paddingTop: 8,
+  },
+  commentPreview: {
+    padding: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  commentPreviewText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 }); 
