@@ -1425,16 +1425,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       return 'unchecked'; // Mantener unchecked pero se mostrará candado
     }
     
-    // En cualquier otro caso, normal
-    return 'unchecked';
-  };
+      // En cualquier otro caso, normal
+  return 'unchecked';
+};
 
-  const isSubtaskBlocked = (subtask: TaskSubtask) => {
-    // Bloqueado solo si: evidencia requerida + no hay evidencia + no está completada
-    return subtask.evidenceRequirement?.isRequired && !subtask.evidence && !subtask.isCompleted;
-  };
-
-  const addTextComment = async () => {
+const addTextComment = async () => {
     console.log('🔄 addTextComment called');
     
     if (isReadOnly) {
