@@ -1765,38 +1765,34 @@ export class SupabaseService {
     try {
       console.log('🔄 getOrCreateWorkDay using REAL DB for user:', userId, 'date:', dateString);
       
-      // Llamar a la función RPC para obtener o crear work_day
-      const { data: workDayId, error: workDayError } = await supabase.rpc('get_or_create_work_day', {
+      // Usar la nueva función get_day_timer_stats que también crea la jornada si no existe
+      const { data: stats, error: statsError } = await supabase.rpc('get_day_timer_stats', {
         p_user_id: userId,
         p_date: dateString
       });
 
-      if (workDayError) {
-        console.error('❌ Error calling get_or_create_work_day RPC:', workDayError);
-        throw workDayError;
+      if (statsError) {
+        console.error('❌ Error calling get_day_timer_stats RPC:', statsError);
+        throw statsError;
       }
 
-      console.log('✅ Work day ID obtained:', workDayId);
+      console.log('✅ Day timer stats obtained:', stats);
 
-      // Ahora obtener los datos completos del work_day
+      // Obtener los datos completos de work_day
       const { data: workDayData, error: fetchError } = await supabase
         .from('work_days')
         .select(`
           id,
           user_id,
           date,
-          status,
           timesheet_status,
           current_session_start,
-          actual_start_time,
-          actual_end_time,
           actual_duration,
-          total_break_time,
-          notes,
           created_at,
           updated_at
         `)
-        .eq('id', workDayId)
+        .eq('user_id', userId)
+        .eq('date', dateString)
         .single();
 
       if (fetchError) {
@@ -1806,28 +1802,25 @@ export class SupabaseService {
 
       console.log('✅ Work day data fetched:', workDayData);
 
-      // Convertir a formato WorkDay
+      // Convertir a formato WorkDay usando los stats reales
       const workDay: WorkDay = {
         id: workDayData.id,
         userId: workDayData.user_id,
         date: new Date(workDayData.date),
-        status: workDayData.status as DayStatus,
+        status: DayStatus.PROGRAMMED, // Por ahora usar un valor fijo
         timesheet: {
-          status: workDayData.timesheet_status as TimesheetStatus,
-          currentSessionStart: workDayData.current_session_start ? new Date(workDayData.current_session_start) : null,
-          totalDuration: workDayData.actual_duration || 0,
-          sessions: [], // TODO: Cargar sesiones si es necesario
-          notes: workDayData.notes,
+          status: stats.status as TimesheetStatus,
+          currentSessionStart: stats.currentSessionStart ? new Date(stats.currentSessionStart) : null,
+          totalDuration: stats.totalElapsed || 0,
+          sessions: [], // No necesitamos cargar todas las sesiones
         },
-        actualStartTime: workDayData.actual_start_time ? new Date(workDayData.actual_start_time) : undefined,
-        actualEndTime: workDayData.actual_end_time ? new Date(workDayData.actual_end_time) : undefined,
         tasks: [], // Se cargan por separado
         notifications: [], // Se cargan por separado
         createdAt: new Date(workDayData.created_at),
         updatedAt: new Date(workDayData.updated_at),
       };
       
-      console.log('✅ WorkDay object created:', workDay.id);
+      console.log('✅ WorkDay object created with real timer stats:', workDay.id);
       return workDay;
       
     } catch (error) {
@@ -1866,135 +1859,60 @@ export class SupabaseService {
     }
   ): Promise<WorkDay> {
     try {
-      console.log('🔄 updateWorkDayTimesheet using REAL DB');
+      console.log('🔄 updateWorkDayTimesheet using DAY TIMER RPC functions');
       console.log('📝 Updates received:', { workDayId, updates });
       
-      // Preparar los datos para la actualización
-      const updateData: any = {
-        updated_at: new Date().toISOString(),
-      };
-
-      if (updates.status !== undefined) {
-        updateData.timesheet_status = updates.status;
-      }
-      
-      if (updates.currentSessionStart !== undefined) {
-        updateData.current_session_start = updates.currentSessionStart?.toISOString() || null;
-      }
-      
-      if (updates.actualStartTime !== undefined) {
-        updateData.actual_start_time = updates.actualStartTime.toISOString();
-      }
-      
-      if (updates.actualEndTime !== undefined) {
-        updateData.actual_end_time = updates.actualEndTime.toISOString();
-      }
-      
-      if (updates.notes !== undefined) {
-        updateData.notes = updates.notes;
+      // Extraer user_id del workDayId o usar el usuario actual
+      let userId = this.getCurrentUserId();
+      if (!userId) {
+        throw new Error('No authenticated user found');
       }
 
-      console.log('📝 Prepared update data:', updateData);
+      if (updates.status === TimesheetStatus.IN_PROGRESS) {
+        // Iniciar timer del día
+        console.log('🟢 Starting day timer...');
+        const { data: sessionId, error } = await supabase.rpc('start_day_timer', {
+          p_user_id: userId
+        });
 
-      // Actualizar en la base de datos
-      const { data, error } = await supabase
-        .from('work_days')
-        .update(updateData)
-        .eq('id', workDayId)
-        .select(`
-          id,
-          user_id,
-          date,
-          status,
-          timesheet_status,
-          current_session_start,
-          actual_start_time,
-          actual_end_time,
-          actual_duration,
-          total_break_time,
-          notes,
-          created_at,
-          updated_at
-        `)
-        .single();
+        if (error) throw error;
+        console.log('✅ Day timer started, session:', sessionId);
 
-      if (error) {
-        console.error('❌ Error updating work day timesheet:', error);
-        throw error;
+      } else if (updates.status === TimesheetStatus.PAUSED) {
+        // Pausar timer del día
+        console.log('🟡 Pausing day timer...');
+        const { data: totalElapsed, error } = await supabase.rpc('pause_day_timer', {
+          p_user_id: userId
+        });
+
+        if (error) throw error;
+        console.log('✅ Day timer paused, total elapsed:', totalElapsed);
       }
 
-      console.log('✅ Work day timesheet updated in DB:', data);
-
-      // Convertir a formato WorkDay
-      const workDay: WorkDay = {
-        id: data.id,
-        userId: data.user_id,
-        date: new Date(data.date),
-        status: data.status as DayStatus,
-        timesheet: {
-          status: data.timesheet_status as TimesheetStatus,
-          currentSessionStart: data.current_session_start ? new Date(data.current_session_start) : null,
-          totalDuration: data.actual_duration || 0,
-          sessions: [], // TODO: Cargar sesiones si es necesario
-          notes: data.notes,
-        },
-        actualStartTime: data.actual_start_time ? new Date(data.actual_start_time) : undefined,
-        actualEndTime: data.actual_end_time ? new Date(data.actual_end_time) : undefined,
-        tasks: [], // Se cargan por separado
-        notifications: [], // Se cargan por separado
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at),
-      };
-
-      console.log('✅ Updated WorkDay object created:', workDay.id);
-      return workDay;
+      // Recargar la jornada con los datos actualizados
+      return await this.getOrCreateWorkDay(userId);
       
     } catch (error) {
-      console.error('❌ Error in updateWorkDayTimesheet, falling back:', error);
-      
-      // Fallback solo en caso de error
-      const simulatedWorkDay: WorkDay = {
-        id: workDayId || 'fallback',
-        userId: '550e8400-e29b-41d4-a716-446655440001',
-        date: new Date(),
-        status: DayStatus.PROGRAMMED,
-        timesheet: {
-          status: updates.status || TimesheetStatus.NOT_STARTED,
-          currentSessionStart: updates.currentSessionStart,
-          totalDuration: 0,
-          sessions: [],
-          notes: updates.notes,
-        },
-        actualStartTime: updates.actualStartTime,
-        actualEndTime: updates.actualEndTime,
-        tasks: [],
-        notifications: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      
-      console.log('⚠️ Using fallback workDay due to error:', simulatedWorkDay);
-      return simulatedWorkDay;
+      console.error('❌ Error in updateWorkDayTimesheet:', error);
+      throw error; // No fallback aquí, mejor mostrar el error
     }
   }
 
   async startWorkSession(userId: string, taskId?: string, location?: string): Promise<string> {
     try {
-      console.log('🔄 startWorkSession using REAL DB for user:', userId);
+      console.log('🔄 startWorkSession - initiating day timer');
       
-      // Usar la función RPC que ya existe en la DB
-      const { data: sessionId, error } = await supabase.rpc('start_work_session', {
-        p_user_id: userId,
-        p_task_id: taskId || null,
-        p_location: location || null
+      // Para el timer del día, usar la función específica
+      const { data: sessionId, error } = await supabase.rpc('start_day_timer', {
+        p_user_id: userId
       });
 
       if (error) {
-        console.error('❌ Error starting work session:', error);
+        console.error('❌ Error starting day timer:', error);
         throw error;
       }
 
-      console.log('✅ Work session started, session ID:', sessionId);
+      console.log('✅ Day timer started, session ID:', sessionId);
       return sessionId;
       
     } catch (error) {
@@ -2005,29 +1923,36 @@ export class SupabaseService {
 
   async endWorkSession(sessionId: string, location?: string): Promise<void> {
     try {
-      console.log('🔄 endWorkSession using REAL DB for session:', sessionId);
+      console.log('🔄 endWorkSession - pausing day timer');
       
-      // Actualizar la sesión con la hora de fin
-      const { error } = await supabase
-        .from('work_sessions')
-        .update({
-          end_time: new Date().toISOString(),
-          end_location: location || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', sessionId);
+      let userId = this.getCurrentUserId();
+      if (!userId) {
+        throw new Error('No authenticated user found');
+      }
+
+      // Para el timer del día, usar pause_day_timer
+      const { error } = await supabase.rpc('pause_day_timer', {
+        p_user_id: userId
+      });
 
       if (error) {
-        console.error('❌ Error ending work session:', error);
+        console.error('❌ Error pausing day timer:', error);
         throw error;
       }
 
-      console.log('✅ Work session ended successfully');
+      console.log('✅ Day timer paused successfully');
       
     } catch (error) {
       console.error('❌ Error in endWorkSession:', error);
       // No throw, solo log para no romper el flujo
     }
+  }
+
+  // Método auxiliar para obtener el user ID actual
+  private getCurrentUserId(): string | null {
+    // Este método debería obtener el ID del usuario autenticado
+    // Por ahora usar un ID hardcodeado, pero debería implementarse correctamente
+    return '550e8400-e29b-41d4-a716-446655440000'; // TODO: Implementar correctamente
   }
 
   async getWorkNotifications(userId: string, unreadOnly: boolean = false): Promise<any[]> {
