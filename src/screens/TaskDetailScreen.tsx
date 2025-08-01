@@ -2000,18 +2000,18 @@ const addTextComment = async () => {
                 />
                 
                 {/* Evidencia requerida */}
-                {subtask.requiredEvidence && subtask.requiredEvidence.map((evidence, evidenceIndex) => (
-                  <View key={evidenceIndex} style={styles.evidenceRequirement}>
+                {subtask.evidenceRequirement && (
+                  <View style={styles.evidenceRequirement}>
                     <View style={styles.evidenceHeader}>
                       <Icon 
-                        source={getEvidenceIcon(evidence)} 
+                        source={getEvidenceIcon(subtask.evidenceRequirement.type, subtask.evidenceRequirement.config)} 
                         size={16} 
-                        color={getEvidenceColor(evidence, subtask)} 
+                        color={subtask.evidence ? '#4CAF50' : theme.colors.outline}
                       />
                       <Text variant="bodySmall" style={styles.evidenceTitle}>
-                        {getEvidenceTitle(evidence)}
+                        {subtask.evidenceRequirement.title || getEvidenceTypeName(subtask.evidenceRequirement.type)}
                       </Text>
-                      {getEvidenceStatus(evidence, subtask) && (
+                      {subtask.evidence && (
                         <Icon 
                           source="check-circle" 
                           size={16} 
@@ -2021,14 +2021,29 @@ const addTextComment = async () => {
                     </View>
                     
                     <Text variant="bodySmall" style={styles.evidenceDescription}>
-                      {evidence.description}
+                      {subtask.evidenceRequirement.description}
                     </Text>
                     
-                    {hasEvidence(evidence, subtask) ? (
+                    {subtask.evidence ? (
                       <View style={styles.evidenceActions}>
                         <Button 
                           mode="outlined" 
-                          onPress={() => viewEvidence(evidence, subtask)}
+                          onPress={() => {
+                            // Usar las funciones originales de visualización
+                            if (subtask.evidenceRequirement!.type === EvidenceType.SIGNATURE) {
+                              setCurrentSignatureData(subtask.evidence.data);
+                              setShowSignatureViewer(true);
+                            } else if (subtask.evidenceRequirement!.type === EvidenceType.LOCATION) {
+                              setCurrentLocationData(subtask.evidence.data);
+                              setShowLocationViewer(true);
+                            } else if (subtask.evidenceRequirement!.type === EvidenceType.AUDIO) {
+                              setCurrentAudioData(subtask.evidence.data);
+                              setShowAudioViewer(true);
+                            } else if (subtask.evidenceRequirement!.type === EvidenceType.PHOTO_VIDEO) {
+                              setCurrentMediaData(subtask.evidence.data);
+                              setShowMediaViewer(true);
+                            }
+                          }}
                           style={styles.evidenceActionButton}
                           compact
                         >
@@ -2039,17 +2054,17 @@ const addTextComment = async () => {
                       <View style={styles.evidenceActions}>
                         <Button 
                           mode="contained" 
-                          onPress={() => captureEvidence(evidence, subtask)}
+                          onPress={() => handleSubtaskEvidence(subtask)}
                           style={styles.evidenceActionButton}
                           compact
                           disabled={isReadOnly}
                         >
-                          {isReadOnly ? 'Solo lectura' : getEvidenceCTA(evidence)}
+                          {isReadOnly ? 'Solo lectura' : getSubtaskEvidenceActionText(subtask.evidenceRequirement)}
                         </Button>
                       </View>
                     )}
                   </View>
-                ))}
+                )}
                 
                 {index < task.subtasks.length - 1 && <Divider />}
               </View>
@@ -2080,7 +2095,7 @@ const addTextComment = async () => {
                       <IconButton
                         icon="delete"
                         size={20}
-                        onPress={() => deleteComment(comment.id)}
+                        onPress={() => deleteComment(comment.id, comment.content)}
                         style={styles.deleteButton}
                         disabled={isDeletingComment || isReadOnly}
                       />
@@ -2167,7 +2182,7 @@ const addTextComment = async () => {
                       <IconButton
                         icon="delete"
                         size={20}
-                        onPress={() => handleDeleteReport(report.id)}
+                        onPress={() => handleDeleteReport(report)}
                         style={styles.deleteButton}
                         disabled={isDeletingReport || isReadOnly}
                       />
