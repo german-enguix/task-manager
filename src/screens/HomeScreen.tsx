@@ -486,11 +486,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       
       // Actualizar el workDay con los datos reales de la DB
       setWorkDay(updatedWorkDay);
-      console.log('🔍 WorkDay updated after start:', {
-        'updatedWorkDay.timesheet.totalDuration': updatedWorkDay.timesheet.totalDuration,
-        'updatedWorkDay.timesheet.status': updatedWorkDay.timesheet.status,
-        'workDay updated': true
-      });
       
     } catch (error) {
       console.error('❌ Error starting day timer:', error);
@@ -538,11 +533,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       
       // Actualizar el workDay con los datos reales de la DB
       setWorkDay(updatedWorkDay);
-      console.log('🔍 WorkDay updated after pause:', {
-        'updatedWorkDay.timesheet.totalDuration': updatedWorkDay.timesheet.totalDuration,
-        'updatedWorkDay.timesheet.status': updatedWorkDay.timesheet.status,
-        'workDay updated': true
-      });
       
     } catch (error) {
       console.error('❌ Error pausing day timer:', error);

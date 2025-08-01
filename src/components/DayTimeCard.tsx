@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { 
   Card, 
@@ -81,24 +81,16 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     return tasks.filter(task => task.timer?.isRunning).length;
   };
 
-  // Tiempo del día (independiente)
-  const getDayOnlyDuration = (): number => {
-    // Debug logs para diagnosticar el problema
-    console.log('🔍 getDayOnlyDuration called:', {
-      'timesheet.totalDuration': timesheet.totalDuration,
-      'timesheet.status': timesheet.status,
-      'timesheet.currentSessionStart': timesheet.currentSessionStart,
-      'full timesheet': timesheet
-    });
-    
+  // Tiempo del día (independiente) - memoizado para evitar recálculos
+  const getDayOnlyDuration = useMemo((): number => {
     // La función get_day_timer_stats de la DB ya calcula todo el tiempo correctamente
     // incluyendo la sesión actual si está corriendo, por lo que no necesitamos sumar nada adicional
     return timesheet.totalDuration;
-  };
+  }, [timesheet.totalDuration]);
 
-  const getTotalDisplayDuration = (): number => {
+  const getTotalDisplayDuration = useMemo((): number => {
     // Tiempo del día + tiempo de todas las tareas
-    const dayTime = getDayOnlyDuration();
+    const dayTime = getDayOnlyDuration;
     const tasksTime = getTasksCurrentTime();
     const totalDuration = dayTime + tasksTime;
     
@@ -115,7 +107,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     }
     
     return totalDuration;
-  };
+  }, [getDayOnlyDuration, getTasksCurrentTime]);
 
   const formatDayOfWeek = (date: Date): string => {
     return date.toLocaleDateString('es-ES', { weekday: 'long' });
@@ -242,7 +234,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
           <View style={styles.timerSection}>
             <View style={styles.timerContainer}>
               <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
-                {formatDuration(getTotalDisplayDuration())}
+                {formatDuration(getTotalDisplayDuration)}
               </Text>
               {(timesheet.status === TimesheetStatus.IN_PROGRESS || getActiveTasksCount() > 0) && (
                 <View style={styles.runningIndicator}>
@@ -260,13 +252,13 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
             </View>
             
             {/* Desglose de tiempo */}
-            {(getDayOnlyDuration() > 0 || getTasksCurrentTime() > 0) && (
+            {(getDayOnlyDuration > 0 || getTasksCurrentTime() > 0) && (
               <View style={styles.timeBreakdown}>
-                {getDayOnlyDuration() > 0 && (
+                {getDayOnlyDuration > 0 && (
                   <View style={styles.breakdownItem}>
                     <Icon source="calendar-today" size={12} color="#666" />
                     <Text variant="bodySmall" style={styles.breakdownText}>
-                      Día: {formatDuration(getDayOnlyDuration())}
+                      Día: {formatDuration(getDayOnlyDuration)}
                     </Text>
                     {timesheet.status === TimesheetStatus.IN_PROGRESS && (
                       <Icon source="play" size={10} color={theme.colors.primary} />
