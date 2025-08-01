@@ -83,6 +83,14 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
 
   // Tiempo del día (independiente)
   const getDayOnlyDuration = (): number => {
+    // Debug logs para diagnosticar el problema
+    console.log('🔍 getDayOnlyDuration called:', {
+      'timesheet.totalDuration': timesheet.totalDuration,
+      'timesheet.status': timesheet.status,
+      'timesheet.currentSessionStart': timesheet.currentSessionStart,
+      'full timesheet': timesheet
+    });
+    
     // La función get_day_timer_stats de la DB ya calcula todo el tiempo correctamente
     // incluyendo la sesión actual si está corriendo, por lo que no necesitamos sumar nada adicional
     return timesheet.totalDuration;
