@@ -1796,6 +1796,30 @@ const addTextComment = async () => {
     }
   };
 
+  const handleSignatureSave = (signature: string) => {
+    console.log('Signature saved:', signature);
+    setCurrentSignatureData(signature);
+    setShowSignatureDialog(false);
+  };
+
+  const handleLocationSave = (location: any) => {
+    console.log('Location saved:', location);
+    setCurrentLocationData(location);
+    setShowLocationDialog(false);
+  };
+
+  const handleAudioSave = (audio: any) => {
+    console.log('Audio saved:', audio);
+    setCurrentAudioData(audio);
+    setShowAudioDialog(false);
+  };
+
+  const handleCameraCapture = (media: any) => {
+    console.log('Camera capture:', media);
+    setCurrentMediaData(media);
+    setShowCameraDialog(false);
+  };
+
 
 
   if (!task) {
