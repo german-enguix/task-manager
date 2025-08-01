@@ -1757,19 +1757,6 @@ const addTextComment = async () => {
   };
 
   // Helper functions for evidence
-  const getEvidenceIcon = (evidence: any) => {
-    switch (evidence.type) {
-      case 'photo': return 'camera';
-      case 'video': return 'video';
-      case 'signature': return 'pen';
-      case 'location': return 'map-marker';
-      case 'audio': return 'microphone';
-      case 'nfc': return 'nfc';
-      case 'qr': return 'qrcode';
-      default: return 'attachment';
-    }
-  };
-
   const getEvidenceColor = (evidence: any, subtask: TaskSubtask) => {
     return hasEvidence(evidence, subtask) ? '#4CAF50' : theme.colors.outline;
   };
