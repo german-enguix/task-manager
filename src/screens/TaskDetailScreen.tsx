@@ -2163,7 +2163,7 @@ const addTextComment = async () => {
                         }
                       </Text>
                     </View>
-                    {report.reporterId === currentUserId && (
+                    {report.userId === currentUserId && (
                       <IconButton
                         icon="delete"
                         size={20}
