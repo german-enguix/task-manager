@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, Alert, StyleSheet, View } from 'react-native';
-import { Text, Surface, Button, Card, Chip, Icon } from 'react-native-paper';
+import { Text, Surface, Button, Card, Chip, Icon, IconButton } from 'react-native-paper';
 import { formatDate } from '@/utils';
-import { isDayReadOnly } from '@/utils/dateUtils';
+import { isDayReadOnly, isToday } from '@/utils/dateUtils';
 import { supabaseService } from '@/services/supabaseService';
 import { TaskStatus, WorkDay, DayStatus, TimesheetStatus } from '@/types';
 import { 
@@ -171,6 +171,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     } else {
       return "¡Tú puedes! 💜";
     }
+  };
+
+  // Mensajes creativos para días sin tareas
+  const getRestDayMessage = () => {
+    const messages = [
+      { text: "Día perfecto para reponer fuerzas", icon: "🌱", color: "#4CAF50" },
+      { text: "Descansa y recarga energías", icon: "☀️", color: "#FF9800" },
+      { text: "Un día para ti", icon: "🏖️", color: "#2196F3" },
+      { text: "Momento de desconectar", icon: "💤", color: "#9C27B0" },
+      { text: "Date el regalo del descanso", icon: "🌸", color: "#E91E63" },
+      { text: "Hoy es tu día libre", icon: "⭐", color: "#FFC107" },
+      { text: "Tiempo de inspirarte", icon: "🎨", color: "#00BCD4" },
+      { text: "Respira y disfruta", icon: "🍃", color: "#8BC34A" }
+    ];
+    
+    // Seleccionar mensaje basado en el día del año para consistencia
+    const dayOfYear = Math.floor((workDay?.date.getTime() || Date.now()) / (1000 * 60 * 60 * 24));
+    return messages[dayOfYear % messages.length];
   };
 
   // Actualizar tiempo cada segundo para el cronómetro real
@@ -768,318 +786,399 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             />
           </View>
         </View>
-        {/* Card unificada de día y fichaje */}
-        {loadingWorkDay ? (
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text>Cargando información del día...</Text>
-            </Card.Content>
-          </Card>
-        ) : workDay ? (
-          <DayTimeCard
-            workDay={workDay}
-            onDateChange={handleDateChange}
-            onStartTimesheet={handleStartTimesheet}
-            onPauseTimesheet={handlePauseTimesheet}
-            onFinishTimesheet={handleFinishTimesheet}
-            onPreviousDay={handlePreviousDay}
-            onNextDay={handleNextDay}
-            currentTime={currentTime}
-          />
-        ) : (
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text>Error al cargar la información del día</Text>
-            </Card.Content>
-          </Card>
-        )}
+        {/* Layout especial para días sin tareas - aparece solo */}
+        {!loadingTasks && !loadingWorkDay && tasks.length === 0 ? (
+          <View style={styles.restDayContainer}>
+            <View style={styles.restDayContent}>
+              {/* Navegación de fechas minimalista */}
+              <View style={styles.restDayNavigation}>
+                <IconButton
+                  icon="chevron-left"
+                  size={28}
+                  onPress={handlePreviousDay}
+                  style={styles.restDayNavButton}
+                />
+                <View style={styles.restDayDateContainer}>
+                  <Text variant="bodyLarge" style={styles.restDayDate}>
+                    {workDay?.date.toLocaleDateString('es-ES', { 
+                      weekday: 'long', 
+                      day: 'numeric', 
+                      month: 'long' 
+                    })}
+                  </Text>
+                </View>
+                <IconButton
+                  icon="chevron-right"
+                  size={28}
+                  onPress={handleNextDay}
+                  style={styles.restDayNavButton}
+                />
+              </View>
 
-        {/* Información del fichaje para días finalizados */}
-        {isReadOnly && workDay && workDay.timesheet.status === 'completed' && (
-          <Card style={styles.card}>
-            <Card.Title 
-              title="Fichaje del día" 
-              subtitle="Información de la jornada completada"
-            />
-            <Card.Content>
-              <View style={styles.timesheetSummary}>
-                <View style={styles.summaryRow}>
-                  <View style={styles.summaryItem}>
-                    <Text variant="bodySmall" style={styles.summaryLabel}>Duración total</Text>
-                    <Text variant="titleMedium" style={styles.summaryValue}>
-                      {formatDuration(workDay?.timesheet.totalDuration || 0)}
-                    </Text>
+              {/* Ilustración central */}
+              <View style={styles.restDayIllustration}>
+                <View style={[styles.restDayIconCircle, { backgroundColor: getRestDayMessage().color + '15' }]}>
+                  <Text style={styles.restDayMainIcon}>
+                    {getRestDayMessage().icon}
+                  </Text>
+                </View>
+                
+                {/* Iconos decorativos flotantes */}
+                <View style={styles.floatingIcons}>
+                  <View style={[styles.floatingIcon, styles.floatingIcon1]}>
+                    <Text style={styles.floatingIconText}>🌙</Text>
                   </View>
-                  <View style={styles.summaryItem}>
-                    <Text variant="bodySmall" style={styles.summaryLabel}>Sesiones</Text>
-                    <Text variant="titleMedium" style={styles.summaryValue}>
-                      {workDay?.timesheet.sessions.length || 0}
-                    </Text>
+                  <View style={[styles.floatingIcon, styles.floatingIcon2]}>
+                    <Text style={styles.floatingIconText}>✨</Text>
+                  </View>
+                  <View style={[styles.floatingIcon, styles.floatingIcon3]}>
+                    <Text style={styles.floatingIconText}>🕊️</Text>
                   </View>
                 </View>
-                {workDay?.timesheet.notes && (
-                  <Text variant="bodySmall" style={styles.timesheetNotes}>
-                    {workDay.timesheet.notes}
-                  </Text>
-                )}
               </View>
-            </Card.Content>
-          </Card>
-        )}
 
-        {/* Progreso del día */}
-        {!loadingTasks && tasks.length > 0 && (
-          <Card style={styles.card}>
-            <Card.Content>
-              <View style={styles.progressHeader}>
-                <Icon source="chart-line" size={24} color="#4CAF50" />
-                <Text variant="titleMedium" style={styles.progressTitle}>
-                  Progreso del día
+              {/* Mensaje principal */}
+              <View style={styles.restDayMessage}>
+                <Text variant="headlineMedium" style={[styles.restDayTitle, { color: getRestDayMessage().color }]}>
+                  {getRestDayMessage().text}
                 </Text>
-                <Text variant="bodyMedium" style={styles.motivationalMessage}>
-                  {getMotivationalMessage(getDayProgress())}
+                <Text variant="bodyLarge" style={styles.restDaySubtitle}>
+                  No tienes tareas programadas para hoy
                 </Text>
               </View>
 
-              <View style={styles.progressContent}>
-                {/* Progreso de tareas */}
-                <View style={styles.progressItem}>
-                  <View style={styles.progressItemHeader}>
-                    <Icon source="clipboard-check" size={16} color="#2196F3" />
-                    <Text variant="bodyMedium" style={styles.progressLabel}>
-                      Tareas
-                    </Text>
-                    <Text variant="bodyMedium" style={styles.progressText}>
-                      {getDayProgress().tasksCompleted}/{getDayProgress().totalTasks}
-                    </Text>
+              {/* Sugerencias creativas */}
+              <View style={styles.restDaySuggestions}>
+                <Text variant="titleSmall" style={styles.suggestionsTitle}>
+                  Aprovecha este tiempo para:
+                </Text>
+                <View style={styles.suggestionsList}>
+                  <View style={styles.suggestionItem}>
+                    <Icon source="book-open" size={16} color="#666" />
+                    <Text variant="bodyMedium" style={styles.suggestionText}>Leer algo inspirador</Text>
                   </View>
-                  <View style={styles.progressBarContainer}>
-                    <View 
-                      style={[
-                        styles.progressBarFill, 
-                        { 
-                          width: `${getDayProgress().tasksPercentage}%`,
-                          backgroundColor: getDayProgress().tasksPercentage >= 100 ? '#4CAF50' : '#2196F3'
-                        }
-                      ]} 
-                    />
+                  <View style={styles.suggestionItem}>
+                    <Icon source="nature" size={16} color="#666" />
+                    <Text variant="bodyMedium" style={styles.suggestionText}>Dar un paseo al aire libre</Text>
                   </View>
-                </View>
-
-                {/* Progreso de subtareas */}
-                {getDayProgress().totalSubtasks > 0 && (
-                  <View style={styles.progressItem}>
-                    <View style={styles.progressItemHeader}>
-                      <Icon source="format-list-checks" size={16} color="#FF9800" />
-                      <Text variant="bodyMedium" style={styles.progressLabel}>
-                        Subtareas
-                      </Text>
-                      <Text variant="bodyMedium" style={styles.progressText}>
-                        {getDayProgress().subtasksCompleted}/{getDayProgress().totalSubtasks}
-                      </Text>
-                    </View>
-                    <View style={styles.progressBarContainer}>
-                      <View 
-                        style={[
-                          styles.progressBarFill, 
-                          { 
-                            width: `${getDayProgress().subtasksPercentage}%`,
-                            backgroundColor: getDayProgress().subtasksPercentage >= 100 ? '#4CAF50' : '#FF9800'
-                          }
-                        ]} 
-                      />
-                    </View>
+                  <View style={styles.suggestionItem}>
+                    <Icon source="coffee" size={16} color="#666" />
+                    <Text variant="bodyMedium" style={styles.suggestionText}>Disfrutar de un buen café</Text>
                   </View>
-                )}
-
-                {/* Progreso general */}
-                <View style={styles.overallProgress}>
-                  <View style={styles.overallProgressHeader}>
-                    <Text variant="titleSmall" style={styles.overallProgressLabel}>
-                      Progreso general
-                    </Text>
-                    <Text variant="titleSmall" style={[
-                      styles.overallProgressPercentage,
-                      { color: getDayProgress().overallPercentage >= 100 ? '#4CAF50' : '#666' }
-                    ]}>
-                      {Math.round(getDayProgress().overallPercentage)}%
-                    </Text>
-                  </View>
-                  <View style={styles.overallProgressBarContainer}>
-                    <View 
-                      style={[
-                        styles.overallProgressBarFill, 
-                        { 
-                          width: `${getDayProgress().overallPercentage}%`,
-                          backgroundColor: getDayProgress().overallPercentage >= 100 
-                            ? '#4CAF50' 
-                            : getDayProgress().overallPercentage >= 50 
-                            ? '#2196F3' 
-                            : '#FF9800'
-                        }
-                      ]} 
-                    />
+                  <View style={styles.suggestionItem}>
+                    <Icon source="heart" size={16} color="#666" />
+                    <Text variant="bodyMedium" style={styles.suggestionText}>Conectar contigo mismo</Text>
                   </View>
                 </View>
               </View>
-            </Card.Content>
-          </Card>
-        )}
 
-        {/* Lista de tareas del día */}
-        <View style={styles.sectionHeader}>
-          <Text variant="headlineSmall" style={styles.sectionTitle}>
-            Tareas del día
-          </Text>
-          <Text variant="bodyMedium" style={styles.sectionSubtitle}>
-            {tasks.length} tareas asignadas
-          </Text>
-        </View>
-
-        {loadingTasks ? (
-          <Card style={styles.taskCard}>
-            <Card.Content>
-              <Text>Cargando tareas...</Text>
-            </Card.Content>
-          </Card>
+              {/* Botón para volver a hoy (si no estamos en hoy) */}
+              {workDay && !isToday(workDay.date) && (
+                <Button 
+                  mode="outlined" 
+                  onPress={() => loadWorkDay(new Date())}
+                  style={styles.backToTodayButton}
+                  icon="calendar-today"
+                >
+                  Volver a hoy
+                </Button>
+              )}
+            </View>
+          </View>
         ) : (
-          tasks.map((task) => (
-          <Card 
-            key={task.id} 
-            style={[
-              styles.taskCard,
-              isReadOnly && styles.taskCardReadOnly
-            ]}
-            onPress={() => handleTaskPress(task.id)}
-          >
-            <Card.Content>
-              {/* Título ocupando todo el ancho */}
-              <Text variant="titleMedium" numberOfLines={2} style={styles.taskTitle}>
-                {task.title}
-              </Text>
-              
-              {/* Descripción */}
-              <Text variant="bodySmall" numberOfLines={2} style={styles.taskDescription}>
-                {task.description}
-              </Text>
-              
-              {/* Información del proyecto y ubicación */}
-              <View style={styles.taskMeta}>
-                <View style={styles.taskMetaRow}>
-                  <Icon source="folder" size={16} color="#2196F3" />
-                  <Text variant="bodySmall" style={styles.taskProject}>
-                    {task.projectName}
-                  </Text>
-                </View>
-                <View style={styles.taskMetaRow}>
-                  <Icon source="map-marker" size={16} color="#4CAF50" />
-                  <Text variant="bodySmall" style={styles.taskLocation}>
-                    {task.location}
-                  </Text>
-                </View>
-              </View>
+          /* Layout normal para días con tareas o cargando */
+          <>
+            {/* Card unificada de día y fichaje */}
+            {loadingWorkDay ? (
+              <Card style={styles.card}>
+                <Card.Content>
+                  <Text>Cargando información del día...</Text>
+                </Card.Content>
+              </Card>
+            ) : workDay ? (
+              <DayTimeCard
+                workDay={workDay}
+                onDateChange={handleDateChange}
+                onStartTimesheet={handleStartTimesheet}
+                onPauseTimesheet={handlePauseTimesheet}
+                onFinishTimesheet={handleFinishTimesheet}
+                onPreviousDay={handlePreviousDay}
+                onNextDay={handleNextDay}
+                currentTime={currentTime}
+              />
+            ) : (
+              <Card style={styles.card}>
+                <Card.Content>
+                  <Text>Error al cargar la información del día</Text>
+                </Card.Content>
+              </Card>
+            )}
 
-              {/* Información adicional con mejor distribución */}
-              <View style={styles.taskInfoGrid}>
-                {/* Fila superior: cronómetro y progreso */}
-                <View style={styles.taskInfoRow}>
-                  {task.timer && task.timer.totalElapsed > 0 && (
-                    <View style={styles.taskInfoItem}>
-                      <View style={styles.taskInfoItemRow}>
-                        <Icon source="timer" size={14} color="#2196F3" />
-                        <Text variant="bodySmall" style={styles.taskInfoText}>
-                          {formatDuration(task.timer.totalElapsed)}
-                          {task.timer.isRunning && ' (activo)'}
+            {/* Información del fichaje para días finalizados */}
+            {isReadOnly && workDay && workDay.timesheet.status === 'completed' && (
+              <Card style={styles.card}>
+                <Card.Title 
+                  title="Fichaje del día" 
+                  subtitle="Información de la jornada completada"
+                />
+                <Card.Content>
+                  <View style={styles.timesheetSummary}>
+                    <View style={styles.summaryRow}>
+                      <View style={styles.summaryItem}>
+                        <Text variant="bodySmall" style={styles.summaryLabel}>Duración total</Text>
+                        <Text variant="titleMedium" style={styles.summaryValue}>
+                          {formatDuration(workDay?.timesheet.totalDuration || 0)}
+                        </Text>
+                      </View>
+                      <View style={styles.summaryItem}>
+                        <Text variant="bodySmall" style={styles.summaryLabel}>Sesiones</Text>
+                        <Text variant="titleMedium" style={styles.summaryValue}>
+                          {workDay?.timesheet.sessions.length || 0}
                         </Text>
                       </View>
                     </View>
-                  )}
-                  
-                  {task.subtasks.length > 0 && (
-                    <View style={styles.taskInfoItem}>
-                      <View style={styles.taskInfoItemRow}>
-                        <Icon source="check-circle" size={14} color="#4CAF50" />
-                        <Text variant="bodySmall" style={styles.taskInfoText}>
-                          {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length} subtareas
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-                {/* Fila inferior: asignado, fecha y estado */}
-                <View style={styles.taskFooterRow}>
-                  <View style={styles.taskFooterLeft}>
-                    <View style={styles.taskInfoItemRow}>
-                      <Icon source="account" size={14} color="#666" />
-                      <Text variant="bodySmall" style={[styles.taskInfoText, { color: '#666' }]}>
-                        Usuario de Prueba
+                    {workDay?.timesheet.notes && (
+                      <Text variant="bodySmall" style={styles.timesheetNotes}>
+                        {workDay.timesheet.notes}
                       </Text>
-                    </View>
-                    
-                    {task.dueDate && (
-                      <View style={styles.taskInfoItemRow}>
-                        <Icon source="calendar" size={14} color="#666" />
-                        <Text variant="bodySmall" style={[styles.taskInfoText, { color: '#666' }]}>
-                          {task.dueDate.toLocaleDateString('es-ES')}
-                        </Text>
-                      </View>
                     )}
                   </View>
-                  
-                  <Chip 
-                    mode="outlined" 
-                    style={[styles.statusChip, { borderColor: getStatusColor(task.status) }]}
-                    textStyle={{ color: getStatusColor(task.status), fontSize: 11 }}
-                    compact
-                  >
-                    {getStatusText(task.status)}
-                  </Chip>
-                </View>
-              </View>
+                </Card.Content>
+              </Card>
+            )}
 
-              {/* Progreso de subtareas */}
-              {task.subtasks && task.subtasks.length > 0 && (
-                <View style={styles.evidenceProgress}>
-                  <View style={styles.evidenceProgressRow}>
-                    <Icon source="check-circle" size={14} color="#666" />
-                    <Text variant="bodySmall" style={styles.evidenceProgressText}>
-                      Progreso: {task.subtasks.filter((s: any) => s.isCompleted).length}/{task.subtasks.length} subtareas
+            {/* Progreso del día */}
+            {!loadingTasks && tasks.length > 0 && (
+              <Card style={styles.card}>
+                <Card.Content>
+                  <View style={styles.progressHeader}>
+                    <Icon source="chart-line" size={24} color="#4CAF50" />
+                    <Text variant="titleMedium" style={styles.progressTitle}>
+                      Progreso del día
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.motivationalMessage}>
+                      {getMotivationalMessage(getDayProgress())}
                     </Text>
                   </View>
-                  <View style={styles.progressBar}>
-                    <View 
-                      style={[
-                        styles.progressBarFill, 
-                        { width: `${getTaskProgress(task)}%` }
-                      ]} 
-                    />
+
+                  <View style={styles.progressContent}>
+                    {/* Progreso de tareas */}
+                    <View style={styles.progressItem}>
+                      <View style={styles.progressItemHeader}>
+                        <Icon source="clipboard-check" size={16} color="#2196F3" />
+                        <Text variant="bodyMedium" style={styles.progressLabel}>
+                          Tareas
+                        </Text>
+                        <Text variant="bodyMedium" style={styles.progressText}>
+                          {getDayProgress().tasksCompleted}/{getDayProgress().totalTasks}
+                        </Text>
+                      </View>
+                      <View style={styles.progressBarContainer}>
+                        <View 
+                          style={[
+                            styles.progressBarFill, 
+                            { 
+                              width: `${getDayProgress().tasksPercentage}%`,
+                              backgroundColor: getDayProgress().tasksPercentage >= 100 ? '#4CAF50' : '#2196F3'
+                            }
+                          ]} 
+                        />
+                      </View>
+                    </View>
+
+                    {/* Progreso de subtareas */}
+                    {getDayProgress().totalSubtasks > 0 && (
+                      <View style={styles.progressItem}>
+                        <View style={styles.progressItemHeader}>
+                          <Icon source="format-list-checks" size={16} color="#FF9800" />
+                          <Text variant="bodyMedium" style={styles.progressLabel}>
+                            Subtareas
+                          </Text>
+                          <Text variant="bodyMedium" style={styles.progressText}>
+                            {getDayProgress().subtasksCompleted}/{getDayProgress().totalSubtasks}
+                          </Text>
+                        </View>
+                        <View style={styles.progressBarContainer}>
+                          <View 
+                            style={[
+                              styles.progressBarFill, 
+                              { 
+                                width: `${getDayProgress().subtasksPercentage}%`,
+                                backgroundColor: getDayProgress().subtasksPercentage >= 100 ? '#4CAF50' : '#FF9800'
+                              }
+                            ]} 
+                          />
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Progreso general */}
+                    <View style={styles.overallProgress}>
+                      <View style={styles.overallProgressHeader}>
+                        <Text variant="titleSmall" style={styles.overallProgressLabel}>
+                          Progreso general
+                        </Text>
+                        <Text variant="titleSmall" style={[
+                          styles.overallProgressPercentage,
+                          { color: getDayProgress().overallPercentage >= 100 ? '#4CAF50' : '#666' }
+                        ]}>
+                          {Math.round(getDayProgress().overallPercentage)}%
+                        </Text>
+                      </View>
+                      <View style={styles.overallProgressBarContainer}>
+                        <View 
+                          style={[
+                            styles.overallProgressBarFill, 
+                            { 
+                              width: `${getDayProgress().overallPercentage}%`,
+                              backgroundColor: getDayProgress().overallPercentage >= 100 
+                                ? '#4CAF50' 
+                                : getDayProgress().overallPercentage >= 50 
+                                ? '#2196F3' 
+                                : '#FF9800'
+                            }
+                          ]} 
+                        />
+                      </View>
+                    </View>
                   </View>
-                </View>
-              )}
-              
-              {/* Indicador de solo lectura */}
-              {isReadOnly && (
-                <View style={styles.readOnlyIndicator}>
-                  <View style={styles.readOnlyRow}>
-                    <Icon source="lock" size={14} color="#666" />
-                    <Text variant="bodySmall" style={styles.readOnlyText}>
-                      Solo lectura
-                    </Text>
+                </Card.Content>
+              </Card>
+            )}
+
+            {/* Lista de tareas del día */}
+            <View style={styles.sectionHeader}>
+              <Text variant="headlineSmall" style={styles.sectionTitle}>
+                Tareas del día
+              </Text>
+              <Text variant="bodyMedium" style={styles.sectionSubtitle}>
+                {tasks.length} tareas asignadas
+              </Text>
+            </View>
+
+            {loadingTasks ? (
+              <Card style={styles.taskCard}>
+                <Card.Content>
+                  <Text>Cargando tareas...</Text>
+                </Card.Content>
+              </Card>
+            ) : (
+              tasks.map((task) => (
+              <Card 
+                key={task.id} 
+                style={[
+                  styles.taskCard,
+                  isReadOnly && styles.taskCardReadOnly
+                ]}
+                onPress={() => handleTaskPress(task.id)}
+              >
+                <Card.Content>
+                  {/* Título ocupando todo el ancho */}
+                  <Text variant="titleMedium" numberOfLines={2} style={styles.taskTitle}>
+                    {task.title}
+                  </Text>
+                  
+                  {/* Descripción */}
+                  <Text variant="bodySmall" numberOfLines={2} style={styles.taskDescription}>
+                    {task.description}
+                  </Text>
+                  
+                  {/* Información del proyecto y ubicación */}
+                  <View style={styles.taskMeta}>
+                    <View style={styles.taskMetaRow}>
+                      <Icon source="folder" size={16} color="#2196F3" />
+                      <Text variant="bodySmall" style={styles.taskProject}>
+                        {task.projectName}
+                      </Text>
+                    </View>
+                    <View style={styles.taskMetaRow}>
+                      <Icon source="map-marker" size={16} color="#4CAF50" />
+                      <Text variant="bodySmall" style={styles.taskLocation}>
+                        {task.location}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              )}
-            </Card.Content>
-          </Card>
-          ))
-        )}
-        
-        {!loadingTasks && tasks.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text variant="bodyMedium" style={styles.emptyStateText}>
-              {isReadOnly ? 'No hubo tareas asignadas este día' : 'No hay tareas asignadas para hoy'}
-            </Text>
-          </View>
+
+                  {/* Información adicional con mejor distribución */}
+                  <View style={styles.taskInfoGrid}>
+                    {/* Fila superior: cronómetro y progreso */}
+                    <View style={styles.taskInfoRow}>
+                      {task.timer && task.timer.totalElapsed > 0 && (
+                        <View style={styles.taskInfoItem}>
+                          <View style={styles.taskInfoItemRow}>
+                            <Icon source="timer" size={14} color="#2196F3" />
+                            <Text variant="bodySmall" style={styles.taskInfoText}>
+                              {formatDuration(task.timer.totalElapsed)}
+                              {task.timer.isRunning && ' (activo)'}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                      
+                      {task.subtasks.length > 0 && (
+                        <View style={styles.taskInfoItem}>
+                          <View style={styles.taskInfoItemRow}>
+                            <Icon source="check-circle" size={14} color="#4CAF50" />
+                            <Text variant="bodySmall" style={styles.taskInfoText}>
+                              {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length} subtareas
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Fila inferior: asignado, fecha y estado */}
+                    <View style={styles.taskFooterRow}>
+                      <View style={styles.taskFooterLeft}>
+                        <Chip 
+                          mode="outlined" 
+                          style={[styles.statusChip, { borderColor: getStatusColor(task.status) }]}
+                          textStyle={{ color: getStatusColor(task.status), fontSize: 11 }}
+                          compact
+                        >
+                          {getStatusText(task.status)}
+                        </Chip>
+                      </View>
+                    </View>
+                  </View>
+
+
+                  {/* Progreso de subtareas */}
+                  {task.subtasks && task.subtasks.length > 0 && (
+                    <View style={styles.evidenceProgress}>
+                      <View style={styles.evidenceProgressRow}>
+                        <Icon source="check-circle" size={14} color="#666" />
+                        <Text variant="bodySmall" style={styles.evidenceProgressText}>
+                          Progreso: {task.subtasks.filter((s: any) => s.isCompleted).length}/{task.subtasks.length} subtareas
+                        </Text>
+                      </View>
+                      <View style={styles.progressBar}>
+                        <View 
+                          style={[
+                            styles.progressBarFill, 
+                            { width: `${getTaskProgress(task)}%` }
+                          ]} 
+                        />
+                      </View>
+                    </View>
+                  )}
+                  
+                  {/* Indicador de solo lectura */}
+                  {isReadOnly && (
+                    <View style={styles.readOnlyIndicator}>
+                      <View style={styles.readOnlyRow}>
+                        <Icon source="lock" size={14} color="#666" />
+                        <Text variant="bodySmall" style={styles.readOnlyText}>
+                          Solo lectura
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </Card.Content>
+              </Card>
+              ))
+            )}
+          </>
         )}
 
         {/* Espacio adicional al final */}
@@ -1394,5 +1493,130 @@ const styles = StyleSheet.create({
   overallProgressBarFill: {
     height: '100%',
     borderRadius: 5,
+  },
+  // Estilos para el layout de días sin tareas
+  restDayContainer: {
+    flex: 1,
+    minHeight: 500,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  restDayContent: {
+    alignItems: 'center',
+    gap: 32,
+  },
+  restDayNavigation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 16,
+  },
+  restDayNavButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  restDayDateContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  restDayDate: {
+    textTransform: 'capitalize',
+    fontWeight: '600',
+    color: '#333',
+  },
+  restDayIllustration: {
+    alignItems: 'center',
+    position: 'relative',
+  },
+  restDayIconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  restDayMainIcon: {
+    fontSize: 48,
+  },
+  floatingIcons: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+  },
+  floatingIcon: {
+    position: 'absolute',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  floatingIcon1: {
+    top: 20,
+    right: 30,
+  },
+  floatingIcon2: {
+    bottom: 40,
+    left: 20,
+  },
+  floatingIcon3: {
+    top: 60,
+    left: 10,
+  },
+  floatingIconText: {
+    fontSize: 16,
+  },
+  restDayMessage: {
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  restDayTitle: {
+    textAlign: 'center',
+    fontWeight: '700',
+    lineHeight: 32,
+  },
+  restDaySubtitle: {
+    textAlign: 'center',
+    color: '#666',
+    opacity: 0.8,
+  },
+  restDaySuggestions: {
+    width: '100%',
+    maxWidth: 300,
+    gap: 16,
+  },
+  suggestionsTitle: {
+    textAlign: 'center',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  suggestionsList: {
+    gap: 12,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderRadius: 12,
+  },
+  suggestionText: {
+    flex: 1,
+    color: '#666',
+  },
+  backToTodayButton: {
+    marginTop: 16,
+    borderColor: '#2196F3',
   },
 });
