@@ -1796,24 +1796,7 @@ const addTextComment = async () => {
     }
   };
 
-  const playVoiceComment = (audioUri: string) => {
-    // Implementar reproducción de audio
-    console.log('Playing voice comment:', audioUri);
-  };
 
-  const deleteComment = (commentId: string) => {
-    // Implementar eliminación de comentario
-    console.log('Deleting comment:', commentId);
-  };
-
-  const handleDeleteReport = (reportId: string) => {
-    if (isReadOnly) {
-      Alert.alert('Acción no permitida', 'No puedes eliminar reportes de días pasados.');
-      return;
-    }
-    // Implementar eliminación de reporte
-    console.log('Deleting report:', reportId);
-  };
 
   if (!task) {
     return (
