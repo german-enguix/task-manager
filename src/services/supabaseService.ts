@@ -1863,7 +1863,7 @@ export class SupabaseService {
       console.log('📝 Updates received:', { workDayId, updates });
       
       // Extraer user_id del workDayId o usar el usuario actual
-      let userId = this.getCurrentUserId();
+      let userId = await this.getCurrentUserId();
       if (!userId) {
         throw new Error('No authenticated user found');
       }
@@ -1925,7 +1925,7 @@ export class SupabaseService {
     try {
       console.log('🔄 endWorkSession - pausing day timer');
       
-      let userId = this.getCurrentUserId();
+      let userId = await this.getCurrentUserId();
       if (!userId) {
         throw new Error('No authenticated user found');
       }
@@ -1949,10 +1949,26 @@ export class SupabaseService {
   }
 
   // Método auxiliar para obtener el user ID actual
-  private getCurrentUserId(): string | null {
-    // Este método debería obtener el ID del usuario autenticado
-    // Por ahora usar un ID hardcodeado, pero debería implementarse correctamente
-    return '550e8400-e29b-41d4-a716-446655440000'; // TODO: Implementar correctamente
+  private async getCurrentUserId(): Promise<string | null> {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('❌ Error getting current user ID:', error);
+        return null;
+      }
+      
+      if (!user) {
+        console.error('❌ No authenticated user found');
+        return null;
+      }
+      
+      console.log('✅ Current user ID obtained:', user.id);
+      return user.id;
+    } catch (error) {
+      console.error('❌ Exception getting current user ID:', error);
+      return null;
+    }
   }
 
   async getWorkNotifications(userId: string, unreadOnly: boolean = false): Promise<any[]> {
