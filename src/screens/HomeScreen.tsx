@@ -466,74 +466,103 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     console.log('🚀 handleStartTimesheet called');
     console.log('📊 isReadOnly:', isReadOnly);
     console.log('📊 workDay:', workDay);
-    console.log('📊 current timerState:', workDay ? getTimerStateForDate(workDay.date) : 'no workDay');
     
     if (isReadOnly || !workDay) {
       console.log('❌ Cancelled: isReadOnly or no workDay');
       return;
     }
     
-    const now = new Date();
-    
-    // Actualizar estado del temporizador en memoria
-    const newTimerState = updateTimerStateForDate(workDay.date, {
-      status: TimesheetStatus.IN_PROGRESS,
-      sessionStart: now,
-      actualStartTime: getTimerStateForDate(workDay.date).status === TimesheetStatus.NOT_STARTED ? now : getTimerStateForDate(workDay.date).actualStartTime,
-    });
-    
-    // Actualizar workDay con el nuevo estado
-    const updatedWorkDay: WorkDay = {
-      ...workDay,
-      timesheet: {
-        ...workDay.timesheet,
-        status: newTimerState.status,
-        currentSessionStart: newTimerState.sessionStart || undefined,
-      },
-      actualStartTime: newTimerState.actualStartTime,
-    };
-    
-    setWorkDay(updatedWorkDay);
-    console.log('✅ Timesheet started successfully (memory mode)');
+    try {
+      console.log('🔄 Starting day timer via REAL DATABASE...');
+      
+      // Usar la función real de la base de datos
+      const updatedWorkDay = await supabaseService.updateWorkDayTimesheet(workDay.id, {
+        status: TimesheetStatus.IN_PROGRESS,
+        currentSessionStart: new Date(),
+        actualStartTime: workDay.actualStartTime || new Date(),
+      });
+      
+      console.log('✅ Day timer started successfully via DB:', updatedWorkDay.timesheet.status);
+      
+      // Actualizar el workDay con los datos reales de la DB
+      setWorkDay(updatedWorkDay);
+      
+    } catch (error) {
+      console.error('❌ Error starting day timer:', error);
+      // Fallback a memory mode solo en caso de error
+      const now = new Date();
+      const newTimerState = updateTimerStateForDate(workDay.date, {
+        status: TimesheetStatus.IN_PROGRESS,
+        sessionStart: now,
+        actualStartTime: getTimerStateForDate(workDay.date).status === TimesheetStatus.NOT_STARTED ? now : getTimerStateForDate(workDay.date).actualStartTime,
+      });
+      
+      const updatedWorkDay: WorkDay = {
+        ...workDay,
+        timesheet: {
+          ...workDay.timesheet,
+          status: newTimerState.status,
+          currentSessionStart: newTimerState.sessionStart || undefined,
+        },
+        actualStartTime: newTimerState.actualStartTime,
+      };
+      
+      setWorkDay(updatedWorkDay);
+      console.log('⚠️ Fallback to memory mode due to error');
+    }
   };
 
   const handlePauseTimesheet = async () => {
     console.log('⏸️ handlePauseTimesheet called');
-    console.log('📊 current timerState:', getTimerStateForDate(workDay.date));
     
     if (isReadOnly || !workDay) {
       console.log('❌ Cancelled: isReadOnly or no workDay');
       return;
     }
     
-    const now = new Date();
-    
-    // Calcular tiempo de la sesión actual y sumarlo al total
-    let sessionDuration = 0;
-    if (getTimerStateForDate(workDay.date).sessionStart) {
-      sessionDuration = Math.floor((now.getTime() - getTimerStateForDate(workDay.date).sessionStart.getTime()) / 1000);
+    try {
+      console.log('🔄 Pausing day timer via REAL DATABASE...');
+      
+      // Usar la función real de la base de datos  
+      const updatedWorkDay = await supabaseService.updateWorkDayTimesheet(workDay.id, {
+        status: TimesheetStatus.PAUSED,
+        currentSessionStart: null,
+      });
+      
+      console.log('✅ Day timer paused successfully via DB:', updatedWorkDay.timesheet.status, 'Total:', updatedWorkDay.timesheet.totalDuration);
+      
+      // Actualizar el workDay con los datos reales de la DB
+      setWorkDay(updatedWorkDay);
+      
+    } catch (error) {
+      console.error('❌ Error pausing day timer:', error);
+      // Fallback a memory mode solo en caso de error
+      const now = new Date();
+      
+      let sessionDuration = 0;
+      if (getTimerStateForDate(workDay.date).sessionStart) {
+        sessionDuration = Math.floor((now.getTime() - getTimerStateForDate(workDay.date).sessionStart.getTime()) / 1000);
+      }
+      
+      const newTimerState = updateTimerStateForDate(workDay.date, {
+        status: TimesheetStatus.PAUSED,
+        sessionStart: null,
+        totalDuration: getTimerStateForDate(workDay.date).totalDuration + sessionDuration,
+      });
+      
+      const updatedWorkDay: WorkDay = {
+        ...workDay,
+        timesheet: {
+          ...workDay.timesheet,
+          status: newTimerState.status,
+          currentSessionStart: undefined,
+          totalDuration: newTimerState.totalDuration,
+        },
+      };
+      
+      setWorkDay(updatedWorkDay);
+      console.log('⚠️ Fallback to memory mode. Session duration:', sessionDuration, 'Total duration:', newTimerState.totalDuration);
     }
-    
-    // Actualizar estado del temporizador en memoria
-    const newTimerState = updateTimerStateForDate(workDay.date, {
-      status: TimesheetStatus.PAUSED,
-      sessionStart: null,
-      totalDuration: getTimerStateForDate(workDay.date).totalDuration + sessionDuration,
-    });
-    
-    // Actualizar workDay con el nuevo estado
-    const updatedWorkDay: WorkDay = {
-      ...workDay,
-      timesheet: {
-        ...workDay.timesheet,
-        status: newTimerState.status,
-        currentSessionStart: undefined,
-        totalDuration: newTimerState.totalDuration,
-      },
-    };
-    
-    setWorkDay(updatedWorkDay);
-    console.log('✅ Timesheet paused successfully (memory mode). Session duration:', sessionDuration, 'Total duration:', newTimerState.totalDuration);
   };
 
   const handleFinishTimesheet = async () => {
