@@ -38,6 +38,7 @@ import {
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
 import { isDayReadOnly } from '@/utils/dateUtils';
+import { formatDuration } from '@/utils';
 import { ProblemReportDialog, NFCDialog, QRDialog, LocationDialog, LocationViewer, AudioDialog, AudioViewer, SignatureDialog, SignatureViewer, CameraDialog, MediaViewer } from '@/components';
 
 interface TaskDetailScreenProps {
