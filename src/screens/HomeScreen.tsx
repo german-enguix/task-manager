@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ScrollView, Alert, StyleSheet, View } from 'react-native';
 import { Text, Surface, Button, Card, Chip, Icon } from 'react-native-paper';
 import { formatDate } from '@/utils';
+import { isDayReadOnly } from '@/utils/dateUtils';
 import { supabaseService } from '@/services/supabaseService';
 import { TaskStatus, WorkDay, DayStatus, TimesheetStatus } from '@/types';
 import { 
@@ -106,7 +107,71 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return updatedState;
   };
 
-  const isReadOnly = workDay?.status === DayStatus.COMPLETED;
+  const isReadOnly = workDay ? isDayReadOnly(workDay) : false;
+
+  // Funciones para calcular progreso del día
+  const getDayProgress = () => {
+    if (!tasks || tasks.length === 0) {
+      return {
+        tasksCompleted: 0,
+        totalTasks: 0,
+        subtasksCompleted: 0,
+        totalSubtasks: 0,
+        tasksPercentage: 0,
+        subtasksPercentage: 0,
+        overallPercentage: 0
+      };
+    }
+
+    const tasksCompleted = tasks.filter(task => task.status === 'completed').length;
+    const totalTasks = tasks.length;
+
+    let subtasksCompleted = 0;
+    let totalSubtasks = 0;
+
+    tasks.forEach(task => {
+      if (task.subtasks && Array.isArray(task.subtasks)) {
+        totalSubtasks += task.subtasks.length;
+        subtasksCompleted += task.subtasks.filter((subtask: any) => subtask.isCompleted).length;
+      }
+    });
+
+    const tasksPercentage = totalTasks > 0 ? (tasksCompleted / totalTasks) * 100 : 0;
+    const subtasksPercentage = totalSubtasks > 0 ? (subtasksCompleted / totalSubtasks) * 100 : 0;
+    
+    // Calcular porcentaje general ponderado (50% tareas + 50% subtareas)
+    const overallPercentage = totalSubtasks > 0 
+      ? (tasksPercentage + subtasksPercentage) / 2 
+      : tasksPercentage;
+
+    return {
+      tasksCompleted,
+      totalTasks,
+      subtasksCompleted,
+      totalSubtasks,
+      tasksPercentage,
+      subtasksPercentage,
+      overallPercentage
+    };
+  };
+
+  const getMotivationalMessage = (progress: ReturnType<typeof getDayProgress>) => {
+    const { overallPercentage, tasksCompleted, totalTasks } = progress;
+    
+    if (overallPercentage === 100) {
+      return "¡Día completado! 🎉";
+    } else if (overallPercentage >= 80) {
+      return "¡Casi terminas! 💪";
+    } else if (overallPercentage >= 50) {
+      return "¡Vas muy bien! 👍";
+    } else if (overallPercentage >= 25) {
+      return "¡Sigue así! 🚀";
+    } else if (tasksCompleted === 0 && totalTasks > 0) {
+      return "¡Hora de empezar! ⭐";
+    } else {
+      return "¡Tú puedes! 💜";
+    }
+  };
 
   // Actualizar tiempo cada segundo para el cronómetro real
   useEffect(() => {
@@ -211,7 +276,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         timesheet: {
           ...workDayData.timesheet,
           status: getTimerStateForDate(targetDate).status,
-          currentSessionStart: getTimerStateForDate(targetDate).sessionStart,
+          currentSessionStart: getTimerStateForDate(targetDate).sessionStart || undefined,
           totalDuration: getTimerStateForDate(targetDate).totalDuration,
         },
         actualStartTime: getTimerStateForDate(targetDate).actualStartTime,
@@ -234,7 +299,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         status: getTimerStateForDate(date || today).status === TimesheetStatus.COMPLETED ? DayStatus.COMPLETED : DayStatus.PROGRAMMED,
         timesheet: {
           status: getTimerStateForDate(date || today).status,
-          currentSessionStart: getTimerStateForDate(date || today).sessionStart,
+          currentSessionStart: getTimerStateForDate(date || today).sessionStart || undefined,
           totalDuration: getTimerStateForDate(date || today).totalDuration,
           sessions: [],
         },
@@ -367,7 +432,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     console.log('🚀 handleStartTimesheet called');
     console.log('📊 isReadOnly:', isReadOnly);
     console.log('📊 workDay:', workDay);
-    console.log('📊 current timerState:', getTimerStateForDate(workDay.date));
+    console.log('📊 current timerState:', workDay ? getTimerStateForDate(workDay.date) : 'no workDay');
     
     if (isReadOnly || !workDay) {
       console.log('❌ Cancelled: isReadOnly or no workDay');
@@ -389,7 +454,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       timesheet: {
         ...workDay.timesheet,
         status: newTimerState.status,
-        currentSessionStart: newTimerState.sessionStart,
+        currentSessionStart: newTimerState.sessionStart || undefined,
       },
       actualStartTime: newTimerState.actualStartTime,
     };
@@ -596,9 +661,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleTaskPress = (taskId: string) => {
-    if (!isReadOnly) {
-      onNavigateToTask(taskId);
-    }
+    // Siempre permitir navegación - la lógica de solo lectura se maneja en TaskDetailScreen
+    onNavigateToTask(taskId);
   };
 
   const handleNotificationDialogAccept = async () => {
@@ -683,6 +747,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text variant="headlineMedium">
                 {loadingUser ? 'Cargando...' : `Hola ${userName}`}
               </Text>
+              {isReadOnly && (
+                <Chip 
+                  mode="outlined"
+                  icon="lock"
+                  style={styles.readOnlyChip}
+                  compact
+                >
+                  Día pasado - Solo lectura
+                </Chip>
+              )}
             </View>
             
             <NotificationsBell
@@ -748,6 +822,105 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     {workDay.timesheet.notes}
                   </Text>
                 )}
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Progreso del día */}
+        {!loadingTasks && tasks.length > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <View style={styles.progressHeader}>
+                <Icon source="chart-line" size={24} color="#4CAF50" />
+                <Text variant="titleMedium" style={styles.progressTitle}>
+                  Progreso del día
+                </Text>
+                <Text variant="bodyMedium" style={styles.motivationalMessage}>
+                  {getMotivationalMessage(getDayProgress())}
+                </Text>
+              </View>
+
+              <View style={styles.progressContent}>
+                {/* Progreso de tareas */}
+                <View style={styles.progressItem}>
+                  <View style={styles.progressItemHeader}>
+                    <Icon source="clipboard-check" size={16} color="#2196F3" />
+                    <Text variant="bodyMedium" style={styles.progressLabel}>
+                      Tareas
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.progressText}>
+                      {getDayProgress().tasksCompleted}/{getDayProgress().totalTasks}
+                    </Text>
+                  </View>
+                  <View style={styles.progressBarContainer}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { 
+                          width: `${getDayProgress().tasksPercentage}%`,
+                          backgroundColor: getDayProgress().tasksPercentage >= 100 ? '#4CAF50' : '#2196F3'
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
+
+                {/* Progreso de subtareas */}
+                {getDayProgress().totalSubtasks > 0 && (
+                  <View style={styles.progressItem}>
+                    <View style={styles.progressItemHeader}>
+                      <Icon source="format-list-checks" size={16} color="#FF9800" />
+                      <Text variant="bodyMedium" style={styles.progressLabel}>
+                        Subtareas
+                      </Text>
+                      <Text variant="bodyMedium" style={styles.progressText}>
+                        {getDayProgress().subtasksCompleted}/{getDayProgress().totalSubtasks}
+                      </Text>
+                    </View>
+                    <View style={styles.progressBarContainer}>
+                      <View 
+                        style={[
+                          styles.progressBarFill, 
+                          { 
+                            width: `${getDayProgress().subtasksPercentage}%`,
+                            backgroundColor: getDayProgress().subtasksPercentage >= 100 ? '#4CAF50' : '#FF9800'
+                          }
+                        ]} 
+                      />
+                    </View>
+                  </View>
+                )}
+
+                {/* Progreso general */}
+                <View style={styles.overallProgress}>
+                  <View style={styles.overallProgressHeader}>
+                    <Text variant="titleSmall" style={styles.overallProgressLabel}>
+                      Progreso general
+                    </Text>
+                    <Text variant="titleSmall" style={[
+                      styles.overallProgressPercentage,
+                      { color: getDayProgress().overallPercentage >= 100 ? '#4CAF50' : '#666' }
+                    ]}>
+                      {Math.round(getDayProgress().overallPercentage)}%
+                    </Text>
+                  </View>
+                  <View style={styles.overallProgressBarContainer}>
+                    <View 
+                      style={[
+                        styles.overallProgressBarFill, 
+                        { 
+                          width: `${getDayProgress().overallPercentage}%`,
+                          backgroundColor: getDayProgress().overallPercentage >= 100 
+                            ? '#4CAF50' 
+                            : getDayProgress().overallPercentage >= 50 
+                            ? '#2196F3' 
+                            : '#FF9800'
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
               </View>
             </Card.Content>
           </Card>
@@ -1142,5 +1315,84 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     opacity: 0.7,
+  },
+  readOnlyChip: {
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+    borderColor: '#FFC107',
+  },
+  // Estilos para la barra de progreso del día
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  progressTitle: {
+    flex: 1,
+    fontWeight: '600',
+  },
+  motivationalMessage: {
+    fontWeight: '500',
+    color: '#4CAF50',
+  },
+  progressContent: {
+    gap: 12,
+  },
+  progressItem: {
+    gap: 8,
+  },
+  progressItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  progressLabel: {
+    flex: 1,
+    fontWeight: '500',
+  },
+  progressText: {
+    fontWeight: '600',
+    color: '#666',
+  },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  overallProgress: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  overallProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  overallProgressLabel: {
+    fontWeight: '600',
+    color: '#333',
+  },
+  overallProgressPercentage: {
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  overallProgressBarContainer: {
+    height: 10,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  overallProgressBarFill: {
+    height: '100%',
+    borderRadius: 5,
   },
 });

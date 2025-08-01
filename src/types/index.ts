@@ -305,6 +305,7 @@ export interface Task {
 export enum DayStatus {
   ACTIVE = 'active',
   COMPLETED = 'completed',
+  PROGRAMMED = 'programmed',
 }
 
 export enum TimesheetStatus {

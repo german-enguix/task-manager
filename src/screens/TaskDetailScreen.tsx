@@ -36,6 +36,7 @@ import {
   TaskProblemReport,
 } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
+import { isDayReadOnly } from '@/utils/dateUtils';
 import { ProblemReportDialog, NFCDialog, QRDialog, LocationDialog, LocationViewer, AudioDialog, AudioViewer, SignatureDialog, SignatureViewer, CameraDialog, MediaViewer } from '@/components';
 
 interface TaskDetailScreenProps {
@@ -51,6 +52,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const [task, setTask] = useState<Task | null>(null);
   const [timerDisplay, setTimerDisplay] = useState('00:00:00');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isReadOnly, setIsReadOnly] = useState<boolean>(false);
   const [fallbackMessageShown, setFallbackMessageShown] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showProblemDialog, setShowProblemDialog] = useState(false);
@@ -157,6 +159,15 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         
         setTask(finalTaskData);
         updateTimerDisplay(taskData.timer.totalElapsed);
+        
+        // Calcular si el día de la tarea es de solo lectura (día pasado)
+        if (finalTaskData.dueDate) {
+          const taskWorkDay = { date: finalTaskData.dueDate, status: 'active' };
+          setIsReadOnly(isDayReadOnly(taskWorkDay as any));
+        } else {
+          // Si no hay fecha de vencimiento, asumir día actual (no readonly)
+          setIsReadOnly(false);
+        }
         
         // Actualizar en la base de datos si el estado cambió (sincronización inicial silenciosa)
         if (calculatedStatus !== taskData.status) {
@@ -273,6 +284,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
     const toggleSubtask = async (subtaskId: string) => {
     if (!task) return;
+    
+    if (isReadOnly) {
+      console.log('❌ Subtask toggle blocked: read-only mode (past day)');
+      Alert.alert('Acción no permitida', 'No puedes modificar tareas de días pasados.');
+      return;
+    }
     
     const subtask = task.subtasks.find(s => s.id === subtaskId);
     if (!subtask) return;
@@ -1234,6 +1251,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const toggleTimer = async () => {
     console.log('🔄 toggleTimer called - task:', !!task, 'currentUserId:', currentUserId);
     
+    if (isReadOnly) {
+      console.log('❌ Timer blocked: read-only mode (past day)');
+      Alert.alert('Acción no permitida', 'No puedes modificar tareas de días pasados.');
+      return;
+    }
+    
     if (!task || !currentUserId) {
       console.log('❌ Missing task or currentUserId');
       Alert.alert('Error', 'No se pudo identificar la tarea o el usuario. Recarga la pantalla.');
@@ -1354,7 +1377,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
 
 
-  const getEvidenceIcon = (type: EvidenceType, config?: RequiredEvidence['config']) => {
+  const getEvidenceIcon = (type: EvidenceType, config?: any) => {
     switch (type) {
       case EvidenceType.PHOTO_VIDEO:
         if (config?.allowPhoto && config?.allowVideo) return 'camera-plus';
@@ -1440,6 +1463,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   const addTextComment = async () => {
     console.log('🔄 addTextComment called');
+    
+    if (isReadOnly) {
+      console.log('❌ Comment blocked: read-only mode (past day)');
+      Alert.alert('Acción no permitida', 'No puedes agregar comentarios en días pasados.');
+      return;
+    }
+    
     console.log('📝 Comment text:', commentText);
     console.log('📝 Comment text trimmed:', commentText.trim());
     console.log('📝 Comment text length:', commentText.trim().length);
@@ -1487,6 +1517,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const addVoiceComment = () => {
+    if (isReadOnly) {
+      console.log('❌ Voice comment blocked: read-only mode (past day)');
+      Alert.alert('Acción no permitida', 'No puedes agregar comentarios en días pasados.');
+      return;
+    }
+    
     Alert.alert(
       'Comentario de Voz',
       '¿Deseas grabar un comentario de voz?',
@@ -1579,6 +1615,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const reportProblem = () => {
+    if (isReadOnly) {
+      console.log('❌ Problem report blocked: read-only mode (past day)');
+      Alert.alert('Acción no permitida', 'No puedes reportar problemas en días pasados.');
+      return;
+    }
+    
     setShowProblemDialog(true);
   };
 
@@ -1631,6 +1673,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const handleDeleteReport = (report: TaskProblemReport) => {
+    if (isReadOnly) {
+      console.log('❌ Delete report blocked: read-only mode (past day)');
+      Alert.alert('Acción no permitida', 'No puedes eliminar reportes en días pasados.');
+      return;
+    }
+    
     console.log('🗑️ Initiating delete for report:', report.title);
     setReportToDelete(report);
     setShowDeleteReportDialog(true);
@@ -1736,6 +1784,17 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
               style={styles.backButton}
             />
             <View style={styles.statusContainer}>
+              {isReadOnly && (
+                <Chip 
+                  mode="outlined"
+                  style={[styles.priorityBadge, { borderColor: theme.colors.outline }]}
+                  textStyle={{ color: theme.colors.outline, fontSize: 11 }}
+                  compact
+                  icon="lock"
+                >
+                  SOLO LECTURA
+                </Chip>
+              )}
               <Chip 
                 mode="outlined"
                 style={[styles.priorityBadge, { borderColor: getPriorityColor(task.priority) }]}
@@ -1831,8 +1890,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 onPress={toggleTimer}
                 icon={task.timer.isRunning ? "pause" : "play"}
                 style={styles.timerButton}
+                disabled={isReadOnly}
               >
-                {task.timer.isRunning ? 'Pausar' : 'Iniciar temporizador'}
+                {isReadOnly 
+                  ? 'Timer - Solo lectura' 
+                  : (task.timer.isRunning ? 'Pausar' : 'Iniciar temporizador')
+                }
               </Button>
             </View>
           </Card.Content>
@@ -1866,6 +1929,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                         <Checkbox
                           status={getSubtaskCheckboxStatus(subtask)}
                           onPress={() => toggleSubtask(subtask.id)}
+                          disabled={isReadOnly}
                         />
                       )}
                     </View>
@@ -1936,8 +2000,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                         onPress={() => handleSubtaskEvidence(subtask)}
                         style={styles.evidenceActionButton}
                         buttonColor={subtask.evidenceRequirement.isRequired ? theme.colors.error : undefined}
+                        disabled={isReadOnly}
                       >
-                        {getSubtaskEvidenceActionText(subtask.evidenceRequirement)}
+                        {isReadOnly 
+                          ? 'Solo lectura' 
+                          : getSubtaskEvidenceActionText(subtask.evidenceRequirement)
+                        }
                       </Button>
                     )}
                   </View>
@@ -1992,19 +2060,20 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             <View style={styles.commentInputContainer}>
               <TextInput
                 mode="outlined"
-                placeholder="Escribe un comentario..."
+                placeholder={isReadOnly ? "Solo lectura - No puedes agregar comentarios" : "Escribe un comentario..."}
                 value={commentText}
                 onChangeText={setCommentText}
                 onSubmitEditing={addTextComment}
                 returnKeyType="send"
                 style={styles.commentInput}
                 dense
+                disabled={isReadOnly}
               />
               <IconButton
                 icon="send"
                 mode="contained"
                 onPress={addTextComment}
-                disabled={commentText.trim() === ''}
+                disabled={isReadOnly || commentText.trim() === ''}
                 style={styles.sendButton}
                 size={20}
               />
@@ -2014,6 +2083,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 onPress={addVoiceComment}
                 style={styles.microphoneButton}
                 size={20}
+                disabled={isReadOnly}
               />
             </View>
           </Card.Content>
@@ -2058,7 +2128,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                           mode="contained-tonal"
                           style={styles.deleteReportButton}
                           onPress={() => handleDeleteReport(problem)}
-                          disabled={isDeletingReport}
+                          disabled={isDeletingReport || isReadOnly}
                         />
                       )}
                     </View>
@@ -2105,14 +2175,25 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
               </Text>
             )}
             
+            {isReadOnly && task.problemReports.length > 0 && (
+              <View style={styles.readOnlyIndicator}>
+                <View style={styles.readOnlyRow}>
+                  <Icon source="lock" size={14} color="#666" />
+                  <Text variant="bodySmall" style={styles.readOnlyText}>
+                    Solo lectura - No puedes modificar reportes de días pasados
+                  </Text>
+                </View>
+              </View>
+            )}
+            
             <Button 
               mode="outlined" 
               icon="alert" 
               onPress={reportProblem}
               style={styles.reportButton}
-              disabled={isSubmittingReport}
+              disabled={isSubmittingReport || isReadOnly}
             >
-              Reportar Problema
+              {isReadOnly ? 'Solo lectura' : 'Reportar Problema'}
             </Button>
           </Card.Content>
         </Card>
