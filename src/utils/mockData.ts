@@ -52,6 +52,7 @@ export const mockTasks: Task[] = [
     // Información del proyecto y ubicación
     projectName: 'Modernización Línea de Producción A',
     location: 'Planta Industrial Norte - Área Principal',
+    material: 'Extintores, medidores de presión, etiquetas de inspección',
     
     // Tags asignados por el admin
     tags: [

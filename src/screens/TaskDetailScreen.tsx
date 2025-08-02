@@ -1896,6 +1896,20 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 Ubicación: {task.location}
               </Text>
             </View>
+            {/* Debug temporal para verificar material */}
+            {console.log('🔍 Task material in component:', { 
+              taskId: task.id, 
+              material: task.material, 
+              hasMaterial: !!task.material 
+            })}
+            {task.material && (
+              <View style={styles.taskMetaRow}>
+                <Icon source="package-variant" size={16} color="#FF9800" />
+                <Text variant="bodySmall" style={styles.taskMaterial}>
+                  Material: {task.material}
+                </Text>
+              </View>
+            )}
             {task.dueDate && (
               <View style={styles.taskMetaRow}>
                 <Icon source="calendar" size={16} color="#666" />
@@ -2663,6 +2677,11 @@ const styles = StyleSheet.create({
   },
   taskLocation: {
     color: '#4CAF50',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  taskMaterial: {
+    color: '#FF9800',
     fontWeight: '500',
     marginLeft: 6,
   },

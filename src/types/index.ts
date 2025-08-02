@@ -272,6 +272,7 @@ export interface Task {
   // Información del proyecto y ubicación
   projectName: string;
   location: string;
+  material?: string; // Material requerido para la tarea
   
   // Tags asignados por el admin
   tags: Tag[];
