@@ -7,6 +7,7 @@ import {
   useTheme,
 } from 'react-native-paper';
 import { View, StyleSheet, PanResponder } from 'react-native';
+import { logger } from '@/utils/logger';
 
 interface SignatureViewerProps {
   visible: boolean;
@@ -37,13 +38,13 @@ export const SignatureViewer: React.FC<SignatureViewerProps> = ({
   try {
     // Validar que signatureData no esté vacío y sea una cadena válida
     if (!signatureData || typeof signatureData !== 'string' || signatureData.trim() === '') {
-      console.warn('SignatureViewer: signatureData está vacío o no es válido:', signatureData);
+      logger.warning('SignatureViewer: signatureData está vacío o no es válido:', signatureData);
       parsedData = null;
     } else {
       parsedData = JSON.parse(signatureData);
     }
   } catch (error) {
-    console.error('Error parsing signature data:', error, 'Data received:', signatureData);
+    logger.error('Error parsing signature data:', error, 'Data received:', signatureData);
     parsedData = null;
   }
 

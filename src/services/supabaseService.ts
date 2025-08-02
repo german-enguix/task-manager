@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import { 
   Task, 
   Tag, 
@@ -90,11 +91,11 @@ export class SupabaseService {
   
   async getCurrentUser(): Promise<any> {
     try {
-      console.log('🔄 Getting current user from Supabase...');
+      logger.auth('Getting current user from Supabase...');
       
       const { data: { user }, error } = await supabase.auth.getUser();
       
-      console.log('📊 Auth response:', { 
+      logger.auth('Auth response:', { 
         hasUser: !!user, 
         userId: user?.id, 
         email: user?.email,
@@ -102,16 +103,16 @@ export class SupabaseService {
       });
       
       if (error) {
-        console.error('❌ Auth error:', error);
+        logger.error('Auth error:', error);
         throw error;
       }
       
       if (!user) {
-        console.log('❌ No authenticated user found');
+        logger.auth('No authenticated user found');
         return null;
       }
       
-      console.log('✅ User authenticated:', user.email);
+      logger.auth('User authenticated:', user.email);
       
       // Obtener información adicional del usuario desde la tabla profiles
       const { data: userProfile, error: profileError } = await supabase
@@ -121,18 +122,18 @@ export class SupabaseService {
         .single();
       
       if (profileError && profileError.code !== 'PGRST116') {
-        console.error('❌ Profile error:', profileError);
+        logger.error('Profile error:', profileError);
         throw profileError;
       }
       
-      console.log('✅ User profile loaded:', userProfile?.full_name || 'No profile');
+      logger.database('User profile loaded:', userProfile?.full_name || 'No profile');
       
       return {
         ...user,
         profile: userProfile || null,
       };
     } catch (error) {
-      console.error('❌ Error getting current user:', error);
+      logger.error('Error getting current user:', error);
       throw error;
     }
   }
@@ -283,11 +284,11 @@ export class SupabaseService {
     message: string;
   }> {
     try {
-      console.log('🔍 Checking detailed authentication status...');
+      logger.auth('Checking detailed authentication status...');
       
       // 1. Verificar si hay sesión activa
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log('📊 Session check:', {
+      logger.auth('Session check:', {
         hasSession: !!session,
         sessionUser: session?.user?.email,
         expiresAt: session?.expires_at,
@@ -295,7 +296,7 @@ export class SupabaseService {
       });
 
       if (sessionError) {
-        console.error('❌ Session error:', sessionError);
+        logger.error('Session error:', sessionError);
         return {
           isAuthenticated: false,
           user: null,
@@ -305,7 +306,7 @@ export class SupabaseService {
       }
 
       if (!session) {
-        console.log('❌ No active session found');
+        logger.auth('No active session found');
         return {
           isAuthenticated: false,
           user: null,
@@ -317,7 +318,7 @@ export class SupabaseService {
       // 2. Verificar que el usuario sea válido
       const user = session.user;
       if (!user) {
-        console.log('❌ Session exists but no user');
+        logger.auth('Session exists but no user');
         return {
           isAuthenticated: false,
           user: null,
@@ -331,7 +332,7 @@ export class SupabaseService {
       const expiresAt = session.expires_at || 0;
       const isExpired = now > expiresAt;
       
-      console.log('⏰ Session expiry check:', {
+      logger.auth('Session expiry check:', {
         now,
         expiresAt,
         isExpired,
@@ -339,7 +340,7 @@ export class SupabaseService {
       });
 
       if (isExpired) {
-        console.log('❌ Session expired');
+        logger.auth('Session expired');
         return {
           isAuthenticated: false,
           user: null,
@@ -356,9 +357,9 @@ export class SupabaseService {
           .eq('id', user.id)
           .single();
         
-        console.log('✅ Database access OK, profile:', profile?.full_name || 'Sin perfil');
+        logger.database('Database access OK, profile:', profile?.full_name || 'Sin perfil');
       } catch (dbError) {
-        console.error('❌ Database access failed:', dbError);
+        logger.error('Database access failed:', dbError);
         return {
           isAuthenticated: true,
           user: user,
@@ -367,7 +368,7 @@ export class SupabaseService {
         };
       }
 
-      console.log('✅ Authentication fully valid');
+      logger.auth('Authentication fully valid');
       return {
         isAuthenticated: true,
         user: user,
@@ -376,7 +377,7 @@ export class SupabaseService {
       };
 
     } catch (error) {
-      console.error('❌ Auth status check failed:', error);
+      logger.error('Auth status check failed:', error);
       return {
         isAuthenticated: false,
         user: null,
@@ -388,12 +389,12 @@ export class SupabaseService {
 
   async refreshSession(): Promise<boolean> {
     try {
-      console.log('🔄 Refreshing Supabase session...');
+      logger.auth('Refreshing Supabase session...');
       
       const { data, error } = await supabase.auth.refreshSession();
       
       if (error) {
-        console.error('❌ Session refresh failed:', error);
+        logger.error('Session refresh failed:', error);
         return false;
       }
 
@@ -569,7 +570,7 @@ export class SupabaseService {
 
   async getTaskById(taskId: string): Promise<Task | null> {
     try {
-      console.log('🔄 getTaskById called for:', taskId);
+      logger.database('getTaskById called for:', taskId);
       
       const { data, error } = await supabase
         .from('tasks')
@@ -590,27 +591,27 @@ export class SupabaseService {
       if (error) throw error
       
       if (!data) {
-        console.log('❌ No task found with id:', taskId);
+        logger.database('No task found with id:', taskId);
         return null;
       }
 
-      console.log('✅ Task data loaded:', data.title);
+      logger.database('Task data loaded:', data.title);
 
       // Cargar comentarios y reportes de problemas por separado
-      console.log('🔄 Loading comments for task...');
+      logger.database('Loading comments for task...');
       const comments = await this.getTaskComments(taskId);
-      console.log('✅ Comments loaded:', comments.length, 'comments');
+      logger.database('Comments loaded:', comments.length, 'comments');
       
-      console.log('🔄 Loading problem reports for task...');
+      logger.database('Loading problem reports for task...');
       const problemReports = await this.getTaskProblemReports(taskId);
-      console.log('✅ Problem reports loaded:', problemReports.length, 'reports');
+      logger.database('Problem reports loaded:', problemReports.length, 'reports');
       
       // Transformar la tarea y agregar los comentarios y reportes
       const task = this.transformTaskFromSupabase(data);
       task.comments = comments;
       task.problemReports = problemReports;
       
-      console.log('✅ Final task object:', {
+      logger.database('Final task object:', {
         id: task.id,
         title: task.title,
         commentsCount: task.comments.length,
@@ -1447,12 +1448,12 @@ export class SupabaseService {
   
   async getTaskComments(taskId: string): Promise<TaskComment[]> {
     try {
-      console.log('🔄 Getting comments for task:', taskId);
-      console.log('🔍 TaskId type:', typeof taskId, 'value:', taskId);
+      logger.database('Getting comments for task:', taskId);
+      logger.database('TaskId type:', typeof taskId, 'value:', taskId);
       
       // Verificar autenticación primero
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('👤 Current user in getTaskComments:', user?.email || 'No user');
+      logger.database('Current user in getTaskComments:', user?.email || 'No user');
       
       // Usar consulta simple sin JOINs complejos para evitar errores de relaciones
       const { data, error } = await supabase
@@ -1461,12 +1462,12 @@ export class SupabaseService {
         .eq('task_id', taskId)
         .order('created_at', { ascending: true });
 
-      console.log('📋 Query executed for task_id:', taskId);
-      console.log('📊 Raw Supabase response:', { 
-        hasData: !!data, 
+            logger.database('Query executed for task_id:', taskId);
+      logger.database('Raw Supabase response:', {
+        hasData: !!data,
         dataLength: data?.length || 0,
         hasError: !!error,
-        errorMessage: error?.message 
+        errorMessage: error?.message
       });
 
       if (error) {
@@ -1485,35 +1486,35 @@ export class SupabaseService {
           console.error('📋 O ve al SQL Editor en Supabase Dashboard y pega ese script');
           
           // Devolver array vacío en lugar de lanzar error para no romper la UI
-          console.log('⚠️ Returning empty comments array - table does not exist');
-          return [];
+                  logger.database('Returning empty comments array - table does not exist');
+        return [];
         }
         
         // Si es error de relaciones/foreign keys, también manejar graciosamente
         if (error.message?.includes('relationship') || error.message?.includes('foreign key')) {
           console.error('🚨 ERROR DE RELACIONES EN BASE DE DATOS');
           console.error('💡 SOLUCIÓN: Ejecuta scripts/fix_task_comments_final.sql en Supabase');
-          console.log('⚠️ Returning empty comments array - relationship errors');
-          return [];
+                  logger.database('Returning empty comments array - relationship errors');
+        return [];
         }
         
         throw error;
       }
 
-      console.log('✅ Raw comments from DB:', data);
-      console.log('📊 Comments count:', data?.length || 0);
+      logger.database('Raw comments from DB:', data);
+      logger.database('Comments count:', data?.length || 0);
 
       // Si no hay comentarios, devolver array vacío directamente
       if (!data || data.length === 0) {
-        console.log('💡 No comments found for task:', taskId);
-        console.log('🔍 This could mean: 1) No comments exist, 2) RLS policy blocking access, 3) Wrong task_id');
+        logger.database('No comments found for task:', taskId);
+        logger.database('This could mean: 1) No comments exist, 2) RLS policy blocking access, 3) Wrong task_id');
         return [];
       }
 
       // Mapear los comentarios obteniendo nombres de usuarios por separado
-      console.log('🔄 Mapping', data.length, 'comments...');
+      logger.database('Mapping', data.length, 'comments...');
       const comments = await Promise.all((data || []).map(async (row, index) => {
-        console.log(`📝 Mapping comment ${index + 1}/${data.length}:`, {
+        logger.database(`Mapping comment ${index + 1}/${data.length}:`, {
           id: row.id,
           user_id: row.user_id,
           content_preview: row.content.substring(0, 30) + '...',
@@ -1763,7 +1764,7 @@ export class SupabaseService {
     const dateString = targetDate.toISOString().split('T')[0];
     
     try {
-      console.log('🔄 getOrCreateWorkDay using REAL DB for user:', userId, 'date:', dateString);
+      logger.timers('getOrCreateWorkDay using REAL DB for user:', userId, 'date:', dateString);
       
       // 1. Obtener o crear work_day
       let { data: workDayData, error: fetchError } = await supabase
@@ -1987,17 +1988,17 @@ export class SupabaseService {
         return null;
       }
       
-      console.log('✅ Current user ID obtained:', user.id);
+      logger.database('Current user ID obtained:', user.id);
       return user.id;
     } catch (error) {
-      console.error('❌ Exception getting current user ID:', error);
+      logger.error('Exception getting current user ID:', error);
       return null;
     }
   }
 
   async getWorkNotifications(userId: string, unreadOnly: boolean = false): Promise<any[]> {
     try {
-      console.log('🔄 Loading work notifications for user:', userId, 'unreadOnly:', unreadOnly);
+      logger.notifications('Loading work notifications for user:', userId, 'unreadOnly:', unreadOnly);
       
       let query = supabase
         .from('work_notifications')
@@ -2012,21 +2013,21 @@ export class SupabaseService {
       const { data, error } = await query;
       
       if (error) {
-        console.error('❌ Error loading work notifications:', error);
+        logger.error('Error loading work notifications:', error);
         throw error;
       }
       
-      console.log('✅ Work notifications loaded:', data?.length || 0);
+      logger.notifications('Work notifications loaded:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('❌ Error in getWorkNotifications:', error);
+      logger.error('Error in getWorkNotifications:', error);
       throw error;
     }
   }
 
   async markNotificationAsRead(notificationId: string): Promise<void> {
     try {
-      console.log('🔄 Marking notification as read:', notificationId);
+      logger.notifications('Marking notification as read:', notificationId);
       
       const { error } = await supabase
         .from('work_notifications')
@@ -2193,11 +2194,11 @@ export class SupabaseService {
   
   async getTaskProblemReports(taskId: string): Promise<TaskProblemReport[]> {
     try {
-      console.log('🔄 Getting problem reports for task:', taskId);
+      logger.database('Getting problem reports for task:', taskId);
       
       // Verificar autenticación primero
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('👤 Current user in getTaskProblemReports:', user?.email || 'No user');
+      logger.database('Current user in getTaskProblemReports:', user?.email || 'No user');
       
       const { data, error } = await supabase
         .from('task_problem_reports')
@@ -2205,25 +2206,25 @@ export class SupabaseService {
         .eq('task_id', taskId)
         .order('reported_at', { ascending: false });
 
-      console.log('📋 Query executed for task_id:', taskId);
+      logger.database('Query executed for task_id:', taskId);
 
       if (error) {
-        console.error('❌ Error getting problem reports:', error);
+        logger.error('Error getting problem reports:', error);
         
         // Si la tabla no existe, devolver array vacío
         if (error.message?.includes('relation "task_problem_reports" does not exist')) {
-          console.error('🚨 TABLA TASK_PROBLEM_REPORTS NO EXISTE');
-          console.error('💡 SOLUCIÓN: Ejecuta scripts/create_problem_reports_table.sql en Supabase');
+          logger.error('TABLA TASK_PROBLEM_REPORTS NO EXISTE');
+          logger.error('SOLUCIÓN: Ejecuta scripts/create_problem_reports_table.sql en Supabase');
           return [];
         }
         
         throw error;
       }
 
-      console.log('✅ Raw problem reports from DB:', data);
+      logger.database('Raw problem reports from DB:', data);
 
       if (!data || data.length === 0) {
-        console.log('💡 No problem reports found for task:', taskId);
+        logger.database('No problem reports found for task:', taskId);
         return [];
       }
 

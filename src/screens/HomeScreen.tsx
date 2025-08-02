@@ -3,6 +3,7 @@ import { ScrollView, Alert, StyleSheet, View } from 'react-native';
 import { Text, Surface, Button, Card, Chip, Icon, IconButton } from 'react-native-paper';
 import { formatDate } from '@/utils';
 import { isDayReadOnly, isToday } from '@/utils/dateUtils';
+import { logger } from '@/utils/logger';
 import { supabaseService } from '@/services/supabaseService';
 import { TaskStatus, WorkDay, DayStatus, TimesheetStatus } from '@/types';
 import { 
@@ -77,7 +78,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   // Función para notificar cambios en timers de tareas
   const handleTaskTimerChange = () => {
-    console.log('⏰ Task timer change detected, updating day timer display');
+          logger.timers('Task timer change detected, updating day timer display');
     setTimerUpdateTrigger(prev => prev + 1);
     
     // Notificar al componente padre si hay callback
@@ -232,7 +233,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   // Efecto para refrescar tareas cuando se actualiza el trigger
   useEffect(() => {
     if (taskRefreshTrigger && taskRefreshTrigger > 0 && currentUserId && workDay) {
-      console.log('🔄 Trigger de refresh detectado, recargando tareas...');
+      logger.navigation('Trigger de refresh detectado, recargando tareas...');
       loadTasks(workDay.date);
     }
   }, [taskRefreshTrigger, currentUserId, workDay?.date]);
@@ -275,14 +276,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           setUserName(userProfile?.name || 'Usuario');
         }
         
-        console.log('✅ User info loaded, ID:', currentUser.id);
+        logger.database('User info loaded, ID:', currentUser.id);
       } else {
-        console.error('❌ No authenticated user found');
+        logger.error('No authenticated user found');
         setUserName('Usuario');
         setCurrentUserId(null);
       }
     } catch (error) {
-      console.error('❌ Error loading user info:', error);
+      logger.error('Error loading user info:', error);
       setUserName('Usuario'); // Fallback si falla
       setCurrentUserId(null);
     } finally {
@@ -292,7 +293,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const loadWorkDay = async (date?: Date) => {
     if (!currentUserId) {
-      console.log('❌ Cannot load work day: no authenticated user');
+      logger.database('Cannot load work day: no authenticated user');
       return;
     }
 
@@ -356,7 +357,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const loadTasks = async (date?: Date) => {
     if (!currentUserId) {
-      console.log('❌ Cannot load tasks: no authenticated user');
+      logger.database('Cannot load tasks: no authenticated user');
       return;
     }
 
@@ -389,7 +390,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const loadNotifications = async () => {
     if (!currentUserId) {
-      console.log('❌ Cannot load notifications: no authenticated user');
+      logger.database('Cannot load notifications: no authenticated user');
       return;
     }
 
@@ -461,12 +462,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleStartTimesheet = async () => {
-    console.log('🚀 handleStartTimesheet called');
-    console.log('📊 isReadOnly:', isReadOnly);
-    console.log('📊 workDay:', workDay);
+    logger.timers('handleStartTimesheet called');
+    logger.timers('isReadOnly:', isReadOnly);
+    logger.timers('workDay:', workDay);
     
     if (isReadOnly || !workDay) {
-      console.log('❌ Cancelled: isReadOnly or no workDay');
+      logger.timers('Cancelled: isReadOnly or no workDay');
       return;
     }
     
@@ -531,10 +532,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handlePauseTimesheet = async () => {
-    console.log('⏸️ handlePauseTimesheet called');
+    logger.timers('handlePauseTimesheet called');
     
     if (isReadOnly || !workDay) {
-      console.log('❌ Cancelled: isReadOnly or no workDay');
+      logger.timers('Cancelled: isReadOnly or no workDay');
       return;
     }
     
@@ -602,11 +603,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleFinishTimesheet = async () => {
-    console.log('🏁 handleFinishTimesheet called');
-    console.log('📊 current timerState:', getTimerStateForDate(workDay.date));
+    logger.timers('handleFinishTimesheet called');
+    logger.timers('current timerState:', getTimerStateForDate(workDay.date));
     
     if (isReadOnly || !workDay) {
-      console.log('❌ Cancelled: isReadOnly or no workDay');
+      logger.timers('Cancelled: isReadOnly or no workDay');
       return;
     }
     

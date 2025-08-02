@@ -8,6 +8,8 @@ import { NavBar } from '@/components';
 import { lightTheme, darkTheme } from '@/constants';
 import { NavigationRoute, User } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
+import { logger } from '@/utils/logger';
+import '@/config/logging'; // Configuración de logs
 
 type Screen = 'home' | 'projects' | 'profile' | 'taskDetail' | 'projectDetail';
 
@@ -33,11 +35,11 @@ export default function App() {
 
   const checkAuthStatus = async () => {
     try {
-      console.log('🚀 Starting authentication check...');
+      logger.auth('Starting authentication check...');
       
       const authStatus = await supabaseService.checkAuthStatus();
       
-      console.log('📊 Auth status result:', authStatus);
+      logger.auth('Auth status result:', authStatus);
       
       if (authStatus.isAuthenticated && authStatus.sessionValid && authStatus.user) {
         // Obtener perfil del usuario
@@ -57,22 +59,22 @@ export default function App() {
 
         setUser(userWithProfile);
         setIsAuthenticated(true);
-        console.log('✅ User authenticated and profile loaded:', userWithProfile.name);
+        logger.auth('User authenticated and profile loaded:', userWithProfile.name);
       } else {
-        console.log('❌ Authentication failed:', authStatus.message);
+        logger.auth('Authentication failed:', authStatus.message);
         
         // Si el usuario no está autenticado pero creemos que debería estar,
         // intentar refrescar la sesión
         if (!authStatus.sessionValid) {
-          console.log('🔄 Attempting to refresh session...');
+          logger.auth('Attempting to refresh session...');
           const refreshed = await supabaseService.refreshSession();
           
           if (refreshed) {
-            console.log('✅ Session refreshed, retrying...');
+            logger.auth('Session refreshed, retrying...');
             // Intentar de nuevo después del refresh
             const retryAuthStatus = await supabaseService.checkAuthStatus();
             if (retryAuthStatus.isAuthenticated && retryAuthStatus.sessionValid) {
-              console.log('✅ Authentication successful after refresh');
+              logger.auth('Authentication successful after refresh');
               // Recursively call checkAuthStatus to set user
               await checkAuthStatus();
               return;
@@ -84,7 +86,7 @@ export default function App() {
         setUser(null);
       }
     } catch (error) {
-      console.error('❌ Error verificando autenticación:', error);
+      logger.error('Error verificando autenticación:', error);
       setIsAuthenticated(false);
       setUser(null);
     } finally {
@@ -121,7 +123,7 @@ export default function App() {
     // Si venimos del detalle de una tarea, activar el refresh
     if (wasInTaskDetail) {
       setTaskRefreshTrigger(prev => prev + 1);
-      console.log('🔄 Activando refresh de tareas desde TaskDetail');
+      logger.navigation('Activando refresh de tareas desde TaskDetail');
     }
   };
 
@@ -162,14 +164,14 @@ export default function App() {
   // Función de logout sin confirmación (para ProfileScreen)
   const performLogout = async () => {
     try {
-      console.log('🚪 Logging out user...');
+      logger.auth('Logging out user...');
       await supabaseService.signOut();
       setUser(null);
       setIsAuthenticated(false);
       setCurrentScreen('home');
-      console.log('✅ User logged out successfully');
+      logger.auth('User logged out successfully');
     } catch (error) {
-      console.error('❌ Error during logout:', error);
+      logger.error('Error during logout:', error);
       // Aún así limpiar el estado local
       setUser(null);
       setIsAuthenticated(false);
@@ -196,7 +198,7 @@ export default function App() {
 
   const handleSimulateNotification = async () => {
     try {
-      console.log('🔔 Simulating notification...');
+      logger.notifications('Simulating notification...');
       
       // Crear una notificación simulada realista
       const notification = {
@@ -231,9 +233,9 @@ export default function App() {
           
           // Actualizar el ID de la notificación con el ID real de la base de datos
           notification.id = notificationId;
-          console.log('✅ Real notification created in database:', notificationId);
+          logger.notifications('Real notification created in database:', notificationId);
         } catch (error) {
-          console.error('❌ Error creating real notification:', error);
+          logger.error('Error creating real notification:', error);
           // Continuar con la notificación simulada aunque falle la base de datos
         }
       }
@@ -244,9 +246,9 @@ export default function App() {
       // Navegar a la pantalla Home para mostrar el dialog
       setCurrentScreen('home');
       
-      console.log('✅ Notification simulation complete');
+      logger.notifications('Notification simulation complete');
     } catch (error) {
-      console.error('❌ Error simulating notification:', error);
+      logger.error('Error simulating notification:', error);
       Alert.alert('Error', 'No se pudo simular la notificación. Inténtalo de nuevo.');
     }
   };
@@ -257,7 +259,7 @@ export default function App() {
 
   const handleSimulateExternalNFC = async () => {
     try {
-      console.log('📡 Simulating external NFC read...');
+      logger.notifications('Simulating external NFC read...');
       
       // Buscar una subtarea NFC de Zizi para usar en la simulación
       let nfcSubtask = null;
@@ -308,10 +310,10 @@ export default function App() {
               } : null
             };
             
-            console.log('✅ Found NFC subtask:', nfcSubtask);
+            logger.notifications('Found NFC subtask:', nfcSubtask);
           }
         } catch (error) {
-          console.error('❌ Error fetching NFC subtask:', error);
+          logger.error('Error fetching NFC subtask:', error);
         }
       }
       
@@ -332,9 +334,9 @@ export default function App() {
       // Navegar a la pantalla Home para mostrar el dialog
       setCurrentScreen('home');
       
-      console.log('✅ External NFC simulation complete:', externalNFC);
+      logger.notifications('External NFC simulation complete:', externalNFC);
     } catch (error) {
-      console.error('❌ Error simulating external NFC:', error);
+      logger.error('Error simulating external NFC:', error);
       Alert.alert('Error', 'No se pudo simular la lectura NFC externa. Inténtalo de nuevo.');
     }
   };
@@ -345,7 +347,7 @@ export default function App() {
 
   const handleSimulateExternalQR = async () => {
     try {
-      console.log('📱 Simulating external QR scan...');
+      logger.notifications('Simulating external QR scan...');
       
       // Buscar cualquier tarea de Zizi para usar en la simulación
       let qrTask = null;
@@ -384,10 +386,10 @@ export default function App() {
               estimatedDuration: task.estimated_duration
             };
             
-            console.log('✅ Found task for QR simulation:', qrTask);
+            logger.notifications('Found task for QR simulation:', qrTask);
           }
         } catch (error) {
-          console.error('❌ Error fetching task for QR:', error);
+          logger.error('Error fetching task for QR:', error);
         }
       }
       
@@ -408,9 +410,9 @@ export default function App() {
       // Navegar a la pantalla Home para mostrar el dialog
       setCurrentScreen('home');
       
-      console.log('✅ External QR simulation complete:', externalQR);
+      logger.notifications('External QR simulation complete:', externalQR);
     } catch (error) {
-      console.error('❌ Error simulating external QR:', error);
+      logger.error('Error simulating external QR:', error);
       Alert.alert('Error', 'No se pudo simular la lectura QR externa. Inténtalo de nuevo.');
     }
   };
