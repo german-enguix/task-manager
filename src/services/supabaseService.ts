@@ -394,19 +394,32 @@ export class SupabaseService {
       const { data, error } = await supabase.auth.refreshSession();
       
       if (error) {
+        // Si es AuthSessionMissingError, es normal (no hay sesión que refrescar)
+        if (error.message?.includes('Auth session missing')) {
+          logger.auth('No session to refresh (normal on first launch)');
+          return false;
+        }
+        
+        // Otros errores sí son problemáticos
         logger.error('Session refresh failed:', error);
         return false;
       }
 
       if (data.session) {
-        console.log('✅ Session refreshed successfully');
+        logger.auth('✅ Session refreshed successfully');
         return true;
       }
 
-      console.log('❌ No session to refresh');
+      logger.auth('No session returned from refresh');
       return false;
     } catch (error) {
-      console.error('❌ Session refresh error:', error);
+      // Si es AuthSessionMissingError, es normal
+      if (error instanceof Error && error.message?.includes('Auth session missing')) {
+        logger.auth('No session to refresh (normal on first launch)');
+        return false;
+      }
+      
+      logger.error('❌ Session refresh error:', error);
       return false;
     }
   }

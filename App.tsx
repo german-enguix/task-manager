@@ -63,10 +63,13 @@ export default function App() {
       } else {
         logger.auth('Authentication failed:', authStatus.message);
         
-        // Si el usuario no está autenticado pero creemos que debería estar,
-        // intentar refrescar la sesión
-        if (!authStatus.sessionValid) {
-          logger.auth('Attempting to refresh session...');
+        // Solo intentar refrescar la sesión si hay una sesión pero está expirada
+        // No intentar refresh si simplemente no hay sesión (primera vez)
+        const shouldRefresh = !authStatus.sessionValid && 
+                             authStatus.message.includes('expirada');
+        
+        if (shouldRefresh) {
+          logger.auth('Session expired, attempting to refresh...');
           const refreshed = await supabaseService.refreshSession();
           
           if (refreshed) {
@@ -80,6 +83,8 @@ export default function App() {
               return;
             }
           }
+        } else {
+          logger.auth('No session to refresh, user needs to login');
         }
         
         setIsAuthenticated(false);
