@@ -178,7 +178,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         if (calculatedStatus !== taskData.status) {
           try {
             await supabaseService.updateTask(taskId, { status: calculatedStatus });
-            console.log(`🔄 Estado sincronizado: ${getStatusText(calculatedStatus)}`);
+      
           } catch (error) {
             console.error('❌ Error synchronizing task status:', error);
           }
@@ -227,11 +227,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     if (newTaskStatus !== task.status) {
       try {
         await supabaseService.updateTask(taskId, { status: newTaskStatus });
-        console.log('✅ Task status updated due to timer change:', newTaskStatus);
+
         
         // Log del cambio de estado
         const statusText = getStatusText(newTaskStatus);
-        console.log(`🎯 Estado actualizado por timer: ${statusText}`);
+
         
         // Actualizar estado local de la tarea
         setTask(prevTask => prevTask ? { 
@@ -366,24 +366,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       if (newTaskStatus !== task.status) {
         try {
           await supabaseService.updateTask(taskId, { status: newTaskStatus });
-          console.log('✅ Task status updated to:', newTaskStatus);
-          
-          // Log del cambio de estado (visible en consola)
-          const statusText = getStatusText(newTaskStatus);
-          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
         } catch (error) {
           console.error('❌ Error updating task status:', error);
           // No mostramos error al usuario para no interrumpir el flujo
         }
       }
       
-      // Log específico para evidencia eliminada automáticamente
-      if (!newState && subtask.evidence) {
-        console.log(`🗑️ Evidencia eliminada automáticamente al desmarcar subtarea: ${subtask.evidence.type}`);
-        console.log(`🔄 Botón CTA volverá a mostrar: "${getSubtaskEvidenceActionText(subtask.evidenceRequirement!)}"`);
-      }
       
-      console.log('✅ Subtask toggled successfully (direct mode)');
       
       // Opcional: Recargar la tarea completa para sincronizar con la base de datos
       // await loadTask();
@@ -746,15 +735,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
         setTask(updatedTask);
         
-        // DEBUG: Confirmar que la subtarea ahora tiene evidencia
-        const updatedSubtask = updatedSubtasks.find(s => s.id === subtask.id);
-        console.log('🔍 Subtask después de actualizar:', {
-          id: updatedSubtask?.id,
-          isCompleted: updatedSubtask?.isCompleted,
-          hasEvidence: !!updatedSubtask?.evidence,
-          evidenceType: updatedSubtask?.evidence?.type,
-          evidenceFilePath: updatedSubtask?.evidence?.filePath
-        });
+
       }
 
       console.log(`📸 Media guardado exitosamente en Supabase Storage`);
@@ -816,7 +797,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     } finally {
       setShowCameraDialog(false);
       setCurrentCameraSubtask(null);
-      console.log('🎯 Camera dialog closed, UI should now show "Ver Media" button');
+      
     }
   };
 
@@ -909,17 +890,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       if (newTaskStatus !== task.status) {
         try {
           await supabaseService.updateTask(taskId, { status: newTaskStatus });
-          console.log('✅ Task status updated to:', newTaskStatus);
-          
-          // Log del cambio de estado (visible en consola)
-          const statusText = getStatusText(newTaskStatus);
-          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
         } catch (error) {
           console.error('❌ Error updating task status:', error);
         }
       }
 
-      console.log('✅ NFC evidence saved successfully to database');
+      
     } catch (error) {
       console.error('❌ Error saving NFC evidence:', error);
       Alert.alert('Error', 'No se pudo guardar la evidencia NFC. Inténtalo de nuevo.');
@@ -992,17 +968,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       if (newTaskStatus !== task.status) {
         try {
           await supabaseService.updateTask(taskId, { status: newTaskStatus });
-          console.log('✅ Task status updated to:', newTaskStatus);
-          
-          // Log del cambio de estado (visible en consola)
-          const statusText = getStatusText(newTaskStatus);
-          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
         } catch (error) {
           console.error('❌ Error updating task status:', error);
         }
       }
 
-      console.log('✅ QR evidence saved successfully to database');
+      
     } catch (error) {
       console.error('❌ Error saving QR evidence:', error);
       Alert.alert('Error', 'No se pudo guardar la evidencia QR. Inténtalo de nuevo.');
@@ -1085,17 +1056,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       if (newTaskStatus !== task.status) {
         try {
           await supabaseService.updateTask(taskId, { status: newTaskStatus });
-          console.log('✅ Task status updated to:', newTaskStatus);
-          
-          // Log del cambio de estado (visible en consola)
-          const statusText = getStatusText(newTaskStatus);
-          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
         } catch (error) {
           console.error('❌ Error updating task status:', error);
         }
       }
 
-      console.log('✅ Real GPS location evidence saved successfully to database');
+      
       console.log(`📍 Location details: ${locationData.latitude}, ${locationData.longitude} (±${locationData.accuracy})`);
     } catch (error) {
       console.error('❌ Error saving real location evidence:', error);
@@ -1180,11 +1146,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       if (newTaskStatus !== task.status) {
         try {
           await supabaseService.updateTask(taskId, { status: newTaskStatus });
-          console.log('✅ Task status updated to:', newTaskStatus);
-          
-          // Log del cambio de estado (visible en consola)
-          const statusText = getStatusText(newTaskStatus);
-          console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
         } catch (error) {
           console.error('❌ Error updating task status:', error);
         }
@@ -1239,11 +1200,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           if (newTaskStatus !== task.status) {
             try {
               supabaseService.updateTask(taskId, { status: newTaskStatus });
-              console.log('✅ Task status updated to:', newTaskStatus);
-              
-              // Log del cambio de estado (visible en consola)
-              const statusText = getStatusText(newTaskStatus);
-              console.log(`🎯 Estado actualizado automáticamente: ${statusText}`);
             } catch (error) {
               console.error('❌ Error updating task status:', error);
             }
@@ -1254,7 +1210,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const toggleTimer = async () => {
-    console.log('🔄 toggleTimer called - task:', !!task, 'currentUserId:', currentUserId);
     
     if (isReadOnly) {
       console.log('❌ Timer blocked: read-only mode (past day)');
@@ -1269,7 +1224,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
     
     try {
-      console.log('🎯 Timer state before toggle:', task.timer.isRunning);
+  
       
       if (task.timer.isRunning) {
         console.log('⏸️ Trying to stop timer...');
@@ -1277,7 +1232,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         try {
           // Intentar usar la función de base de datos
           const totalElapsed = await supabaseService.stopTaskTimer(taskId, currentUserId);
-          console.log('✅ Timer stopped via DB, total elapsed:', totalElapsed);
+  
           
           // Actualizar estado local
           const updatedTask = {
@@ -1317,7 +1272,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           setTask(updatedTask);
           
           updateTimerDisplay(totalElapsed);
-          console.log('✅ Timer stopped via local fallback, total elapsed:', totalElapsed);
+  
           
           // Actualizar estado de la tarea basándose en el timer
           await updateTaskStatusBasedOnTimer(updatedTask);
@@ -1328,7 +1283,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         try {
           // Intentar usar la función de base de datos
           await supabaseService.startTaskTimer(taskId, currentUserId);
-          console.log('✅ Timer started via DB');
+  
           
           const now = new Date();
           const updatedTask = {
@@ -1358,7 +1313,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
             }
           };
           setTask(updatedTask);
-          console.log('✅ Timer started via local fallback');
+  
           
           // Actualizar estado de la tarea basándose en el timer
           await updateTaskStatusBasedOnTimer(updatedTask);
@@ -1486,7 +1441,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     
     try {
       console.log('🚀 Adding text comment:', commentText);
-      console.log('🎯 Task ID:', taskId);
+  
       
       // Agregar comentario a la base de datos
       const newComment = await supabaseService.addTaskComment(
@@ -1570,7 +1525,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   const deleteComment = async (commentId: string, commentContent: string) => {
     console.log('🗑️ deleteComment called with:', { commentId, commentContent: commentContent.substring(0, 30) + '...' });
-    console.log('🔍 Current state:', { currentUserId, isReadOnly });
+
     
     if (isReadOnly) {
       console.log('❌ Delete comment blocked: read-only mode (past day)');
@@ -1587,22 +1542,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const isCommentAuthor = (comment: TaskComment): boolean => {
     if (!currentUserId) {
       console.log('⚠️ No current user ID available for comment ownership check');
-      console.log('🔍 Current user state:', currentUserId);
+  
       return false;
     }
     
     const isAuthor = comment.userId === currentUserId;
-    console.log('🔍 Comment ownership check:', {
-      commentId: comment.id,
-      commentUserId: comment.userId,
-      currentUserId: currentUserId,
-      isAuthor: isAuthor,
-      author: comment.author,
-      commentUserIdType: typeof comment.userId,
-      currentUserIdType: typeof currentUserId,
-      strictEquals: comment.userId === currentUserId,
-      looseEquals: comment.userId == currentUserId
-    });
     
     return isAuthor;
   };
@@ -1766,7 +1710,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     try {
       console.log('✅ User confirmed comment deletion - proceeding...');
       console.log('🗑️ Deleting comment:', commentToDelete.id);
-      console.log('🔍 About to call supabaseService.deleteTaskComment...');
+  
       
       // Borrar comentario de la base de datos
       await supabaseService.deleteTaskComment(commentToDelete.id);
@@ -1896,12 +1840,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                 Ubicación: {task.location}
               </Text>
             </View>
-            {/* Debug temporal para verificar material */}
-            {console.log('🔍 Task material in component:', { 
-              taskId: task.id, 
-              material: task.material, 
-              hasMaterial: !!task.material 
-            })}
             {task.material && (
               <View style={styles.taskMetaRow}>
                 <Icon source="package-variant" size={16} color="#FF9800" />
@@ -1998,7 +1936,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
                     {(() => {
                       // DEBUG: Logging para verificar estado de evidencia
                       const hasEvidence = !!subtask.evidence;
-                      console.log(`🔍 Rendering subtask ${subtask.id}: hasEvidence=${hasEvidence}, evidenceType=${subtask.evidence?.type}`);
+            
                       return hasEvidence;
                     })() ? (
                       <Button 
@@ -2074,16 +2012,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           <Card.Content>
             {task.comments.length > 0 ? (
               task.comments.map((comment) => {
-                // Log temporal para debugging
-                console.log('🔍 DEBUG: Comment in UI:', {
-                  commentId: comment.id,
-                  author: comment.author,
-                  userId: comment.userId,
-                  content: comment.content.substring(0, 30) + '...',
-                  isAuthor: isCommentAuthor(comment),
-                  currentUserId: currentUserId,
-                  isReadOnly: isReadOnly
-                });
                 
                 return (
                 <View key={comment.id} style={styles.commentItem}>

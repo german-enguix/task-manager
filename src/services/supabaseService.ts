@@ -2517,14 +2517,6 @@ export class SupabaseService {
   // ========== HELPERS ==========
   
   private transformTaskFromSupabase(data: any): Task {
-    // Debug temporal para verificar si el campo material llega desde la DB
-    console.log('🔍 Task data from DB:', {
-      id: data.id,
-      title: data.title,
-      material: data.material,
-      materialExists: 'material' in data
-    });
-    
     return {
       id: data.id,
       title: data.title,

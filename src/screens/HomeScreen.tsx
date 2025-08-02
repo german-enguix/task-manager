@@ -300,9 +300,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setLoadingWorkDay(true);
       // Usar la fecha actual o la fecha proporcionada
       const targetDate = date || new Date();
-      console.log('🔄 Loading work day for user:', currentUserId, 'date:', targetDate.toDateString());
       const workDayData = await supabaseService.getOrCreateWorkDay(currentUserId, targetDate);
-      console.log('✅ Work day loaded:', workDayData);
       
       // Usar los datos de la base de datos que ya incluyen día + tareas
       // Solo sobrescribir el estado de sesión activa si es necesario
@@ -321,7 +319,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       };
       
       setWorkDay(workDayWithTimerState);
-      console.log('✅ Work day state updated with timer state');
+      
       
       // Cargar tareas para esta fecha específica
       await loadTasks(targetDate);
@@ -379,7 +377,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       });
       
       setTasks(tasksForDate);
-      console.log('✅ Tasks loaded from Supabase:', tasksFromDb.length, 'filtered for date:', targetDate.toDateString(), 'result:', tasksForDate.length);
+
     } catch (error) {
       console.error('❌ Error loading tasks:', error);
       // Fallback a datos mock si falla
@@ -431,10 +429,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setNotifications(mappedNotifications);
       setUnreadCount(unreadNotificationsFromDb.length);
       
-      console.log('✅ Notifications loaded from Supabase:', {
-        total: mappedNotifications.length,
-        unread: unreadNotificationsFromDb.length
-      });
+
     } catch (error) {
       console.error('❌ Error loading notifications:', error);
       // Fallback a arrays vacíos si falla
@@ -476,8 +471,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
     
     try {
-      console.log('🔄 Starting day timer via REAL DATABASE...');
-      
       // Crear timestamp consistente
       const startTime = new Date();
       
@@ -500,7 +493,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         actualStartTime: workDay.actualStartTime || startTime,
       });
       
-      console.log('✅ Day timer started successfully via DB:', updatedWorkDay.timesheet.status);
+
       
       // 3. Sincronizar con la respuesta de la DB (mantener el tiempo local)
       const finalUpdate: WorkDay = {
@@ -546,8 +539,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
     
     try {
-      console.log('🔄 Pausing day timer via REAL DATABASE...');
-      
       // Crear timestamp consistente y calcular duración de sesión
       const pauseTime = new Date();
       const sessionStart = workDay.timesheet.currentSessionStart;
@@ -574,7 +565,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         currentSessionStart: null,
       });
       
-      console.log('✅ Day timer paused successfully via DB:', updatedWorkDay.timesheet.status, 'Total:', updatedWorkDay.timesheet.totalDuration);
+
       
       // 3. Usar los datos actualizados de la DB (que incluyen el cálculo correcto del total)
       setWorkDay(updatedWorkDay);
