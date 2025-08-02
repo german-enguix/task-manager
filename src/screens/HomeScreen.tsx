@@ -304,17 +304,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       const workDayData = await supabaseService.getOrCreateWorkDay(currentUserId, targetDate);
       console.log('✅ Work day loaded:', workDayData);
       
-      // Integrar el estado del temporizador con el workDay
+      // Usar los datos de la base de datos que ya incluyen día + tareas
+      // Solo sobrescribir el estado de sesión activa si es necesario
+      const timerState = getTimerStateForDate(targetDate);
       const workDayWithTimerState: WorkDay = {
         ...workDayData,
         timesheet: {
           ...workDayData.timesheet,
-          status: getTimerStateForDate(targetDate).status,
-          currentSessionStart: getTimerStateForDate(targetDate).sessionStart || undefined,
-          totalDuration: getTimerStateForDate(targetDate).totalDuration,
+          // Usar totalDuration de la DB que incluye día + tareas
+          // Solo sobrescribir si hay un estado local más reciente
+          status: timerState.status !== TimesheetStatus.NOT_STARTED ? timerState.status : workDayData.timesheet.status,
+          currentSessionStart: timerState.sessionStart || workDayData.timesheet.currentSessionStart,
         },
-        actualStartTime: getTimerStateForDate(targetDate).actualStartTime,
-        actualEndTime: getTimerStateForDate(targetDate).actualEndTime,
+        actualStartTime: timerState.actualStartTime,
+        actualEndTime: timerState.actualEndTime,
       };
       
       setWorkDay(workDayWithTimerState);
@@ -475,17 +478,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     try {
       console.log('🔄 Starting day timer via REAL DATABASE...');
       
-      // Usar la función real de la base de datos
+      // Crear timestamp consistente
+      const startTime = new Date();
+      
+      // 1. Actualizar estado local inmediatamente (sin delay visual)
+      const immediateUpdate: WorkDay = {
+        ...workDay,
+        timesheet: {
+          ...workDay.timesheet,
+          status: TimesheetStatus.IN_PROGRESS,
+          currentSessionStart: startTime,
+        },
+        actualStartTime: workDay.actualStartTime || startTime,
+      };
+      setWorkDay(immediateUpdate);
+      
+      // 2. Después actualizar la base de datos (en background)
       const updatedWorkDay = await supabaseService.updateWorkDayTimesheet(workDay.id, {
         status: TimesheetStatus.IN_PROGRESS,
-        currentSessionStart: new Date(),
-        actualStartTime: workDay.actualStartTime || new Date(),
+        currentSessionStart: startTime,
+        actualStartTime: workDay.actualStartTime || startTime,
       });
       
       console.log('✅ Day timer started successfully via DB:', updatedWorkDay.timesheet.status);
       
-      // Actualizar el workDay con los datos reales de la DB
-      setWorkDay(updatedWorkDay);
+      // 3. Sincronizar con la respuesta de la DB (mantener el tiempo local)
+      const finalUpdate: WorkDay = {
+        ...updatedWorkDay,
+        timesheet: {
+          ...updatedWorkDay.timesheet,
+          currentSessionStart: startTime, // Mantener el tiempo exacto del clic
+        },
+      };
+      setWorkDay(finalUpdate);
       
     } catch (error) {
       console.error('❌ Error starting day timer:', error);
@@ -523,7 +548,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     try {
       console.log('🔄 Pausing day timer via REAL DATABASE...');
       
-      // Usar la función real de la base de datos  
+      // Crear timestamp consistente y calcular duración de sesión
+      const pauseTime = new Date();
+      const sessionStart = workDay.timesheet.currentSessionStart;
+      let sessionDuration = 0;
+      if (sessionStart) {
+        sessionDuration = Math.floor((pauseTime.getTime() - sessionStart.getTime()) / 1000);
+      }
+      
+      // 1. Actualizar estado local inmediatamente (sin delay visual)
+      const immediateUpdate: WorkDay = {
+        ...workDay,
+        timesheet: {
+          ...workDay.timesheet,
+          status: TimesheetStatus.PAUSED,
+          currentSessionStart: null,
+          totalDuration: workDay.timesheet.totalDuration + sessionDuration,
+        },
+      };
+      setWorkDay(immediateUpdate);
+      
+      // 2. Después actualizar la base de datos (en background)
       const updatedWorkDay = await supabaseService.updateWorkDayTimesheet(workDay.id, {
         status: TimesheetStatus.PAUSED,
         currentSessionStart: null,
@@ -531,7 +576,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       
       console.log('✅ Day timer paused successfully via DB:', updatedWorkDay.timesheet.status, 'Total:', updatedWorkDay.timesheet.totalDuration);
       
-      // Actualizar el workDay con los datos reales de la DB
+      // 3. Usar los datos actualizados de la DB (que incluyen el cálculo correcto del total)
       setWorkDay(updatedWorkDay);
       
     } catch (error) {

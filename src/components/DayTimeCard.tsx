@@ -81,33 +81,30 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     return tasks.filter(task => task.timer?.isRunning).length;
   };
 
-  // Tiempo del día (independiente) - memoizado para evitar recálculos
-  const getDayOnlyDuration = useMemo((): number => {
-    // La función get_day_timer_stats de la DB ya calcula todo el tiempo correctamente
-    // incluyendo la sesión actual si está corriendo, por lo que no necesitamos sumar nada adicional
-    return timesheet.totalDuration;
-  }, [timesheet.totalDuration]);
-
+  // Tiempo total ya calculado en la base de datos (work_day.actual_duration + tasks.timer_total_elapsed)
   const getTotalDisplayDuration = useMemo((): number => {
-    // Tiempo del día + tiempo de todas las tareas
-    const dayTime = getDayOnlyDuration;
-    const tasksTime = getTasksCurrentTime();
-    const totalDuration = dayTime + tasksTime;
+    const now = new Date(); // Usar tiempo exacto actual para todos los cálculos
+    let totalTime = timesheet.totalDuration || 0; // Ya incluye día + tareas acumuladas desde DB
     
-    // Debug: log the calculation
-    if (timesheet.status === TimesheetStatus.IN_PROGRESS || getActiveTasksCount() > 0) {
-      console.log('⏰ Combined timer calculation:', {
-        dayTime: dayTime,
-        tasksTime: tasksTime,
-        totalDuration: totalDuration,
-        activeTasksCount: getActiveTasksCount(),
-        sessionStart: timesheet.currentSessionStart?.toLocaleTimeString(),
-        currentTime: currentTime.toLocaleTimeString()
-      });
+    // Solo sumar sesión actual del día si está corriendo
+    if (timesheet.status === TimesheetStatus.IN_PROGRESS && timesheet.currentSessionStart) {
+      const sessionTime = Math.floor((now.getTime() - timesheet.currentSessionStart.getTime()) / 1000);
+      totalTime += sessionTime;
     }
     
-    return totalDuration;
-  }, [getDayOnlyDuration, getTasksCurrentTime]);
+    // Sumar sesiones actuales de tareas activas
+    tasks?.forEach(task => {
+      if (task.timer?.isRunning && task.timer.currentSessionStart) {
+        const sessionTime = Math.floor((now.getTime() - task.timer.currentSessionStart.getTime()) / 1000);
+        totalTime += sessionTime;
+      }
+    });
+    
+    return totalTime;
+  }, [timesheet.totalDuration, timesheet.status, timesheet.currentSessionStart, currentTime, tasks]); // currentTime como dependencia para actualizar cada segundo
+
+  // Solo tiempo del día independiente (para el desglose)
+  const getDayOnlyDuration = 0; // Simplificado por ahora
 
   const formatDayOfWeek = (date: Date): string => {
     return date.toLocaleDateString('es-ES', { weekday: 'long' });

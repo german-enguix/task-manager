@@ -1765,21 +1765,8 @@ export class SupabaseService {
     try {
       console.log('🔄 getOrCreateWorkDay using REAL DB for user:', userId, 'date:', dateString);
       
-      // Usar la nueva función get_day_timer_stats que también crea la jornada si no existe
-      const { data: stats, error: statsError } = await supabase.rpc('get_day_timer_stats', {
-        p_user_id: userId,
-        p_date: dateString
-      });
-
-      if (statsError) {
-        console.error('❌ Error calling get_day_timer_stats RPC:', statsError);
-        throw statsError;
-      }
-
-      console.log('✅ Day timer stats obtained:', stats);
-
-      // Obtener los datos completos de work_day
-      const { data: workDayData, error: fetchError } = await supabase
+      // 1. Obtener o crear work_day
+      let { data: workDayData, error: fetchError } = await supabase
         .from('work_days')
         .select(`
           id,
@@ -1795,24 +1782,62 @@ export class SupabaseService {
         .eq('date', dateString)
         .single();
 
-      if (fetchError) {
+      // Si no existe, crear work_day
+      if (fetchError && fetchError.code === 'PGRST116') {
+        console.log('📅 Work day no existe, creando uno nuevo...');
+        const { data: newWorkDay, error: createError } = await supabase
+          .from('work_days')
+          .insert([{
+            user_id: userId,
+            date: dateString,
+            timesheet_status: 'not_started',
+            actual_duration: 0
+          }])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('❌ Error creating work day:', createError);
+          throw createError;
+        }
+        
+        workDayData = newWorkDay;
+        console.log('✅ Work day creado:', workDayData.id);
+      } else if (fetchError) {
         console.error('❌ Error fetching work day data:', fetchError);
         throw fetchError;
       }
 
-      console.log('✅ Work day data fetched:', workDayData);
+      // 2. Buscar tareas del usuario del día específico
+      
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('timer_total_elapsed, assigned_to, due_date')
+        .contains('assigned_to', [userId])
+        .gte('due_date', `${dateString}T00:00:00.000Z`)
+        .lt('due_date', `${dateString}T23:59:59.999Z`);
 
-      // Convertir a formato WorkDay usando los stats reales
+      if (tasksError) {
+        console.error('❌ Error fetching tasks data:', tasksError);
+        console.log('⚠️ Usando 0 para tareas');
+      }
+
+      // 3. Calcular tiempo total: work_day.actual_duration + SUM(tasks.timer_total_elapsed)
+      const workDayTime = workDayData.actual_duration || 0;
+      const tasksTime = tasksData?.reduce((sum, task) => sum + (task.timer_total_elapsed || 0), 0) || 0;
+      const totalDuration = workDayTime + tasksTime;
+
+      // 4. Convertir a formato WorkDay
       const workDay: WorkDay = {
         id: workDayData.id,
         userId: workDayData.user_id,
         date: new Date(workDayData.date),
-        status: DayStatus.PROGRAMMED, // Por ahora usar un valor fijo
+        status: DayStatus.PROGRAMMED,
         timesheet: {
-          status: stats.status as TimesheetStatus,
-          currentSessionStart: stats.currentSessionStart ? new Date(stats.currentSessionStart) : null,
-          totalDuration: stats.totalElapsed || 0,
-          sessions: [], // No necesitamos cargar todas las sesiones
+          status: workDayData.timesheet_status as TimesheetStatus || TimesheetStatus.NOT_STARTED,
+          currentSessionStart: workDayData.current_session_start ? new Date(workDayData.current_session_start) : null,
+          totalDuration: totalDuration,
+          sessions: [],
         },
         tasks: [], // Se cargan por separado
         notifications: [], // Se cargan por separado
@@ -1820,7 +1845,6 @@ export class SupabaseService {
         updatedAt: new Date(workDayData.updated_at),
       };
       
-      console.log('✅ WorkDay object created with real timer stats:', workDay.id);
       return workDay;
       
     } catch (error) {
