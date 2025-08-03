@@ -38,13 +38,13 @@ export const SignatureViewer: React.FC<SignatureViewerProps> = ({
   try {
     // Validar que signatureData no esté vacío y sea una cadena válida
     if (!signatureData || typeof signatureData !== 'string' || signatureData.trim() === '') {
-      logger.warning('SignatureViewer: signatureData está vacío o no es válido:', signatureData);
+      // Silently handle empty signature data
       parsedData = null;
     } else {
       parsedData = JSON.parse(signatureData);
     }
   } catch (error) {
-    logger.error('Error parsing signature data:', error, 'Data received:', signatureData);
+    // Silently handle parsing errors
     parsedData = null;
   }
 

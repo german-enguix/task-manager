@@ -1422,35 +1422,22 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const addTextComment = async () => {
-    console.log('🔄 addTextComment called');
-    
     if (isReadOnly) {
-      console.log('❌ Comment blocked: read-only mode (past day)');
       Alert.alert('Acción no permitida', 'No puedes agregar comentarios en días pasados.');
       return;
     }
     
-    console.log('📝 Comment text:', commentText);
-    console.log('📝 Comment text trimmed:', commentText.trim());
-    console.log('📝 Comment text length:', commentText.trim().length);
-    
     if (commentText.trim() === '') {
-      console.log('❌ Comment text is empty, returning');
       return;
     }
     
     try {
-      console.log('🚀 Adding text comment:', commentText);
-  
-      
       // Agregar comentario a la base de datos
       const newComment = await supabaseService.addTaskComment(
         taskId, 
         commentText.trim(), 
         CommentType.TEXT
       );
-      
-      console.log('✅ Comment added to DB:', newComment);
       
       // Actualizar estado local
       if (task) {
@@ -1459,16 +1446,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           comments: [...task.comments, newComment]
         };
         setTask(updatedTask);
-        console.log('✅ Local state updated');
-      } else {
-        console.log('❌ No task in state to update');
       }
       
       // Limpiar el input después de enviar
       setCommentText('');
-      console.log('✅ Input cleared');
       
-      console.log('✅ Text comment added successfully');
       Alert.alert('Éxito', 'Comentario agregado correctamente');
     } catch (error) {
       console.error('❌ Error adding text comment:', error);
@@ -1572,14 +1554,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setIsSubmittingReport(true);
     
     try {
-      console.log('🔄 Submitting problem report:', {
-        taskId,
-        reportType,
-        severity,
-        title,
-        description
-      });
-      
       // Agregar reporte a la base de datos
       const newReport = await supabaseService.addTaskProblemReport(
         taskId,
@@ -1589,8 +1563,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         description
       );
       
-      console.log('✅ Problem report added to DB:', newReport);
-      
       // Actualizar estado local
       const updatedTask = {
         ...task,
@@ -1598,7 +1570,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       };
       setTask(updatedTask);
       
-      console.log('✅ Local state updated');
       Alert.alert('Éxito', 'Problema reportado correctamente. El equipo será notificado.');
       
     } catch (error) {
@@ -1611,12 +1582,10 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   const handleDeleteReport = (report: TaskProblemReport) => {
     if (isReadOnly) {
-      console.log('❌ Delete report blocked: read-only mode (past day)');
       Alert.alert('Acción no permitida', 'No puedes eliminar reportes en días pasados.');
       return;
     }
     
-    console.log('🗑️ Initiating delete for report:', report.title);
     setReportToDelete(report);
     setShowDeleteReportDialog(true);
   };
@@ -1627,8 +1596,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     setIsDeletingReport(true);
     
     try {
-      console.log('🗑️ Deleting problem report:', reportToDelete.id);
-      
       // Eliminar el reporte en Supabase
       await supabaseService.deleteTaskProblemReport(reportToDelete.id);
       
@@ -1639,7 +1606,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       };
       setTask(updatedTask);
       
-      console.log('✅ Report deleted and local state updated');
       Alert.alert('Éxito', 'Reporte eliminado correctamente.');
       
     } catch (error) {

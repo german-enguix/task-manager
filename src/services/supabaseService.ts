@@ -1461,12 +1461,8 @@ export class SupabaseService {
   
   async getTaskComments(taskId: string): Promise<TaskComment[]> {
     try {
-      logger.database('Getting comments for task:', taskId);
-      logger.database('TaskId type:', typeof taskId, 'value:', taskId);
-      
       // Verificar autenticación primero
       const { data: { user } } = await supabase.auth.getUser();
-      logger.database('Current user in getTaskComments:', user?.email || 'No user');
       
       // Usar consulta simple sin JOINs complejos para evitar errores de relaciones
       const { data, error } = await supabase
@@ -1474,14 +1470,6 @@ export class SupabaseService {
         .select('*')
         .eq('task_id', taskId)
         .order('created_at', { ascending: true });
-
-            logger.database('Query executed for task_id:', taskId);
-      logger.database('Raw Supabase response:', {
-        hasData: !!data,
-        dataLength: data?.length || 0,
-        hasError: !!error,
-        errorMessage: error?.message
-      });
 
       if (error) {
         console.error('❌ Error getting comments:', error);
@@ -1499,40 +1487,26 @@ export class SupabaseService {
           console.error('📋 O ve al SQL Editor en Supabase Dashboard y pega ese script');
           
           // Devolver array vacío en lugar de lanzar error para no romper la UI
-                  logger.database('Returning empty comments array - table does not exist');
-        return [];
+          return [];
         }
         
         // Si es error de relaciones/foreign keys, también manejar graciosamente
         if (error.message?.includes('relationship') || error.message?.includes('foreign key')) {
           console.error('🚨 ERROR DE RELACIONES EN BASE DE DATOS');
           console.error('💡 SOLUCIÓN: Ejecuta scripts/fix_task_comments_final.sql en Supabase');
-                  logger.database('Returning empty comments array - relationship errors');
-        return [];
+          return [];
         }
         
         throw error;
       }
 
-      logger.database('Raw comments from DB:', data);
-      logger.database('Comments count:', data?.length || 0);
-
       // Si no hay comentarios, devolver array vacío directamente
       if (!data || data.length === 0) {
-        logger.database('No comments found for task:', taskId);
-        logger.database('This could mean: 1) No comments exist, 2) RLS policy blocking access, 3) Wrong task_id');
         return [];
       }
 
       // Mapear los comentarios obteniendo nombres de usuarios por separado
-      logger.database('Mapping', data.length, 'comments...');
       const comments = await Promise.all((data || []).map(async (row, index) => {
-        logger.database(`Mapping comment ${index + 1}/${data.length}:`, {
-          id: row.id,
-          user_id: row.user_id,
-          content_preview: row.content.substring(0, 30) + '...',
-          created_at: row.created_at
-        });
         
         // Obtener nombre del usuario por separado para evitar errores de JOIN
         let authorName = 'Usuario';
@@ -1545,12 +1519,9 @@ export class SupabaseService {
           
           if (profile?.full_name) {
             authorName = profile.full_name;
-            console.log('✅ Found profile for user:', row.user_id, '->', authorName);
-          } else {
-            console.log('⚠️ No profile found for user:', row.user_id);
           }
         } catch (profileError) {
-          console.log('⚠️ Could not get profile for user:', row.user_id, profileError);
+          // Silently handle profile errors
         }
         
         const mappedComment = {
@@ -1563,26 +1534,13 @@ export class SupabaseService {
           userId: row.user_id,
         };
         
-        console.log('✅ Mapped comment:', mappedComment.id, 'by', mappedComment.author);
         return mappedComment;
       }));
-
-      console.log('✅ All comments mapped successfully:', comments.length, 'total');
-      console.log('📋 Final comments array:', comments.map(c => ({ 
-        id: c.id, 
-        author: c.author, 
-        contentPreview: c.content.substring(0, 30) + '...' 
-      })));
       
       return comments;
 
     } catch (error) {
       console.error('❌ Error getting task comments from database:', error);
-      console.error('💡 SOLUCIÓN DEFINITIVA: Ejecuta scripts/fix_task_comments_final.sql en Supabase');
-      console.error('📋 Este script crea la tabla y configura todos los permisos necesarios');
-      
-      // Si hay error, devolver array vacío pero con log informativo
-      console.log('⚠️ Returning empty comments array due to error - app will continue working');
       return [];
     }
   }
@@ -1600,8 +1558,6 @@ export class SupabaseService {
         file_path: filePath || null,
       };
 
-      console.log('🔄 Inserting comment data:', commentData);
-
       const { data, error } = await supabase
         .from('task_comments')
         .insert(commentData)
@@ -1613,16 +1569,12 @@ export class SupabaseService {
         throw error;
       }
 
-      console.log('✅ Raw comment data from DB:', data);
-
       // Obtener el nombre del usuario desde profiles
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', user.id)
         .single();
-
-      console.log('✅ User profile:', profile);
 
       // Crear el objeto comentario con el nombre del perfil
       const comment: TaskComment = {
@@ -1635,7 +1587,6 @@ export class SupabaseService {
         userId: user.id,
       };
 
-      console.log('✅ Mapped comment:', comment);
       return comment;
 
     } catch (error) {
@@ -2207,19 +2158,14 @@ export class SupabaseService {
   
   async getTaskProblemReports(taskId: string): Promise<TaskProblemReport[]> {
     try {
-      logger.database('Getting problem reports for task:', taskId);
-      
       // Verificar autenticación primero
       const { data: { user } } = await supabase.auth.getUser();
-      logger.database('Current user in getTaskProblemReports:', user?.email || 'No user');
       
       const { data, error } = await supabase
         .from('task_problem_reports')
         .select('*')
         .eq('task_id', taskId)
         .order('reported_at', { ascending: false });
-
-      logger.database('Query executed for task_id:', taskId);
 
       if (error) {
         logger.error('Error getting problem reports:', error);
@@ -2234,21 +2180,12 @@ export class SupabaseService {
         throw error;
       }
 
-      logger.database('Raw problem reports from DB:', data);
-
       if (!data || data.length === 0) {
-        logger.database('No problem reports found for task:', taskId);
         return [];
       }
 
       // Mapear los reportes obteniendo nombres de usuarios
       const problemReports = await Promise.all((data || []).map(async (row) => {
-        console.log(`📝 Mapping problem report:`, {
-          id: row.id,
-          user_id: row.user_id,
-          type: row.report_type,
-          severity: row.severity,
-        });
         
         // Obtener nombre del usuario
         let authorName = 'Usuario';
@@ -2263,7 +2200,7 @@ export class SupabaseService {
             authorName = profile.full_name;
           }
         } catch (profileError) {
-          console.log('⚠️ Could not get profile for user:', row.user_id);
+          // Silently handle profile errors
         }
         
         const mappedReport: TaskProblemReport = {
@@ -2283,7 +2220,6 @@ export class SupabaseService {
         return mappedReport;
       }));
 
-      console.log('✅ All problem reports mapped successfully:', problemReports.length);
       return problemReports;
 
     } catch (error) {
@@ -2312,8 +2248,6 @@ export class SupabaseService {
         description: description,
       };
 
-      console.log('🔄 Inserting problem report data:', reportData);
-
       const { data, error } = await supabase
         .from('task_problem_reports')
         .insert(reportData)
@@ -2325,16 +2259,12 @@ export class SupabaseService {
         throw error;
       }
 
-      console.log('✅ Raw problem report data from DB:', data);
-
       // Obtener el nombre del usuario desde profiles
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', user.id)
         .single();
-
-      console.log('✅ User profile:', profile);
 
       // Crear el objeto reporte con el nombre del perfil
       const problemReport: TaskProblemReport = {
@@ -2351,7 +2281,6 @@ export class SupabaseService {
         author: profile?.full_name || user.email || 'Usuario',
       };
 
-      console.log('✅ Mapped problem report:', problemReport);
       return problemReport;
 
     } catch (error) {

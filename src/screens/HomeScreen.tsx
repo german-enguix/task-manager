@@ -821,7 +821,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (simulatedExternalQR) {
       // Navegar a la tarea vinculada al QR
       if (simulatedExternalQR.taskId) {
-        console.log('🎯 Navigating to task from QR:', simulatedExternalQR.taskId);
+
         onNavigateToTask(simulatedExternalQR.taskId);
       }
     }
