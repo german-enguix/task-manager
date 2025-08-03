@@ -726,8 +726,6 @@ export class SupabaseService {
         .eq('id', subtaskId);
 
       if (error) throw error;
-      
-      console.log('✅ Subtask updated:', subtaskId);
     } catch (error) {
       console.error('Error updating subtask:', error);
       throw error;
@@ -758,7 +756,7 @@ export class SupabaseService {
         completed_by: user.id,
       };
 
-      console.log('🔄 Inserting subtask evidence:', evidenceData);
+
 
       const { error } = await supabase
         .from('subtask_evidences')
@@ -769,7 +767,7 @@ export class SupabaseService {
         throw error;
       }
 
-      console.log('✅ Subtask evidence saved successfully');
+
     } catch (error) {
       console.error('❌ Error adding subtask evidence:', error);
       throw error;
@@ -933,11 +931,11 @@ export class SupabaseService {
       });
       
       // Subir archivo a Supabase Storage
-      console.log('🚀 Iniciando upload a Supabase Storage...');
-      console.log('📂 Bucket: task-evidences');
-      console.log('📁 Path:', filePath);
-      console.log('📄 Content-Type:', contentType);
-      console.log('💾 Blob info:', { size: blob.size, type: blob.type });
+
+
+
+
+
       
       const { data, error } = await supabase.storage
         .from('task-evidences')
@@ -946,8 +944,8 @@ export class SupabaseService {
           upsert: false
         });
 
-      console.log('📤 Upload response data:', data);
-      console.log('❗ Upload response error:', error);
+
+
 
       if (error) {
         console.error('❌ Supabase Storage upload error DETAILS:', {
@@ -970,28 +968,28 @@ export class SupabaseService {
         throw new Error(errorMessage);
       }
 
-      console.log('✅ Upload successful, data received:', data);
 
-      console.log('✅ Media uploaded successfully to:', filePath);
+
+
 
       // Obtener URL público
-      console.log('🔗 Generando URL pública...');
+
       const { data: urlData } = supabase.storage
         .from('task-evidences')
         .getPublicUrl(filePath);
 
-      console.log('🔗 URL data response:', urlData);
+
       const publicUrl = urlData.publicUrl;
       console.log('✅ Public URL generated:', publicUrl);
 
       // Verificar que la URL es válida
       if (!publicUrl || !publicUrl.includes('supabase')) {
-        console.error('❌ Generated URL looks invalid:', publicUrl);
+
         throw new Error('URL pública generada incorrectamente');
       }
 
       // VERIFICACIÓN FINAL: Comprobar que el archivo realmente existe
-      console.log('🔍 Verificando que el archivo existe en Storage...');
+
       try {
         const { data: fileInfo, error: fileError } = await supabase.storage
           .from('task-evidences')
@@ -999,20 +997,20 @@ export class SupabaseService {
             search: uniqueFileName
           });
 
-        console.log('📁 File verification result:', { fileInfo, fileError });
+
         
         if (fileError) {
-          console.warn('⚠️ Could not verify file existence:', fileError);
+
         } else if (fileInfo && fileInfo.length > 0) {
-          console.log('✅ File confirmed to exist in Storage!');
+
         } else {
-          console.warn('⚠️ File not found in Storage list, but upload was successful');
+
         }
       } catch (verifyError) {
-        console.warn('⚠️ File verification failed, but upload was successful:', verifyError);
+
       }
 
-      console.log('🎉 Upload process completed successfully!');
+
       return {
         publicUrl,
         filePath
@@ -1848,8 +1846,6 @@ export class SupabaseService {
     }
   ): Promise<WorkDay> {
     try {
-      console.log('🔄 updateWorkDayTimesheet using DAY TIMER RPC functions');
-      console.log('📝 Updates received:', { workDayId, updates });
       
       // Extraer user_id del workDayId o usar el usuario actual
       let userId = await this.getCurrentUserId();
@@ -1859,23 +1855,19 @@ export class SupabaseService {
 
       if (updates.status === TimesheetStatus.IN_PROGRESS) {
         // Iniciar timer del día
-        console.log('🟢 Starting day timer...');
         const { data: sessionId, error } = await supabase.rpc('start_day_timer', {
           p_user_id: userId
         });
 
         if (error) throw error;
-        console.log('✅ Day timer started, session:', sessionId);
 
       } else if (updates.status === TimesheetStatus.PAUSED) {
         // Pausar timer del día
-        console.log('🟡 Pausing day timer...');
         const { data: totalElapsed, error } = await supabase.rpc('pause_day_timer', {
           p_user_id: userId
         });
 
         if (error) throw error;
-        console.log('✅ Day timer paused, total elapsed:', totalElapsed);
       }
 
       // Recargar la jornada con los datos actualizados
@@ -1889,8 +1881,6 @@ export class SupabaseService {
 
   async startWorkSession(userId: string, taskId?: string, location?: string): Promise<string> {
     try {
-      console.log('🔄 startWorkSession - initiating day timer');
-      
       // Para el timer del día, usar la función específica
       const { data: sessionId, error } = await supabase.rpc('start_day_timer', {
         p_user_id: userId
@@ -1901,7 +1891,6 @@ export class SupabaseService {
         throw error;
       }
 
-      console.log('✅ Day timer started, session ID:', sessionId);
       return sessionId;
       
     } catch (error) {
@@ -1912,8 +1901,6 @@ export class SupabaseService {
 
   async endWorkSession(sessionId: string, location?: string): Promise<void> {
     try {
-      console.log('🔄 endWorkSession - pausing day timer');
-      
       let userId = await this.getCurrentUserId();
       if (!userId) {
         throw new Error('No authenticated user found');
@@ -1929,7 +1916,7 @@ export class SupabaseService {
         throw error;
       }
 
-      console.log('✅ Day timer paused successfully');
+      // Timer pausado exitosamente
       
     } catch (error) {
       console.error('❌ Error in endWorkSession:', error);
@@ -2073,7 +2060,6 @@ export class SupabaseService {
 
       if (error) throw error;
       
-      console.log('✅ Task timer started:', taskId);
       return data; // Retorna el session_id
     } catch (error) {
       console.error('Error starting task timer:', error);
@@ -2090,7 +2076,6 @@ export class SupabaseService {
 
       if (error) throw error;
       
-      console.log('✅ Task timer stopped:', taskId, 'Total elapsed:', data);
       return data; // Retorna el total_elapsed en segundos
     } catch (error) {
       console.error('Error stopping task timer:', error);

@@ -329,7 +329,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       // Si se desmarca y hay evidencia, eliminarla de la base de datos
       if (!newState && subtask.evidence) {
         await supabaseService.removeSubtaskEvidence(subtaskId);
-        console.log('🗑️ Evidencia eliminada de la base de datos');
+
       }
       
       // Actualizar en Supabase
@@ -667,7 +667,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         setTask(updatedTask);
       }
 
-      console.log(`🎤 Audio guardado exitosamente en Supabase Storage`);
+
     } catch (error) {
       console.error('❌ Error saving audio evidence:', error);
       throw error;
@@ -678,7 +678,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     if (!task || !subtask.evidenceRequirement || !mediaData) return;
     
     try {
-      console.log('📸 Guardando evidencia de media desde Supabase Storage...');
+
       
       // Actualizar en Supabase: marcar subtarea como completada
       const completedAt = new Date();
@@ -1062,7 +1062,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       }
 
       
-      console.log(`📍 Location details: ${locationData.latitude}, ${locationData.longitude} (±${locationData.accuracy})`);
+
     } catch (error) {
       console.error('❌ Error saving real location evidence:', error);
       Alert.alert('Error', 'No se pudo guardar la evidencia de ubicación real. Inténtalo de nuevo.');
@@ -1212,13 +1212,11 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const toggleTimer = async () => {
     
     if (isReadOnly) {
-      console.log('❌ Timer blocked: read-only mode (past day)');
       Alert.alert('Acción no permitida', 'No puedes modificar tareas de días pasados.');
       return;
     }
     
     if (!task || !currentUserId) {
-      console.log('❌ Missing task or currentUserId');
       Alert.alert('Error', 'No se pudo identificar la tarea o el usuario. Recarga la pantalla.');
       return;
     }
@@ -1227,8 +1225,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   
       
       if (task.timer.isRunning) {
-        console.log('⏸️ Trying to stop timer...');
-        
         try {
           // Intentar usar la función de base de datos
           const totalElapsed = await supabaseService.stopTaskTimer(taskId, currentUserId);
@@ -1251,9 +1247,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           // Actualizar estado de la tarea basándose en el timer
           await updateTaskStatusBasedOnTimer(updatedTask);
         } catch (dbError) {
-          console.warn('⚠️ DB functions not available yet. Using local mode.');
-          console.log('💡 To enable full persistence, execute: scripts/add_timer_fields_to_tasks.sql');
-          
           // Fallback local completo - funciona sin base de datos
           const sessionDuration = task.timer.currentSessionStart 
             ? Math.floor((new Date().getTime() - task.timer.currentSessionStart.getTime()) / 1000)
@@ -1278,8 +1271,6 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           await updateTaskStatusBasedOnTimer(updatedTask);
         }
       } else {
-        console.log('▶️ Trying to start timer...');
-        
         try {
           // Intentar usar la función de base de datos
           await supabaseService.startTaskTimer(taskId, currentUserId);
@@ -1299,8 +1290,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           // Actualizar estado de la tarea basándose en el timer
           await updateTaskStatusBasedOnTimer(updatedTask);
         } catch (dbError) {
-          console.warn('⚠️ DB functions not available yet. Using local mode.');
-          console.log('💡 To enable full persistence, execute: scripts/add_timer_fields_to_tasks.sql');
+
           
           // Fallback local completo - funciona sin base de datos
           const now = new Date();

@@ -462,12 +462,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleStartTimesheet = async () => {
-    logger.timers('handleStartTimesheet called');
-    logger.timers('isReadOnly:', isReadOnly);
-    logger.timers('workDay:', workDay);
-    
     if (isReadOnly || !workDay) {
-      logger.timers('Cancelled: isReadOnly or no workDay');
       return;
     }
     
@@ -527,15 +522,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       };
       
       setWorkDay(updatedWorkDay);
-      console.log('⚠️ Fallback to memory mode due to error');
     }
   };
 
   const handlePauseTimesheet = async () => {
-    logger.timers('handlePauseTimesheet called');
-    
     if (isReadOnly || !workDay) {
-      logger.timers('Cancelled: isReadOnly or no workDay');
       return;
     }
     
@@ -598,16 +589,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       };
       
       setWorkDay(updatedWorkDay);
-      console.log('⚠️ Fallback to memory mode. Session duration:', sessionDuration, 'Total duration:', newTimerState.totalDuration);
     }
   };
 
   const handleFinishTimesheet = async () => {
-    logger.timers('handleFinishTimesheet called');
-    logger.timers('current timerState:', getTimerStateForDate(workDay.date));
-    
     if (isReadOnly || !workDay) {
-      logger.timers('Cancelled: isReadOnly or no workDay');
       return;
     }
     
@@ -641,17 +627,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     };
     
     setWorkDay(updatedWorkDay);
-    console.log('✅ Timesheet finished successfully (memory mode). Final duration:', newTimerState.totalDuration);
   };
 
   const handleNotificationAction = (notificationId: string, actionData?: any) => {
-    console.log('🔔 Notification action triggered:', { notificationId, actionData });
-    
     if (actionData?.taskId) {
-      console.log('✅ Navigating to task:', actionData.taskId);
       onNavigateToTask(actionData.taskId);
-    } else {
-      console.log('❌ No taskId found in actionData:', actionData);
     }
   };
 
