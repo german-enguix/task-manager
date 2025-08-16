@@ -2,6 +2,12 @@
 
 Una aplicación React Native moderna construida con Expo, TypeScript, React Native Paper y las mejores prácticas de desarrollo.
 
+## 📚 Documentación
+
+- Setup completo: `docs/SETUP.md`
+- Funcionalidades (notificaciones, timers, asignación múltiple, storage, proyectos, reportes): `docs/FEATURES.md`
+- Solución de problemas: `docs/TROUBLESHOOTING.md`
+
 ## 🚀 Características
 
 - **React Native 0.79.5** con **React 19**
