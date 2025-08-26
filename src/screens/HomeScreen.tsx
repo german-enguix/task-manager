@@ -8,7 +8,6 @@ import { supabaseService } from '@/services/supabaseService';
 import { TaskStatus, WorkDay, DayStatus, TimesheetStatus } from '@/types';
 import { 
   DayTimeCard, 
-  NotificationsBell,
   NotificationDialog,
   NFCExternalDialog,
   QRExternalDialog
@@ -26,6 +25,9 @@ interface HomeScreenProps {
   simulatedExternalQR?: any;
   onExternalQRHandled?: () => void;
   onTaskTimerChange?: () => void; // Callback para cambios en timers de tareas
+  setNotificationsForAppBar?: (items: any[], unread: number) => void;
+  registerAppMarkAsReadHandler?: (fn: (id: string) => void) => void;
+  registerAppMarkAllAsReadHandler?: (fn: () => void) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
@@ -39,7 +41,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onExternalNFCHandled,
   simulatedExternalQR,
   onExternalQRHandled,
-  onTaskTimerChange
+  onTaskTimerChange,
+  setNotificationsForAppBar
+  , registerAppMarkAsReadHandler
+  , registerAppMarkAllAsReadHandler
 }) => {
   const [workDay, setWorkDay] = useState<WorkDay | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -222,6 +227,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     loadUserInfo();
   }, []);
 
+  // Exponer handlers a App para marcar como leída/ todas
+  useEffect(() => {
+    if (registerAppMarkAsReadHandler) {
+      registerAppMarkAsReadHandler((id: string) => {
+        handleMarkNotificationAsRead(id);
+      });
+    }
+    if (registerAppMarkAllAsReadHandler) {
+      registerAppMarkAllAsReadHandler(() => {
+        handleMarkAllNotificationsAsRead();
+      });
+    }
+  }, [registerAppMarkAsReadHandler, registerAppMarkAllAsReadHandler, notifications, unreadCount]);
+
   // Cargar datos del usuario cuando currentUserId esté disponible
   useEffect(() => {
     if (currentUserId) {
@@ -244,6 +263,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setIsNotificationDialogVisible(true);
     }
   }, [simulatedNotification]);
+
+  // Propagar notificaciones al AppBar cuando cambien
+  useEffect(() => {
+    if (typeof setNotificationsForAppBar === 'function') {
+      setNotificationsForAppBar(notifications, unreadCount);
+    }
+  }, [notifications, unreadCount, setNotificationsForAppBar]);
 
   // Efecto para mostrar NFC externo simulado
   useEffect(() => {
@@ -429,6 +455,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       
       setNotifications(mappedNotifications);
       setUnreadCount(unreadNotificationsFromDb.length);
+      if (typeof setNotificationsForAppBar === 'function') {
+        setNotificationsForAppBar(mappedNotifications, unreadNotificationsFromDb.length);
+      }
       
 
     } catch (error) {
@@ -820,34 +849,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* Main Content */}
       <ScrollView style={styles.content}>
 
-        {/* Header integrado */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <View style={styles.headerText}>
-              <Text variant="headlineMedium">
-                {loadingUser ? 'Cargando...' : `Hola ${userName}`}
-              </Text>
-              {isReadOnly && (
-                <Chip 
-                  mode="outlined"
-                  icon="lock"
-                  style={styles.readOnlyChip}
-                  compact
-                >
-                  Día pasado - Solo lectura
-                </Chip>
-              )}
-            </View>
-            
-            <NotificationsBell
-              notifications={notifications}
-              unreadCount={unreadCount}
-              onNotificationAction={handleNotificationAction}
-              onMarkAsRead={handleMarkNotificationAsRead}
-              onMarkAllAsRead={handleMarkAllNotificationsAsRead}
-            />
-          </View>
-        </View>
+        {/* Header integrado eliminado: AppBar superior gestiona notificaciones */}
         {/* Layout especial para días sin tareas - aparece solo */}
         {!loadingTasks && !loadingWorkDay && tasks.length === 0 ? (
           <View style={styles.restDayContainer}>

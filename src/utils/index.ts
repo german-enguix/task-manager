@@ -24,6 +24,11 @@ export const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
 
+export const getPublicAvatarUrl = (seed: string): string => {
+  const safe = encodeURIComponent(seed || 'User');
+  return `https://api.dicebear.com/8.x/adventurer/png?size=96&seed=${safe}`;
+};
+
 // Logger export
 export { logger } from './logger';
 

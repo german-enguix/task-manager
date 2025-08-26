@@ -4,11 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 import { PaperProvider } from 'react-native-paper';
 import { HomeScreen, ProjectsScreen, ProjectDetailScreen, ProfileScreen, LoginScreen } from '@/screens';
 import { TaskDetailScreen } from '@/screens/TaskDetailScreen';
-import { NavBar } from '@/components';
+import { NavBar, AppBar } from '@/components';
 import { lightTheme, darkTheme } from '@/constants';
 import { NavigationRoute, User } from '@/types';
 import { supabaseService } from '@/services/supabaseService';
 import { logger } from '@/utils/logger';
+import { getPublicAvatarUrl } from '@/utils';
 import '@/config/logging'; // Configuración de logs
 
 type Screen = 'home' | 'projects' | 'profile' | 'taskDetail' | 'projectDetail';
@@ -27,6 +28,11 @@ export default function App() {
   const [simulatedExternalQR, setSimulatedExternalQR] = useState<any>(null);
 
   const theme = isDarkMode ? darkTheme : lightTheme;
+
+  // AppBar notifications state sourced from HomeScreen via callbacks
+  const [appBarNotifications, setAppBarNotifications] = useState<any[]>([]);
+  const [appBarUnread, setAppBarUnread] = useState<number>(0);
+  const [isAppBarNotificationsOpen, setIsAppBarNotificationsOpen] = useState(false);
 
   // Verificar autenticación al iniciar la app
   useEffect(() => {
@@ -54,7 +60,7 @@ export default function App() {
           email: authStatus.user.email,
           name: profile?.full_name || authStatus.user.email,
           role: profile?.role,
-          avatar_url: profile?.avatar_url,
+          avatar_url: profile?.avatar_url || getPublicAvatarUrl(profile?.full_name || authStatus.user.email || authStatus.user.id),
         };
 
         setUser(userWithProfile);
@@ -466,7 +472,33 @@ export default function App() {
     switch (currentScreen) {
       case 'home':
         return (
-          <HomeScreen 
+          <>
+            <AppBar 
+              title="Mi día"
+              avatarUri={user?.avatar_url || null}
+              displayName={user?.name}
+              notifications={appBarNotifications}
+              unreadCount={appBarUnread}
+              isNotificationsOpen={isAppBarNotificationsOpen}
+              onNotificationsOpenChange={setIsAppBarNotificationsOpen}
+              onNotificationAction={(id, actionData) => {
+                if (actionData?.taskId) {
+                  navigateToTaskDetail(actionData.taskId);
+                }
+              }}
+              onMarkAsRead={(id) => {
+                setAppBarNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+                setAppBarUnread((u) => Math.max(0, u - 1));
+              }}
+              onMarkAllAsRead={() => {
+                setAppBarNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                setAppBarUnread(0);
+                // also invoke Home's DB-backed handler if present
+                const fn = (App as any)._markAllNotificationsAsRead;
+                if (typeof fn === 'function') fn();
+              }}
+            />
+            <HomeScreen 
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
@@ -477,63 +509,100 @@ export default function App() {
             onExternalNFCHandled={handleExternalNFCHandled}
             simulatedExternalQR={simulatedExternalQR}
             onExternalQRHandled={handleExternalQRHandled}
-          />
+            onTaskTimerChange={() => {}}
+            // pipe notifications data up to app bar
+            // @ts-ignore - extend props without breaking existing API
+            setNotificationsForAppBar={(items: any[], unread: number) => {
+              setAppBarNotifications(items);
+              setAppBarUnread(unread);
+            }}
+            // allow AppBar modal to mark local read after navigation
+            registerAppMarkAsReadHandler={(fn: (id: string) => void) => {
+              // store in ref-like closure
+              (App as any)._markLocalNotificationAsRead = fn;
+            }}
+            registerAppMarkAllAsReadHandler={(fn: () => void) => {
+              (App as any)._markAllNotificationsAsRead = fn;
+            }}
+            />
+          </>
         );
       case 'projects':
         return (
-          <ProjectsScreen 
-            onNavigateToProject={navigateToProjectDetail}
-          />
+          <>
+            <AppBar title="Proyectos" avatarUri={user?.avatar_url || null} displayName={user?.name} notifications={[]} unreadCount={0} />
+            <ProjectsScreen 
+              onNavigateToProject={navigateToProjectDetail}
+            />
+          </>
         );
       case 'profile':
         return (
-          <ProfileScreen 
-            isDarkMode={isDarkMode}
-            toggleTheme={toggleTheme}
-            onLogout={performLogout}
-            onSimulateNotification={handleSimulateNotification}
-        onSimulateExternalNFC={handleSimulateExternalNFC}
-        onSimulateExternalQR={handleSimulateExternalQR}
-          />
+          <>
+            <AppBar title="Perfil" avatarUri={user?.avatar_url || null} displayName={user?.name} showBell={false} />
+            <ProfileScreen 
+              isDarkMode={isDarkMode}
+              toggleTheme={toggleTheme}
+              onLogout={performLogout}
+              onSimulateNotification={handleSimulateNotification}
+              onSimulateExternalNFC={handleSimulateExternalNFC}
+              onSimulateExternalQR={handleSimulateExternalQR}
+            />
+          </>
         );
       case 'taskDetail':
         return selectedTaskId ? (
-          <TaskDetailScreen 
-            taskId={selectedTaskId}
-            onGoBack={navigateToHome}
-          />
+          <>
+            <AppBar title="Detalle de tarea" avatarUri={user?.avatar_url || null} displayName={user?.name} notifications={[]} unreadCount={0} />
+            <TaskDetailScreen 
+              taskId={selectedTaskId}
+              onGoBack={navigateToHome}
+            />
+          </>
         ) : (
-          <HomeScreen 
+          <>
+            <AppBar title="Mi día" avatarUri={user?.avatar_url || null} displayName={user?.name} notifications={[]} unreadCount={0} />
+            <HomeScreen 
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
             taskRefreshTrigger={taskRefreshTrigger}
             simulatedNotification={simulatedNotification}
             onNotificationHandled={handleNotificationHandled}
-          />
+            />
+          </>
         );
       case 'projectDetail':
         return selectedProjectId ? (
-          <ProjectDetailScreen 
-            projectId={selectedProjectId}
-            onNavigateBack={navigateToProjects}
-            onNavigateToTask={navigateToTaskDetail}
-          />
+          <>
+            <AppBar title="Detalle de proyecto" avatarUri={user?.avatar_url || null} displayName={user?.name} notifications={[]} unreadCount={0} />
+            <ProjectDetailScreen 
+              projectId={selectedProjectId}
+              onNavigateBack={navigateToProjects}
+              onNavigateToTask={navigateToTaskDetail}
+            />
+          </>
         ) : (
-          <ProjectsScreen 
-            onNavigateToProject={navigateToProjectDetail}
-          />
+          <>
+            <AppBar title="Proyectos" avatarUri={user?.avatar_url || null} displayName={user?.name} notifications={[]} unreadCount={0} />
+            <ProjectsScreen 
+              onNavigateToProject={navigateToProjectDetail}
+            />
+          </>
         );
       default:
         return (
-          <HomeScreen 
+          <>
+            <AppBar title="Mi día" avatarUri={user?.avatar_url || null} displayName={user?.name} notifications={[]} unreadCount={0} />
+            <HomeScreen 
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             onNavigateToTask={navigateToTaskDetail}
             taskRefreshTrigger={taskRefreshTrigger}
             simulatedNotification={simulatedNotification}
             onNotificationHandled={handleNotificationHandled}
-          />
+            />
+          </>
         );
     }
   };

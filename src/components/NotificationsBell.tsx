@@ -20,6 +20,9 @@ interface NotificationsBellProps {
   onNotificationAction?: (notificationId: string, actionData?: any) => void;
   onMarkAsRead?: (notificationId: string) => void;
   onMarkAllAsRead?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
 }
 
 export const NotificationsBell: React.FC<NotificationsBellProps> = ({
@@ -27,10 +30,22 @@ export const NotificationsBell: React.FC<NotificationsBellProps> = ({
   unreadCount,
   onNotificationAction,
   onMarkAsRead,
-  onMarkAllAsRead
+  onMarkAllAsRead,
+  open,
+  onOpenChange,
+  showTrigger = true,
 }) => {
   const theme = useTheme();
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [internalVisible, setInternalVisible] = useState(false);
+  const isControlled = open !== undefined;
+  const isModalVisible = isControlled ? !!open : internalVisible;
+  const setVisible = (v: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(v);
+    } else {
+      setInternalVisible(v);
+    }
+  };
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -103,6 +118,10 @@ export const NotificationsBell: React.FC<NotificationsBellProps> = ({
       console.log('🚀 Triggering navigation action with taskId:', taskId);
       onNotificationAction?.(notification.id, notification.actionData);
       setIsModalVisible(false);
+      // Optimista: marcar como leída en cuanto navega
+      if (!notification.isRead) {
+        onMarkAsRead?.(notification.id);
+      }
     } else {
       console.log('❌ No actionData.taskId found:', notification.actionData);
       console.log('ℹ️ This notification needs to be updated with a real taskId');
@@ -129,24 +148,28 @@ export const NotificationsBell: React.FC<NotificationsBellProps> = ({
   return (
     <>
       {/* Ícono de campana con badge */}
-      <View style={styles.bellContainer}>
-        <IconButton
-          icon="bell"
-          size={24}
-          onPress={() => setIsModalVisible(true)}
-        />
-        {unreadCount > 0 && (
-          <Badge style={styles.badge} size={18}>
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </Badge>
-        )}
-      </View>
+      {showTrigger && (
+        <View style={styles.bellContainer}>
+          <IconButton
+            icon={unreadCount > 0 ? 'bell' : 'bell-outline'}
+            size={24}
+            onPress={() => setVisible(true)}
+            iconColor={unreadCount > 0 ? theme.colors.primary : theme.colors.onSurface}
+            accessibilityLabel={unreadCount > 0 ? 'Notificaciones sin leer' : 'Notificaciones'}
+          />
+          {unreadCount > 0 && (
+            <Badge style={[styles.badge, { backgroundColor: theme.colors.error }]} size={18}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Badge>
+          )}
+        </View>
+      )}
 
       {/* Modal de notificaciones */}
       <Portal>
         <Modal
           visible={isModalVisible}
-          onDismiss={() => setIsModalVisible(false)}
+          onDismiss={() => setVisible(false)}
           contentContainerStyle={styles.modalContainer}
         >
           <Card style={styles.modalCard}>
@@ -168,7 +191,7 @@ export const NotificationsBell: React.FC<NotificationsBellProps> = ({
                   <IconButton
                     {...props}
                     icon="close"
-                    onPress={() => setIsModalVisible(false)}
+                    onPress={() => setVisible(false)}
                   />
                 </View>
               )}

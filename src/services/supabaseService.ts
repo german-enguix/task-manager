@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { getPublicAvatarUrl } from '@/utils'
 import { 
   Task, 
   Tag, 
@@ -161,7 +162,7 @@ export class SupabaseService {
         name: data.full_name,
         email: currentUser?.email || 'unknown@taskapp.com',
         role: data.role,
-        avatar_url: data.avatar_url,
+        avatar_url: data.avatar_url || getPublicAvatarUrl(data.full_name || data.id),
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at),
       };

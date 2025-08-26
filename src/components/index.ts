@@ -35,3 +35,6 @@ export { CameraViewDialog } from './CameraViewDialog';
 export { MediaViewer } from './MediaViewer';
 export { SignatureDialog } from './SignatureDialog';
 export { SignatureViewer } from './SignatureViewer';
+
+// Additions
+export { AppBar } from './AppBar';
