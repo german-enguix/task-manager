@@ -72,7 +72,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
 
   if (notifications.length === 0) {
     return (
-      <Card style={styles.container}>
+      <Card style={[styles.container, { backgroundColor: theme.colors.surface }]}>
         <Card.Content style={styles.emptyContent}>
           <Icon source="bell-sleep" size={48} color={theme.colors.onSurfaceVariant} />
           <Text variant="bodyMedium" style={styles.emptyText}>
@@ -84,7 +84,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
   }
 
   return (
-    <Card style={[styles.container, isReadOnly && styles.readOnlyContainer]}>
+    <Card style={[styles.container, isReadOnly && styles.readOnlyContainer, { backgroundColor: theme.colors.surface }]}>
       <Card.Content style={styles.content}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
@@ -107,8 +107,9 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
               key={notification.id}
               style={[
                 styles.notificationItem,
-                !notification.isRead && !isReadOnly && styles.unreadNotification,
-                isReadOnly && styles.readOnlyNotification,
+                { backgroundColor: theme.colors.surfaceVariant },
+                !notification.isRead && !isReadOnly && { backgroundColor: theme.colors.secondaryContainer },
+                isReadOnly && { backgroundColor: theme.colors.surface },
               ]}
             >
               <View style={styles.notificationHeader}>
@@ -129,12 +130,12 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
                   </Text>
                 </View>
                 
-                <Text variant="bodySmall" style={styles.notificationTime}>
+                <Text variant="bodySmall" style={[styles.notificationTime, { color: theme.colors.onSurfaceVariant }]}>
                   {formatTime(notification.createdAt)}
                 </Text>
               </View>
 
-              <Text variant="bodySmall" style={styles.notificationMessage}>
+              <Text variant="bodySmall" style={[styles.notificationMessage, { color: theme.colors.onSurface }]}>
                 {notification.message}
               </Text>
 
@@ -153,7 +154,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
 
               {!notification.isRead && !isReadOnly && (
                 <View style={styles.readIndicator}>
-                  <View style={styles.unreadDot} />
+                  <View style={[styles.unreadDot, { backgroundColor: theme.colors.primary }]} />
                 </View>
               )}
             </View>
@@ -162,7 +163,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({
 
         {isReadOnly && (
           <View style={styles.readOnlyFooter}>
-            <Text variant="bodySmall" style={styles.readOnlyText}>
+            <Text variant="bodySmall" style={[styles.readOnlyText, { color: theme.colors.onSurfaceVariant }]}>
               📚 Información histórica - Solo lectura
             </Text>
           </View>

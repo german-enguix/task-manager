@@ -1,5 +1,5 @@
 import React from 'react';
-import { BottomNavigation } from 'react-native-paper';
+import { BottomNavigation, useTheme } from 'react-native-paper';
 import { NavigationRoute } from '@/types';
 
 interface NavBarProps {
@@ -8,6 +8,7 @@ interface NavBarProps {
 }
 
 export const NavBar: React.FC<NavBarProps> = ({ currentRoute, onNavigate }) => {
+  const theme = useTheme();
   const getIndexFromRoute = (route: NavigationRoute): number => {
     switch (route) {
       case 'Home': return 0;
@@ -47,6 +48,11 @@ export const NavBar: React.FC<NavBarProps> = ({ currentRoute, onNavigate }) => {
         if (newIndex !== -1) {
           handleIndexChange(newIndex);
         }
+      }}
+      style={{
+        backgroundColor: theme.colors.surface,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.outlineVariant,
       }}
     />
   );

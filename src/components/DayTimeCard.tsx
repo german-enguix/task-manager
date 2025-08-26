@@ -192,7 +192,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
 
   return (
     <>
-      <Card style={styles.container}>
+      <Card style={[styles.container, { backgroundColor: theme.colors.surface }]}>
         <Card.Content style={styles.content}>
           {/* Selector de fecha */}
           <View style={styles.dateSelector}>
@@ -204,7 +204,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
             />
             
             <View style={styles.dateInfoContainer}>
-              <Text variant="headlineSmall" style={styles.dayOfWeek}>
+              <Text variant="headlineSmall" style={[styles.dayOfWeek, { color: theme.colors.onSurface }]}>
                 {formatDayOfWeek(displayDate)}
               </Text>
               <TouchableOpacity 
@@ -228,7 +228,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
           </View>
 
           {/* Cronómetro */}
-          <View style={styles.timerSection}>
+          <View style={[styles.timerSection, { backgroundColor: theme.colors.surfaceVariant }]}>
             <View style={styles.timerContainer}>
               <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
                 {formatDuration(getTotalDisplayDuration)}
@@ -253,7 +253,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
               <View style={styles.timeBreakdown}>
                 {getDayOnlyDuration > 0 && (
                   <View style={styles.breakdownItem}>
-                    <Icon source="calendar-today" size={12} color="#666" />
+                    <Icon source="calendar-today" size={12} color={theme.colors.onSurfaceVariant} />
                     <Text variant="bodySmall" style={styles.breakdownText}>
                       Día: {formatDuration(getDayOnlyDuration)}
                     </Text>
@@ -264,7 +264,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
                 )}
                 {getTasksCurrentTime() > 0 && (
                   <View style={styles.breakdownItem}>
-                    <Icon source="clipboard-text" size={12} color="#666" />
+                    <Icon source="clipboard-text" size={12} color={theme.colors.onSurfaceVariant} />
                     <Text variant="bodySmall" style={styles.breakdownText}>
                       Tareas: {formatDuration(getTasksCurrentTime())}
                     </Text>
@@ -276,7 +276,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
               </View>
             )}
             
-            <Text variant="bodySmall" style={styles.timerLabel}>
+            <Text variant="bodySmall" style={[styles.timerLabel, { color: theme.colors.onSurfaceVariant }]}>
               Tiempo total trabajado
             </Text>
           </View>

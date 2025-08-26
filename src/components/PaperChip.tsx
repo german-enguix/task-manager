@@ -1,5 +1,5 @@
 import React from 'react';
-import { Chip } from 'react-native-paper';
+import { Chip, useTheme } from 'react-native-paper';
 import { StyleSheet } from 'react-native';
 
 interface PaperChipProps {
@@ -18,9 +18,11 @@ export const PaperChip: React.FC<PaperChipProps> = ({
   style,
   ...props
 }) => {
+  const theme = useTheme();
   const chipStyle = [
     styles.chip,
-    variant === 'outlined' && styles.outlined,
+    variant === 'outlined' && { borderColor: theme.colors.outline },
+    variant === 'filled' && { backgroundColor: theme.colors.secondaryContainer },
     size === 'small' && styles.small,
     style,
   ];
@@ -29,6 +31,7 @@ export const PaperChip: React.FC<PaperChipProps> = ({
     <Chip
       style={chipStyle}
       mode={variant === 'outlined' ? 'outlined' : 'flat'}
+      textStyle={{ color: variant === 'filled' ? theme.colors.onSecondaryContainer : undefined }}
       {...props}>
       {label}
     </Chip>

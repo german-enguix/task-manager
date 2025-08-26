@@ -113,12 +113,13 @@ export const NotificationDialog: React.FC<NotificationDialogProps> = ({
       >
         <Card style={[
           styles.card,
+          { backgroundColor: theme.colors.surface },
           notification.isUrgent && { borderLeftWidth: 4, borderLeftColor: theme.colors.error }
         ]}>
           <Card.Content>
             {/* Header con icono y hora */}
             <View style={styles.header}>
-              <View style={styles.iconContainer}>
+              <View style={[styles.iconContainer, { backgroundColor: theme.colors.secondaryContainer }]}>
                 <Icon
                   source={getNotificationIcon(notification.type)}
                   size={28}
@@ -126,12 +127,12 @@ export const NotificationDialog: React.FC<NotificationDialogProps> = ({
                 />
               </View>
               <View style={styles.headerText}>
-                <Text variant="bodySmall" style={styles.timeText}>
+                <Text variant="bodySmall" style={[styles.timeText, { color: theme.colors.onSurfaceVariant }]}>
                   {formatTime(notification.createdAt)}
                 </Text>
                 {notification.isUrgent && (
-                  <View style={styles.urgentBadge}>
-                    <Text variant="bodySmall" style={styles.urgentText}>
+                  <View style={[styles.urgentBadge, { backgroundColor: theme.colors.error }]}>
+                    <Text variant="bodySmall" style={[styles.urgentText, { color: theme.colors.onError }]}>
                       URGENTE
                     </Text>
                   </View>
@@ -140,20 +141,20 @@ export const NotificationDialog: React.FC<NotificationDialogProps> = ({
             </View>
 
             {/* Título */}
-            <Text variant="headlineSmall" style={styles.title}>
+            <Text variant="headlineSmall" style={[styles.title, { color: theme.colors.onSurface }]}>
               {notification.title}
             </Text>
 
             {/* Mensaje */}
-            <Text variant="bodyMedium" style={styles.message}>
+            <Text variant="bodyMedium" style={[styles.message, { color: theme.colors.onSurface }] }>
               {notification.message}
             </Text>
 
             {/* Indicador de acción requerida */}
             {notification.actionRequired && (
-              <View style={styles.actionIndicator}>
+              <View style={[styles.actionIndicator, { backgroundColor: theme.colors.secondaryContainer }]}>
                 <Icon source="arrow-right-circle" size={16} color={theme.colors.primary} />
-                <Text variant="bodySmall" style={styles.actionText}>
+                <Text variant="bodySmall" style={[styles.actionText, { color: theme.colors.onSecondaryContainer }]}>
                   Se requiere acción
                 </Text>
               </View>

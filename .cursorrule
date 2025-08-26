@@ -72,6 +72,49 @@ style={{ backgroundColor: '#007AFF' }}
 style={{ backgroundColor: theme.colors.primary }}
 ```
 
+### 5.1 Tokens MD3 soportados (React Native Paper)
+- Usar SOLO claves soportadas por Paper MD3 en `theme.colors`:
+  - primary, onPrimary, primaryContainer, onPrimaryContainer
+  - secondary, onSecondary, secondaryContainer, onSecondaryContainer
+  - tertiary, onTertiary, tertiaryContainer, onTertiaryContainer
+  - error, onError, errorContainer, onErrorContainer
+  - background, onBackground
+  - surface, onSurface, surfaceVariant, onSurfaceVariant
+  - outline, outlineVariant
+  - inverseSurface, inverseOnSurface, inversePrimary
+  - shadow, scrim
+
+- NO usar (no existen en Paper y rompen tipos):
+  - surfaceTint
+  - surfaceContainer, surfaceContainerLow, surfaceContainerLowest, surfaceContainerHigh, surfaceContainerHighest, surfaceBright, surfaceDim
+  - primaryFixed*, secondaryFixed*, tertiaryFixed*, on*Fixed*
+
+### 5.2 Convenciones del tema azul (MD3)
+- Cards
+  - elevated: background = colors.surface; border = none
+  - outlined: background = colors.surface; borderColor = colors.outlineVariant
+  - filled: background = colors.surfaceVariant
+- Buttons
+  - contained: buttonColor = colors.primary; textColor = colors.onPrimary
+  - outlined: borderColor = colors.outline; textColor = colors.primary
+  - text: textColor = colors.primary
+- Chips
+  - filled: background = colors.secondaryContainer; text = colors.onSecondaryContainer
+  - outlined: borderColor = colors.outline
+- Inputs (outlined)
+  - outlineColor = colors.outline; activeOutlineColor = colors.primary
+  - textColor = colors.onSurface; placeholderTextColor = colors.onSurfaceVariant
+- NavBar/TabBar
+  - background = colors.surface; borderTopColor = colors.outlineVariant
+- List items destacados: background = colors.secondaryContainer; text = colors.onSecondaryContainer
+- Dividers/bordes sutiles: colors.outline
+- Texto secundario/ayudas: colors.onSurfaceVariant
+
+### 5.3 Origen del tema y cambios
+- El tema se define en `src/constants/theme.ts` usando la paleta azul (blue-task).
+- Los objetos `brandLightColors` y `brandDarkColors` están tipados con `satisfies Partial<typeof MD3LightTheme.colors>` para validar claves.
+- Cualquier cambio de color debe hacerse en `src/constants/theme.ts`. No hardcodear colores en componentes.
+
 ## 📱 TEMPLATES OBLIGATORIOS
 
 ### Template para Pantallas

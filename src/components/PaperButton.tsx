@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button as PaperButton, ButtonProps } from 'react-native-paper';
+import { Button as PaperButton, ButtonProps, useTheme } from 'react-native-paper';
 
 interface PaperButtonWrapperProps extends Omit<ButtonProps, 'children'> {
   title: string;
@@ -11,6 +11,8 @@ export const PaperButtonComponent: React.FC<PaperButtonWrapperProps> = ({
   variant = 'contained',
   ...props
 }) => {
+  const theme = useTheme();
+
   const getButtonMode = () => {
     switch (variant) {
       case 'contained':
@@ -24,9 +26,22 @@ export const PaperButtonComponent: React.FC<PaperButtonWrapperProps> = ({
     }
   };
 
+  const { style, disabled } = props as ButtonProps;
+
+  const buttonColor = variant === 'contained' ? theme.colors.primary : undefined;
+  const textColor = variant === 'contained' ? theme.colors.onPrimary : theme.colors.primary;
+
+  const mergedStyle = [
+    style,
+    variant === 'outlined' && { borderColor: theme.colors.outline },
+  ];
+
   return (
     <PaperButton
       mode={getButtonMode()}
+      buttonColor={buttonColor}
+      textColor={textColor}
+      style={mergedStyle}
       {...props}>
       {title}
     </PaperButton>

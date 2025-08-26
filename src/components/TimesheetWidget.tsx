@@ -126,7 +126,7 @@ export const TimesheetWidget: React.FC<TimesheetWidgetProps> = ({
   };
 
   return (
-    <Card style={styles.container}>
+    <Card style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       <Card.Content style={styles.content}>
         <View style={styles.header}>
           <View style={styles.statusRow}>
@@ -140,13 +140,13 @@ export const TimesheetWidget: React.FC<TimesheetWidgetProps> = ({
             </Text>
           </View>
           
-          <Text variant="headlineMedium" style={styles.timeText}>
+          <Text variant="headlineMedium" style={[styles.timeText, { color: theme.colors.onSurface }]}>
             {formatDuration(getTotalDisplayDuration())}
           </Text>
         </View>
 
         {timesheet.status === TimesheetStatus.IN_PROGRESS && (
-          <Text variant="bodySmall" style={styles.sessionText}>
+          <Text variant="bodySmall" style={[styles.sessionText, { color: theme.colors.onSurfaceVariant }]}>
             Sesión actual: {formatDuration(getCurrentSessionDuration())}
           </Text>
         )}

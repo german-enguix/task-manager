@@ -1,5 +1,5 @@
 import React from 'react';
-import { TextInput, HelperText } from 'react-native-paper';
+import { TextInput, HelperText, useTheme } from 'react-native-paper';
 import { View, StyleSheet } from 'react-native';
 
 interface PaperInputProps {
@@ -26,6 +26,7 @@ export const PaperInput: React.FC<PaperInputProps> = ({
   style,
   ...props
 }) => {
+  const theme = useTheme();
   const displayLabel = required ? `${label} *` : label;
 
   return (
@@ -37,6 +38,10 @@ export const PaperInput: React.FC<PaperInputProps> = ({
         mode="outlined"
         error={!!error}
         style={[styles.input, style]}
+        outlineColor={theme.colors.outline}
+        activeOutlineColor={theme.colors.primary}
+        textColor={theme.colors.onSurface}
+        placeholderTextColor={theme.colors.onSurfaceVariant}
         {...props}
       />
       {(error || helperText) && (

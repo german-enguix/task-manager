@@ -42,7 +42,7 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
   const isCompleted = workDay.status === DayStatus.COMPLETED;
 
   return (
-    <Card style={styles.container}>
+    <Card style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       <Card.Content style={styles.content}>
         {/* Navegación de días */}
         <View style={styles.navigationRow}>
@@ -82,7 +82,7 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
                 <Chip 
                   icon="lock"
                   mode="outlined"
-                  style={[styles.readOnlyChip, { borderColor: theme.colors.onSurfaceVariant }]}
+                  style={[styles.readOnlyChip, { borderColor: theme.colors.outline }]}
                   textStyle={{ color: theme.colors.onSurfaceVariant, fontSize: 11 }}
                 >
                   Solo lectura
@@ -90,7 +90,7 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
               )}
             </View>
             
-            <Text variant="headlineSmall" style={styles.dateText}>
+            <Text variant="headlineSmall" style={[styles.dateText, { color: theme.colors.onSurface }] }>
               {formatDate(workDay.date)}
             </Text>
           </View>
@@ -123,22 +123,22 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
 
         {/* Resumen del día completado */}
         {isCompleted && workDay.summary && (
-          <View style={styles.summarySection}>
+          <View style={[styles.summarySection, { borderTopColor: theme.colors.outline }]}>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
-                <Text variant="bodySmall" style={styles.summaryLabel}>Tareas</Text>
+                <Text variant="bodySmall" style={[styles.summaryLabel, { color: theme.colors.onSurfaceVariant }]}>Tareas</Text>
                 <Text variant="titleMedium" style={styles.summaryValue}>
                   {workDay.summary.totalTasksCompleted}
                 </Text>
               </View>
               <View style={styles.summaryItem}>
-                <Text variant="bodySmall" style={styles.summaryLabel}>Tiempo</Text>
+                <Text variant="bodySmall" style={[styles.summaryLabel, { color: theme.colors.onSurfaceVariant }]}>Tiempo</Text>
                 <Text variant="titleMedium" style={styles.summaryValue}>
                   {Math.floor(workDay.summary.totalWorkTime / 3600)}h
                 </Text>
               </View>
               <View style={styles.summaryItem}>
-                <Text variant="bodySmall" style={styles.summaryLabel}>Evidencias</Text>
+                <Text variant="bodySmall" style={[styles.summaryLabel, { color: theme.colors.onSurfaceVariant }]}>Evidencias</Text>
                 <Text variant="titleMedium" style={styles.summaryValue}>
                   {workDay.summary.evidencesSubmitted}
                 </Text>
