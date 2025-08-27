@@ -609,7 +609,7 @@ export default function App() {
 
   return (
     <PaperProvider theme={theme}>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <StatusBar style={isDarkMode ? 'light' : 'dark'} />
         {renderScreen()}
         {showNavBar && (

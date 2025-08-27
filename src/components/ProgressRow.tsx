@@ -14,8 +14,8 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({ label, valueLabel, pro
   const pct = Math.max(0, Math.min(1, progress));
 
   return (
-    <View style={[styles.container, variant === 'large' && styles.containerLarge]}>
-      <View style={styles.header}>
+    <View style={[styles.container, variant === 'large' ? styles.containerLarge : styles.containerDefault]}>
+      <View style={[styles.header, variant === 'large' ? styles.headerLarge : styles.headerDefault]}>
         <Text
           variant={variant === 'large' ? 'titleMedium' : 'bodyMedium'}
           style={[
@@ -31,7 +31,7 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({ label, valueLabel, pro
           > {valueLabel} </Text>
         ) : null}
       </View>
-      <View style={[styles.bar, variant === 'large' && styles.barLarge, { backgroundColor: theme.colors.surfaceVariant }]}> 
+      <View style={[styles.bar, variant === 'large' ? styles.barLarge : styles.barDefault, { backgroundColor: theme.colors.surfaceVariant }]}> 
         <View style={[styles.fill, variant === 'large' && styles.fillLarge, { width: `${pct * 100}%`, backgroundColor: theme.colors.primary }]} />
       </View>
     </View>
@@ -40,6 +40,8 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({ label, valueLabel, pro
 
 const styles = StyleSheet.create({
   container: {
+  },
+  containerDefault: {
     marginTop: 8,
   },
   containerLarge: {
@@ -49,7 +51,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+  },
+  headerDefault: {
+    marginBottom: 6,
+  },
+  headerLarge: {
+    marginBottom: 10,
   },
   label: {
     fontWeight: '500',
@@ -63,9 +70,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bar: {
-    height: 6,
     borderRadius: 999,
     overflow: 'hidden',
+  },
+  barDefault: {
+    height: 6,
   },
   barLarge: {
     height: 12,

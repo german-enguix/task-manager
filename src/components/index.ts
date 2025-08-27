@@ -15,6 +15,7 @@ export { NotificationsBell } from './NotificationsBell';
 export { DayTimeCard } from './DayTimeCard';
 export { DatePill } from './DatePill';
 export { ProgressRow } from './ProgressRow';
+export { TimerBlock } from './TimerBlock';
 
 // Navigation components
 export { NavBar } from './NavBar';

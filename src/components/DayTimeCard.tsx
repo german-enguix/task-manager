@@ -1,18 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { 
-  Card, 
   Text, 
-  IconButton, 
-  Button,
   useTheme,
-  Portal,
-  Modal,
-  Surface,
-  Icon
+  Portal
 } from 'react-native-paper';
 import { DatePill } from '@/components/DatePill';
 import { ProgressRow } from '@/components/ProgressRow';
+import { TimerBlock } from '@/components/TimerBlock';
 import { DatePickerModal } from 'react-native-paper-dates';
 import { formatDayShort } from '@/utils';
 import { WorkDay, TimesheetStatus, DayStatus } from '@/types';
@@ -152,66 +147,12 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     setDatePickerVisible(false);
   };
 
-  const renderTimesheetControls = () => {
-    if (isCompleted) {
-      return (
-        <View style={styles.completedContainer}>
-          <View style={styles.completedRow}>
-            <Icon source="check-circle" size={18} color="#4CAF50" />
-            <Text variant="bodyMedium" style={styles.completedText}>
-              Fichaje completado
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
-    switch (timesheet.status) {
-      case TimesheetStatus.NOT_STARTED:
-        return (
-          <Button
-            mode="contained"
-            onPress={onStartTimesheet}
-            style={styles.startButton}
-            icon="play"
-          >
-            Iniciar Fichaje
-          </Button>
-        );
-
-      case TimesheetStatus.IN_PROGRESS:
-        return (
-          <Button
-            mode="contained"
-            onPress={onPauseTimesheet}
-            style={styles.startButton}
-            icon="pause"
-          >
-            Pausar
-          </Button>
-        );
-
-      case TimesheetStatus.PAUSED:
-        return (
-          <Button
-            mode="contained"
-            onPress={onStartTimesheet}
-            style={styles.startButton}
-            icon="play"
-          >
-            Reanudar
-          </Button>
-        );
-
-      default:
-        return null;
-    }
-  };
+  // Controles legacy eliminados: el botón principal ahora vive en TimerBlock
 
   return (
     <>
-      <Card style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-        <Card.Content style={styles.content}>
+      <View style={styles.container}>
+        <View style={styles.content}>
           {/* Selector de fecha (píldora) */}
           <DatePill
             label={`${formatDayShort(displayDate)}, ${formatDate(displayDate)}`}
@@ -221,7 +162,7 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
           />
 
           {/* Filas de progreso como en el diseño */}
-          <View style={{ marginHorizontal: 4 }}>
+          <View style={[styles.fullWidthSection, { marginTop: 16 }]}>
             <ProgressRow
               label="Tareas"
               valueLabel={`${tasksCompleted}/${totalTasks}`}
@@ -240,66 +181,46 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
             />
           </View>
 
-          {/* Cronómetro */}
-          <View style={[styles.timerSection, { backgroundColor: theme.colors.surfaceVariant }]}>
-            <View style={styles.timerContainer}>
-              <Text variant="displayMedium" style={[styles.timerDisplay, { color: theme.colors.primary }]}>
-                {formatDuration(getTotalDisplayDuration)}
-              </Text>
-              {(timesheet.status === TimesheetStatus.IN_PROGRESS || getActiveTasksCount() > 0) && (
-                <View style={styles.runningIndicator}>
-                  <Icon source="play-circle" size={16} color={theme.colors.primary} />
-                  <Text variant="bodySmall" style={[styles.runningText, { color: theme.colors.primary }]}>
-                    {timesheet.status === TimesheetStatus.IN_PROGRESS && getActiveTasksCount() > 0 
-                      ? `Día + ${getActiveTasksCount()} tarea${getActiveTasksCount() > 1 ? 's' : ''} activa${getActiveTasksCount() > 1 ? 's' : ''}`
-                      : timesheet.status === TimesheetStatus.IN_PROGRESS 
-                      ? 'Timer del día activo'
-                      : `${getActiveTasksCount()} tarea${getActiveTasksCount() > 1 ? 's' : ''} activa${getActiveTasksCount() > 1 ? 's' : ''}`
-                    }
-                  </Text>
-                </View>
-              )}
-            </View>
-            
-            {/* Desglose de tiempo */}
-            {(getDayOnlyDuration > 0 || getTasksCurrentTime() > 0) && (
-              <View style={styles.timeBreakdown}>
-                {getDayOnlyDuration > 0 && (
-                  <View style={styles.breakdownItem}>
-                    <Icon source="calendar-today" size={12} color={theme.colors.onSurfaceVariant} />
-                    <Text variant="bodySmall" style={styles.breakdownText}>
-                      Día: {formatDuration(getDayOnlyDuration)}
-                    </Text>
-                    {timesheet.status === TimesheetStatus.IN_PROGRESS && (
-                      <Icon source="play" size={10} color={theme.colors.primary} />
-                    )}
-                  </View>
-                )}
-                {getTasksCurrentTime() > 0 && (
-                  <View style={styles.breakdownItem}>
-                    <Icon source="clipboard-text" size={12} color={theme.colors.onSurfaceVariant} />
-                    <Text variant="bodySmall" style={styles.breakdownText}>
-                      Tareas: {formatDuration(getTasksCurrentTime())}
-                    </Text>
-                    {getActiveTasksCount() > 0 && (
-                      <Icon source="play" size={10} color={theme.colors.primary} />
-                    )}
-                  </View>
-                )}
-              </View>
-            )}
-            
-            <Text variant="bodySmall" style={[styles.timerLabel, { color: theme.colors.onSurfaceVariant }]}>
-              Tiempo total trabajado
-            </Text>
+          {/* Cronómetro (subcomponente) */}
+          <View style={{ marginTop: 24 }}>
+          <TimerBlock
+            displayText={formatDuration(getTotalDisplayDuration)}
+            isRunning={timesheet.status === TimesheetStatus.IN_PROGRESS}
+            activeTasksCount={getActiveTasksCount()}
+            dayOnlyDurationSeconds={getDayOnlyDuration}
+            tasksCurrentTimeSeconds={getTasksCurrentTime()}
+            primaryLabel={
+              timesheet.status === TimesheetStatus.NOT_STARTED
+                ? 'Iniciar Fichaje'
+                : timesheet.status === TimesheetStatus.IN_PROGRESS
+                ? 'Pausar'
+                : timesheet.status === TimesheetStatus.PAUSED
+                ? 'Reanudar'
+                : undefined
+            }
+            primaryIcon={
+              timesheet.status === TimesheetStatus.NOT_STARTED
+                ? 'play'
+                : timesheet.status === TimesheetStatus.IN_PROGRESS
+                ? 'pause'
+                : timesheet.status === TimesheetStatus.PAUSED
+                ? 'play'
+                : undefined
+            }
+            onPrimaryPress={
+              timesheet.status === TimesheetStatus.NOT_STARTED
+                ? onStartTimesheet
+                : timesheet.status === TimesheetStatus.IN_PROGRESS
+                ? onPauseTimesheet
+                : timesheet.status === TimesheetStatus.PAUSED
+                ? onStartTimesheet
+                : undefined
+            }
+          />
           </View>
 
-          {/* Controles de fichaje */}
-          <View style={styles.controlsSection}>
-            {renderTimesheetControls()}
-          </View>
-        </Card.Content>
-      </Card>
+        </View>
+      </View>
 
       {/* DatePicker Modal */}
       <Portal>
@@ -321,11 +242,14 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
-    marginTop: 8,
+    marginTop: 24,
     marginBottom: 16,
   },
+  fullWidthSection: {
+    marginHorizontal: 0,
+  },
   content: {
-    paddingVertical: 16,
+    paddingVertical: 0,
   },
   dateSelector: {
     flexDirection: 'row',

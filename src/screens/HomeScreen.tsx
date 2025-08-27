@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, Alert, StyleSheet, View } from 'react-native';
-import { Text, Surface, Button, Card, Chip, Icon, IconButton } from 'react-native-paper';
+import { Text, Surface, Button, Card, Chip, Icon, IconButton, useTheme } from 'react-native-paper';
 import { formatDate } from '@/utils';
 import { isDayReadOnly, isToday } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
@@ -47,6 +47,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   , registerAppMarkAsReadHandler
   , registerAppMarkAllAsReadHandler
 }) => {
+  const theme = useTheme();
   const [workDay, setWorkDay] = useState<WorkDay | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -846,9 +847,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   return (
-    <Surface style={styles.container}>
+    <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Main Content */}
-      <ScrollView style={styles.content}>
+      <ScrollView style={[styles.content, { backgroundColor: theme.colors.background }] }>
 
         {/* Header integrado eliminado: AppBar superior gestiona notificaciones */}
         {/* Layout especial para días sin tareas - aparece solo */}
