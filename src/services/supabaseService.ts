@@ -157,12 +157,29 @@ export class SupabaseService {
 
       if (error) throw error;
       
+      // If avatar_url is missing, and full_name matches known users, set public URL
+      const SEEDED: Record<string, string> = {
+        'Zizi Fusea': 'https://avatar.iran.liara.run/public/56',
+        'Germán Enguix': 'https://avatar.iran.liara.run/public/48',
+        'Albert Soriano': 'https://avatar.iran.liara.run/public/15',
+      };
+      let avatarUrl = data.avatar_url || null;
+      if (!avatarUrl && data.full_name && SEEDED[data.full_name]) {
+        try {
+          const { error: updErr } = await supabase
+            .from('profiles')
+            .update({ avatar_url: SEEDED[data.full_name], updated_at: new Date().toISOString() })
+            .eq('id', targetUserId);
+          if (!updErr) avatarUrl = SEEDED[data.full_name];
+        } catch {}
+      }
+      
       return {
         id: data.id,
         name: data.full_name,
         email: currentUser?.email || 'unknown@taskapp.com',
         role: data.role,
-        avatar_url: data.avatar_url || getPublicAvatarUrl(data.full_name || data.id),
+        avatar_url: avatarUrl,
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at),
       };

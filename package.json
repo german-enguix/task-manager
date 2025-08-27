@@ -11,7 +11,8 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "type-check": "tsc --noEmit",
-    "seed:avatars": "node ./scripts/seed_avatars.mjs"
+    "seed:avatars": "node ./scripts/seed_avatars.mjs",
+    "seed:profile-urls": "node ./scripts/seed_profile_avatar_urls.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",

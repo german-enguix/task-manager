@@ -8,5 +8,8 @@ export const API_CONFIG = {
   timeout: 10000,
 } as const;
 
+// Default avatar (MD3 sample) used when user has no avatar_url
+export const DEFAULT_AVATAR_URL = 'https://lh3.googleusercontent.com/HAB59ShrqN3c7AvDF3yMdQCLsvEoYKl_fgd2UH1Obqr3UAN_Gju467pJqidWGhZFknh4AsVwiPLu5t5LgCFTOCTVufqW_EXftIKx4OYZcufzV82ZZg=s0' as const;
+
 // Theme configuration - Material Design 3
 export { lightTheme, darkTheme } from './theme';

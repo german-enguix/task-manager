@@ -38,6 +38,13 @@ export const AppBar: React.FC<AppBarProps> = ({
 }) => {
   const theme = useTheme();
 
+  const initials = (displayName || 'Usuario')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(p => p[0]?.toUpperCase())
+    .join('') || 'U';
+
   return (
     <Appbar.Header
       statusBarHeight={0}
@@ -57,14 +64,9 @@ export const AppBar: React.FC<AppBarProps> = ({
           ) : (
             <Avatar.Text 
               size={48}
-              label={(displayName || 'Usuario')
-                .split(' ')
-                .filter(Boolean)
-                .slice(0, 2)
-                .map(p => p[0]?.toUpperCase())
-                .join('') || 'U'}
-              color={theme.colors.onSecondaryContainer}
-              style={{ backgroundColor: theme.colors.secondaryContainer }}
+              label={initials}
+              color={theme.colors.onPrimaryContainer}
+              style={{ backgroundColor: theme.colors.primaryContainer }}
             />
           )}
         </Pressable>

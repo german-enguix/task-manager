@@ -60,7 +60,7 @@ export default function App() {
           email: authStatus.user.email,
           name: profile?.full_name || authStatus.user.email,
           role: profile?.role,
-          avatar_url: profile?.avatar_url || getPublicAvatarUrl(profile?.full_name || authStatus.user.email || authStatus.user.id),
+          avatar_url: profile?.avatar_url || null,
         };
 
         setUser(userWithProfile);
