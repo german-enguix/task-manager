@@ -10,7 +10,8 @@ import {
   DayTimeCard, 
   NotificationDialog,
   NFCExternalDialog,
-  QRExternalDialog
+  QRExternalDialog,
+  ProgressRow
 } from '@/components';
 
 interface HomeScreenProps {
@@ -1012,104 +1013,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </Card>
             )}
 
-            {/* Progreso del día */}
-            {!loadingTasks && tasks.length > 0 && (
-              <Card style={styles.card}>
-                <Card.Content>
-                  <View style={styles.progressHeader}>
-                    <Icon source="chart-line" size={24} color="#4CAF50" />
-                    <Text variant="titleMedium" style={styles.progressTitle}>
-                      Progreso del día
-                    </Text>
-                    <Text variant="bodyMedium" style={styles.motivationalMessage}>
-                      {getMotivationalMessage(getDayProgress())}
-                    </Text>
-                  </View>
-
-                  <View style={styles.progressContent}>
-                    {/* Progreso de tareas */}
-                    <View style={styles.progressItem}>
-                      <View style={styles.progressItemHeader}>
-                        <Icon source="clipboard-check" size={16} color="#2196F3" />
-                        <Text variant="bodyMedium" style={styles.progressLabel}>
-                          Tareas
-                        </Text>
-                        <Text variant="bodyMedium" style={styles.progressText}>
-                          {getDayProgress().tasksCompleted}/{getDayProgress().totalTasks}
-                        </Text>
-                      </View>
-                      <View style={styles.progressBarContainer}>
-                        <View 
-                          style={[
-                            styles.progressBarFill, 
-                            { 
-                              width: `${getDayProgress().tasksPercentage}%`,
-                              backgroundColor: getDayProgress().tasksPercentage >= 100 ? '#4CAF50' : '#2196F3'
-                            }
-                          ]} 
-                        />
-                      </View>
-                    </View>
-
-                    {/* Progreso de subtareas */}
-                    {getDayProgress().totalSubtasks > 0 && (
-                      <View style={styles.progressItem}>
-                        <View style={styles.progressItemHeader}>
-                          <Icon source="format-list-checks" size={16} color="#FF9800" />
-                          <Text variant="bodyMedium" style={styles.progressLabel}>
-                            Subtareas
-                          </Text>
-                          <Text variant="bodyMedium" style={styles.progressText}>
-                            {getDayProgress().subtasksCompleted}/{getDayProgress().totalSubtasks}
-                          </Text>
-                        </View>
-                        <View style={styles.progressBarContainer}>
-                          <View 
-                            style={[
-                              styles.progressBarFill, 
-                              { 
-                                width: `${getDayProgress().subtasksPercentage}%`,
-                                backgroundColor: getDayProgress().subtasksPercentage >= 100 ? '#4CAF50' : '#FF9800'
-                              }
-                            ]} 
-                          />
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Progreso general */}
-                    <View style={styles.overallProgress}>
-                      <View style={styles.overallProgressHeader}>
-                        <Text variant="titleSmall" style={styles.overallProgressLabel}>
-                          Progreso general
-                        </Text>
-                        <Text variant="titleSmall" style={[
-                          styles.overallProgressPercentage,
-                          { color: getDayProgress().overallPercentage >= 100 ? '#4CAF50' : '#666' }
-                        ]}>
-                          {Math.round(getDayProgress().overallPercentage)}%
-                        </Text>
-                      </View>
-                      <View style={styles.overallProgressBarContainer}>
-                        <View 
-                          style={[
-                            styles.overallProgressBarFill, 
-                            { 
-                              width: `${getDayProgress().overallPercentage}%`,
-                              backgroundColor: getDayProgress().overallPercentage >= 100 
-                                ? '#4CAF50' 
-                                : getDayProgress().overallPercentage >= 50 
-                                ? '#2196F3' 
-                                : '#FF9800'
-                            }
-                          ]} 
-                        />
-                      </View>
-                    </View>
-                  </View>
-                </Card.Content>
-              </Card>
-            )}
+            {/* Progreso global eliminado: ahora vive en DayTimeCard (arriba) */}
 
             {/* Lista de tareas del día */}
             <View style={styles.sectionHeader}>

@@ -12,6 +12,7 @@ import {
   Icon
 } from 'react-native-paper';
 import { DatePill } from '@/components/DatePill';
+import { ProgressRow } from '@/components/ProgressRow';
 import { DatePickerModal } from 'react-native-paper-dates';
 import { formatDayShort } from '@/utils';
 import { WorkDay, TimesheetStatus, DayStatus } from '@/types';
@@ -126,6 +127,24 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
   // Usar la fecha actual real si es hoy, sino usar la fecha del workDay
   const displayDate = isToday ? today : workDay.date;
 
+  // Progresos agregados para filas de progreso
+  const tasksCompleted = tasks?.filter((t) => t.status === 'completed').length || 0;
+  const totalTasks = tasks?.length || 0;
+  const { subtasksCompleted, totalSubtasks } = React.useMemo(() => {
+    let sc = 0;
+    let ts = 0;
+    (tasks || []).forEach((t) => {
+      if (Array.isArray(t.subtasks)) {
+        ts += t.subtasks.length;
+        sc += t.subtasks.filter((s: any) => s.isCompleted).length;
+      }
+    });
+    return { subtasksCompleted: sc, totalSubtasks: ts };
+  }, [tasks]);
+  const tasksPct = totalTasks ? tasksCompleted / totalTasks : 0;
+  const subtasksPct = totalSubtasks ? subtasksCompleted / totalSubtasks : 0;
+  const overallPct = totalSubtasks ? (tasksPct + subtasksPct) / 2 : tasksPct;
+
   const handleDateConfirm = (params: any) => {
     if (params.date) {
       onDateChange(params.date);
@@ -200,6 +219,26 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
             onNext={onNextDay}
             onOpenPicker={() => setDatePickerVisible(true)}
           />
+
+          {/* Filas de progreso como en el diseño */}
+          <View style={{ marginHorizontal: 4 }}>
+            <ProgressRow
+              label="Tareas"
+              valueLabel={`${tasksCompleted}/${totalTasks}`}
+              progress={tasksPct}
+            />
+            <ProgressRow
+              label="Subtareas"
+              valueLabel={`${subtasksCompleted}/${totalSubtasks}`}
+              progress={subtasksPct}
+            />
+            <ProgressRow
+              label="Progreso"
+              valueLabel={`${Math.round(overallPct * 100)}%`}
+              progress={overallPct}
+              variant="large"
+            />
+          </View>
 
           {/* Cronómetro */}
           <View style={[styles.timerSection, { backgroundColor: theme.colors.surfaceVariant }]}>
