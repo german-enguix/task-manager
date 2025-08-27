@@ -37,6 +37,7 @@ export const AppBar: React.FC<AppBarProps> = ({
   onRequestMarkAllFromApp,
 }) => {
   const theme = useTheme();
+  const [imageFailed, setImageFailed] = React.useState(false);
 
   const initials = (displayName || 'Usuario')
     .split(' ')
@@ -59,8 +60,14 @@ export const AppBar: React.FC<AppBarProps> = ({
     >
       <View style={styles.leftContainer}>
         <Pressable onPress={onAvatarPress} hitSlop={8} style={styles.avatarWrapper}>
-          {avatarUri ? (
-            <Avatar.Image size={48} source={{ uri: avatarUri }} />
+          {avatarUri && !imageFailed ? (
+            <Avatar.Image
+              key={avatarUri}
+              size={48}
+              source={{ uri: avatarUri }}
+              style={styles.avatarImagePaper}
+              onError={() => setImageFailed(true) as any}
+            />
           ) : (
             <Avatar.Text 
               size={48}
@@ -122,6 +129,15 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    resizeMode: 'cover',
+  },
+  avatarImagePaper: {
+    backgroundColor: 'transparent',
   },
   sideAction: {
     width: 48,
