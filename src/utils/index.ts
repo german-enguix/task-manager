@@ -8,11 +8,17 @@ export const capitalize = (str: string): string => {
 };
 
 export const formatDate = (date: Date): string => {
-  return new Intl.DateTimeFormat('es-ES', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(date);
+  // Forzar salida sin año: "27 de agosto"
+  const day = date.getDate();
+  const month = date.toLocaleString('es-ES', { month: 'long' });
+  return `${day} de ${month}`;
+};
+
+export const formatDayShort = (date: Date): string => {
+  // Ej.: "Mié" (3 primeras) con primera letra en mayúscula
+  const full = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(date);
+  const trimmed = full.slice(0, 3);
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 };
 
 export const isValidEmail = (email: string): boolean => {

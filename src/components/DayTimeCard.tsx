@@ -11,7 +11,9 @@ import {
   Surface,
   Icon
 } from 'react-native-paper';
+import { DatePill } from '@/components/DatePill';
 import { DatePickerModal } from 'react-native-paper-dates';
+import { formatDayShort } from '@/utils';
 import { WorkDay, TimesheetStatus, DayStatus } from '@/types';
 
 interface DayTimeCardProps {
@@ -111,11 +113,8 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
   };
 
   const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+    // Usar util para no incluir año
+    return `${date.getDate()} de ${date.toLocaleString('es-ES', { month: 'long' })}`;
   };
 
 
@@ -194,38 +193,13 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
     <>
       <Card style={[styles.container, { backgroundColor: theme.colors.surface }]}>
         <Card.Content style={styles.content}>
-          {/* Selector de fecha */}
-          <View style={styles.dateSelector}>
-            <IconButton
-              icon="chevron-left"
-              size={24}
-              onPress={onPreviousDay}
-              style={styles.navButton}
-            />
-            
-            <View style={styles.dateInfoContainer}>
-              <Text variant="headlineSmall" style={[styles.dayOfWeek, { color: theme.colors.onSurface }]}>
-                {formatDayOfWeek(displayDate)}
-              </Text>
-              <TouchableOpacity 
-                style={styles.dateRow}
-                onPress={() => setDatePickerVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Icon source="calendar" size={20} color={theme.colors.onSurface} />
-                <Text variant="titleMedium" style={styles.dateText}>
-                  {formatDate(displayDate)}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            <IconButton
-              icon="chevron-right"
-              size={24}
-              onPress={onNextDay}
-              style={styles.navButton}
-            />
-          </View>
+          {/* Selector de fecha (píldora) */}
+          <DatePill
+            label={`${formatDayShort(displayDate)}, ${formatDate(displayDate)}`}
+            onPrev={onPreviousDay}
+            onNext={onNextDay}
+            onOpenPicker={() => setDatePickerVisible(true)}
+          />
 
           {/* Cronómetro */}
           <View style={[styles.timerSection, { backgroundColor: theme.colors.surfaceVariant }]}>

@@ -13,6 +13,7 @@ export { NotificationsSection } from './NotificationsSection';
 export { NotificationDialog } from './NotificationDialog';
 export { NotificationsBell } from './NotificationsBell';
 export { DayTimeCard } from './DayTimeCard';
+export { DatePill } from './DatePill';
 
 // Navigation components
 export { NavBar } from './NavBar';
