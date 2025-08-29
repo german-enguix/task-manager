@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Card, useTheme } from 'react-native-paper';
 import { Task } from '@/types';
-import { TaskCard } from './TaskCard';
+import { TaskCard } from '@/components';
 
 export interface TasksSectionProps {
   tasks: Task[];

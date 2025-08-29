@@ -16,8 +16,9 @@ export { DayTimeCard } from './DayTimeCard';
 export { DatePill } from './DatePill';
 export { ProgressRow } from './ProgressRow';
 export { TimerBlock } from './TimerBlock';
-export { TasksSection } from './tasks/TasksSection';
-export { TaskCard } from './tasks/TaskCard';
+export { default as TasksSection } from './tasks/TasksSection';
+export { default as TaskCard } from './tasks/TaskCard';
+export { default as CircularProgress } from './tasks/CircularProgress';
 export { SuggestionChip } from './SuggestionChip';
 
 // Navigation components
