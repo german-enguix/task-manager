@@ -47,14 +47,7 @@ export const TimerBlock: React.FC<TimerBlockProps> = ({
         >
           {displayText}
         </Text>
-        {isRunning && (
-          <View style={styles.runningIndicator}>
-            <Icon source="play-circle" size={16} color={theme.colors.primary} />
-            <Text variant="bodySmall" style={[styles.runningText, { color: theme.colors.primary }]}> 
-              {activeTasksCount > 0 ? `Día + ${activeTasksCount} tarea${activeTasksCount > 1 ? 's' : ''} activa${activeTasksCount > 1 ? 's' : ''}` : 'Timer del día activo'}
-            </Text>
-          </View>
-        )}
+        {/* Indicador de estado oculto según requerimiento: no mostrar copy ni icono cuando está activo */}
       </View>
 
       {primaryLabel && onPrimaryPress && (
