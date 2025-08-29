@@ -31,12 +31,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isReadOnly, onPress })
     return `${hh}:${mm}:${ss}`;
   };
   // Fondo y borde según diseño base (sin elevación)
+  const isNotStarted = task.status === TaskStatus.NOT_STARTED;
+  const isCompleted = task.status === TaskStatus.COMPLETED;
+  const isInProgress = task.status === TaskStatus.IN_PROGRESS;
+  const borderColor = isNotStarted ? theme.colors.surfaceVariant : theme.colors.primary;
+  const progressLabelColor = isNotStarted ? theme.colors.onSurfaceVariant : undefined;
+  const progressStrokeColor = isNotStarted ? theme.colors.onSurfaceVariant : undefined;
+  const progressTrackColor = isNotStarted ? theme.colors.outlineVariant : undefined;
+
   return (
     <Card 
       key={task.id}
       style={[
         styles.taskCard,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary },
+        { backgroundColor: isCompleted ? theme.colors.secondaryContainer : theme.colors.surface, borderColor },
         isReadOnly && styles.taskCardReadOnly,
       ]}
       onPress={() => onPress(task.id)}
@@ -47,8 +55,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isReadOnly, onPress })
             size={48}
             strokeWidth={4}
             value={progress} 
-            label={`${completedSubtasks}/${totalSubtasks}`}
+            label={isCompleted ? undefined : `${completedSubtasks}/${totalSubtasks}`}
             labelVariant="labelMedium"
+            labelColor={progressLabelColor}
+            progressColor={progressStrokeColor}
+            trackColor={progressTrackColor}
+            centerIcon={isCompleted ? 'check' : undefined}
+            centerIconSize={24}
+            centerIconColor={theme.colors.onSurface}
           />
           <View style={styles.titleTextWrap}>
             <Text variant="titleLarge" numberOfLines={2} style={styles.taskTitle}>
@@ -57,10 +71,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isReadOnly, onPress })
           </View>
         </View>
 
-        <Text variant="bodyMedium" numberOfLines={2} style={styles.taskDescription}>
-          {task.description}
-        </Text>
+        {!isCompleted && (
+          <Text variant="bodyMedium" numberOfLines={2} style={styles.taskDescription}>
+            {task.description}
+          </Text>
+        )}
 
+        {!isCompleted && (
         <View style={styles.taskInfoGrid}>
           <View style={styles.infoRowTop}>
             <View style={styles.infoItemLeft}>
@@ -79,8 +96,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isReadOnly, onPress })
 
           <View style={styles.infoRowBottom}>
             <View style={styles.infoItemLeft}>
-              <Icon source="play" size={24} color={task.timer?.isRunning ? theme.colors.primary : theme.colors.outlineVariant} />
-              <Text variant="bodyMedium" style={[styles.infoText, { color: task.timer?.isRunning ? theme.colors.primary : theme.colors.outlineVariant }]}>
+              <Icon source="play" size={24} color={isInProgress ? theme.colors.primary : theme.colors.outlineVariant} />
+              <Text variant="bodyMedium" style={[styles.infoText, { color: isInProgress ? theme.colors.primary : theme.colors.outlineVariant }]}>
                 {formatHMS(task.timer?.totalElapsed || 0)}
               </Text>
             </View>
@@ -89,6 +106,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isReadOnly, onPress })
             </View>
           </View>
         </View>
+        )}
 
         {/* Se elimina barra y texto de progreso según nuevo diseño */}
 
@@ -128,17 +146,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    paddingVertical: 4,
   },
   titleTextWrap: {
     flex: 1,
   },
   taskTitle: {
-    marginBottom: 6,
+    marginBottom: 0,
     fontWeight: '500',
     lineHeight: 28,
   },
   taskDescription: {
-    marginTop: 4,
+    marginTop: 10,
     marginBottom: 8,
     opacity: 0.7,
     lineHeight: 20,

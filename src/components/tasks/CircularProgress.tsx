@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { Text, useTheme } from 'react-native-paper';
+import { Text, Icon, useTheme } from 'react-native-paper';
 
 export interface CircularProgressProps {
   size?: number; // diameter
@@ -9,6 +9,12 @@ export interface CircularProgressProps {
   value: number; // 0..1
   label?: string | number;
   labelVariant?: 'labelSmall' | 'labelMedium' | 'labelLarge';
+  labelColor?: string;
+  trackColor?: string;
+  progressColor?: string;
+  centerIcon?: string;
+  centerIconSize?: number;
+  centerIconColor?: string;
 }
 
 export const CircularProgress: React.FC<CircularProgressProps> = ({
@@ -17,6 +23,12 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
   value,
   label,
   labelVariant = 'labelLarge',
+  labelColor,
+  trackColor,
+  progressColor,
+  centerIcon,
+  centerIconSize = 18,
+  centerIconColor,
 }) => {
   const theme = useTheme();
   const radius = (size - strokeWidth) / 2;
@@ -31,7 +43,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={theme.colors.outlineVariant}
+          stroke={trackColor ?? theme.colors.outlineVariant}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -39,7 +51,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={theme.colors.primary}
+          stroke={progressColor ?? theme.colors.primary}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={`${circumference} ${circumference}`}
@@ -49,13 +61,17 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           origin={`${size / 2}, ${size / 2}`}
         />
       </Svg>
-      {label !== undefined && (
+      {(centerIcon || label !== undefined) && (
         <View style={StyleSheet.absoluteFill}
         >
           <View style={styles.center}>
-            <Text variant={labelVariant} style={{ color: theme.colors.onSurface }}>
-              {label}
-            </Text>
+            {centerIcon ? (
+              <Icon source={centerIcon} size={centerIconSize} color={centerIconColor ?? (labelColor ?? theme.colors.onSurface)} />
+            ) : (
+              <Text variant={labelVariant} style={{ color: labelColor ?? theme.colors.onSurface }}>
+                {label}
+              </Text>
+            )}
           </View>
         </View>
       )}
