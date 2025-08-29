@@ -17,6 +17,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
     "@expo/vector-icons": "^14.0.4",
+    "@react-native-async-storage/async-storage": "2.1.2",
     "@supabase/supabase-js": "^2.51.0",
     "core-js": "^3.44.0",
     "dotenv": "^17.2.0",
@@ -40,9 +41,9 @@
     "react-native-paper-dates": "^0.22.47",
     "react-native-safe-area-context": "^4.14.1",
     "react-native-screens": "~4.3.0",
+    "react-native-svg": "15.12.1",
     "react-native-web": "^0.20.0",
-    "uuid": "^11.1.0",
-    "@react-native-async-storage/async-storage": "2.1.2"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

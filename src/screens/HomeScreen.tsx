@@ -13,6 +13,7 @@ import {
   QRExternalDialog,
   ProgressRow
 } from '@/components';
+import { TasksSection } from '@/components';
 
 interface HomeScreenProps {
   isDarkMode: boolean;
@@ -1021,138 +1022,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
             {/* Progreso global eliminado: ahora vive en DayTimeCard (arriba) */}
 
-            {/* Lista de tareas del día */}
-            <View style={styles.sectionHeader}>
-              <Text variant="headlineSmall" style={styles.sectionTitle}>
-                Tareas del día
-              </Text>
-              <Text variant="bodyMedium" style={styles.sectionSubtitle}>
-                {tasks.length} tareas asignadas
-              </Text>
-            </View>
-
-            {loadingTasks ? (
-              <Card style={styles.taskCard}>
-                <Card.Content>
-                  <Text>Cargando tareas...</Text>
-                </Card.Content>
-              </Card>
-            ) : (
-              tasks.map((task) => (
-              <Card 
-                key={task.id} 
-                style={[
-                  styles.taskCard,
-                  isReadOnly && styles.taskCardReadOnly
-                ]}
-                onPress={() => handleTaskPress(task.id)}
-              >
-                <Card.Content>
-                  {/* Título ocupando todo el ancho */}
-                  <Text variant="titleMedium" numberOfLines={2} style={styles.taskTitle}>
-                    {task.title}
-                  </Text>
-                  
-                  {/* Descripción */}
-                  <Text variant="bodySmall" numberOfLines={2} style={styles.taskDescription}>
-                    {task.description}
-                  </Text>
-                  
-                  {/* Información del proyecto y ubicación */}
-                  <View style={styles.taskMeta}>
-                    <View style={styles.taskMetaRow}>
-                      <Icon source="folder" size={16} color="#2196F3" />
-                      <Text variant="bodySmall" style={styles.taskProject}>
-                        {task.projectName}
-                      </Text>
-                    </View>
-                    <View style={styles.taskMetaRow}>
-                      <Icon source="map-marker" size={16} color="#4CAF50" />
-                      <Text variant="bodySmall" style={styles.taskLocation}>
-                        {task.location}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Información adicional con mejor distribución */}
-                  <View style={styles.taskInfoGrid}>
-                    {/* Fila superior: cronómetro y progreso */}
-                    <View style={styles.taskInfoRow}>
-                      {task.timer && task.timer.totalElapsed > 0 && (
-                        <View style={styles.taskInfoItem}>
-                          <View style={styles.taskInfoItemRow}>
-                            <Icon source="timer" size={14} color="#2196F3" />
-                            <Text variant="bodySmall" style={styles.taskInfoText}>
-                              {formatDuration(task.timer.totalElapsed)}
-                              {task.timer.isRunning && ' (activo)'}
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-                      
-                      {task.subtasks.length > 0 && (
-                        <View style={styles.taskInfoItem}>
-                          <View style={styles.taskInfoItemRow}>
-                            <Icon source="check-circle" size={14} color="#4CAF50" />
-                            <Text variant="bodySmall" style={styles.taskInfoText}>
-                              {task.subtasks.filter((s: any) => s.isCompleted).length}/{task.subtasks.length} subtareas
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Fila inferior: asignado, fecha y estado */}
-                    <View style={styles.taskFooterRow}>
-                      <View style={styles.taskFooterLeft}>
-                        <Chip 
-                          mode="outlined" 
-                          style={[styles.statusChip, { borderColor: getStatusColor(task.status) }]}
-                          textStyle={{ color: getStatusColor(task.status), fontSize: 11 }}
-                          compact
-                        >
-                          {getStatusText(task.status)}
-                        </Chip>
-                      </View>
-                    </View>
-                  </View>
-
-
-                  {/* Progreso de subtareas */}
-                  {task.subtasks && task.subtasks.length > 0 && (
-                    <View style={styles.evidenceProgress}>
-                      <View style={styles.evidenceProgressRow}>
-                        <Icon source="check-circle" size={14} color="#666" />
-                        <Text variant="bodySmall" style={styles.evidenceProgressText}>
-                          Progreso: {task.subtasks.filter((s: any) => s.isCompleted).length}/{task.subtasks.length} subtareas
-                        </Text>
-                      </View>
-                      <View style={styles.progressBar}>
-                        <View 
-                          style={[
-                            styles.progressBarFillLarge, 
-                            { width: `${getTaskProgress(task)}%` }
-                          ]} 
-                        />
-                      </View>
-                    </View>
-                  )}
-                  
-                  {/* Indicador de solo lectura */}
-                  {isReadOnly && (
-                    <View style={styles.readOnlyIndicator}>
-                      <View style={styles.readOnlyRow}>
-                        <Icon source="lock" size={14} color="#666" />
-                        <Text variant="bodySmall" style={styles.readOnlyText}>
-                          Solo lectura
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                </Card.Content>
-              </Card>
-              ))
-            )}
+            <TasksSection
+              tasks={tasks}
+              isReadOnly={isReadOnly}
+              loading={loadingTasks}
+              onTaskPress={handleTaskPress}
+            />
           </>
         )}
 
