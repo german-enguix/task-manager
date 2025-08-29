@@ -343,8 +343,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           status: timerState.status !== TimesheetStatus.NOT_STARTED ? timerState.status : workDayData.timesheet.status,
           currentSessionStart: timerState.sessionStart || workDayData.timesheet.currentSessionStart,
         },
-        actualStartTime: timerState.actualStartTime,
-        actualEndTime: timerState.actualEndTime,
+        actualStartTime: timerState.actualStartTime ?? undefined,
+        actualEndTime: timerState.actualEndTime ?? undefined,
       };
       
       setWorkDay(workDayWithTimerState);
@@ -361,18 +361,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         userId: currentUserId,
         date: date || today,
         status: getTimerStateForDate(date || today).status === TimesheetStatus.COMPLETED ? DayStatus.COMPLETED : DayStatus.PROGRAMMED,
+        startTime: today,
         timesheet: {
+          id: `fallback-timesheet-${currentUserId}-${today.toISOString().split('T')[0]}`,
           status: getTimerStateForDate(date || today).status,
           currentSessionStart: getTimerStateForDate(date || today).sessionStart || undefined,
           totalDuration: getTimerStateForDate(date || today).totalDuration,
           sessions: [],
         },
-        actualStartTime: getTimerStateForDate(date || today).actualStartTime,
-        actualEndTime: getTimerStateForDate(date || today).actualEndTime,
+        actualStartTime: getTimerStateForDate(date || today).actualStartTime ?? undefined,
+        actualEndTime: getTimerStateForDate(date || today).actualEndTime ?? undefined,
         tasks: [],
         notifications: [],
         createdAt: today,
         updatedAt: today,
+        createdBy: currentUserId || 'system',
       };
       setWorkDay(fallbackWorkDay);
       
@@ -549,7 +552,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           status: newTimerState.status,
           currentSessionStart: newTimerState.sessionStart || undefined,
         },
-        actualStartTime: newTimerState.actualStartTime,
+        actualStartTime: newTimerState.actualStartTime ?? undefined,
       };
       
       setWorkDay(updatedWorkDay);
@@ -576,7 +579,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         timesheet: {
           ...workDay.timesheet,
           status: TimesheetStatus.PAUSED,
-          currentSessionStart: null,
+          currentSessionStart: undefined,
           totalDuration: workDay.timesheet.totalDuration + sessionDuration,
         },
       };
@@ -599,8 +602,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       const now = new Date();
       
       let sessionDuration = 0;
-      if (getTimerStateForDate(workDay.date).sessionStart) {
-        sessionDuration = Math.floor((now.getTime() - getTimerStateForDate(workDay.date).sessionStart.getTime()) / 1000);
+      const sessionStartForPause = getTimerStateForDate(workDay.date).sessionStart;
+      if (sessionStartForPause) {
+        sessionDuration = Math.floor((now.getTime() - sessionStartForPause.getTime()) / 1000);
       }
       
       const newTimerState = updateTimerStateForDate(workDay.date, {
@@ -632,8 +636,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     
     // Si hay una sesión activa, calcular su duración y sumarla al total
     let sessionDuration = 0;
-    if (getTimerStateForDate(workDay.date).sessionStart) {
-      sessionDuration = Math.floor((now.getTime() - getTimerStateForDate(workDay.date).sessionStart.getTime()) / 1000);
+    const sessionStartForFinish = getTimerStateForDate(workDay.date).sessionStart;
+    if (sessionStartForFinish) {
+      sessionDuration = Math.floor((now.getTime() - sessionStartForFinish.getTime()) / 1000);
     }
     
     // Actualizar estado del temporizador en memoria
@@ -1090,7 +1095,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                           <View style={styles.taskInfoItemRow}>
                             <Icon source="check-circle" size={14} color="#4CAF50" />
                             <Text variant="bodySmall" style={styles.taskInfoText}>
-                              {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length} subtareas
+                              {task.subtasks.filter((s: any) => s.isCompleted).length}/{task.subtasks.length} subtareas
                             </Text>
                           </View>
                         </View>
@@ -1125,7 +1130,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       <View style={styles.progressBar}>
                         <View 
                           style={[
-                            styles.progressBarFill, 
+                            styles.progressBarFillLarge, 
                             { width: `${getTaskProgress(task)}%` }
                           ]} 
                         />
@@ -1430,7 +1435,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     overflow: 'hidden',
   },
-  progressBarFill: {
+  progressBarFillLarge: {
     height: '100%',
     borderRadius: 3,
   },

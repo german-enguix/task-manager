@@ -361,9 +361,16 @@ export interface WorkDay {
   date: Date;
   status: DayStatus;
   
+  // Usuario asociado al día (opcional según origen de datos)
+  userId?: string;
+  
   // Información del día
   startTime: Date;
   endTime?: Date;
+  
+  // Marcas reales de inicio/fin del día (si existen)
+  actualStartTime?: Date;
+  actualEndTime?: Date;
   
   // Fichaje independiente
   timesheet: Timesheet;
