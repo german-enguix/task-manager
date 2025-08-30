@@ -3,13 +3,15 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { 
   Text, 
   useTheme,
-  Portal
+  Portal,
+  Chip
 } from 'react-native-paper';
 import { DatePill } from '@/components/DatePill';
 import { ProgressRow } from '@/components/ProgressRow';
 import { TimerBlock } from '@/components/TimerBlock';
 import { DatePickerModal } from 'react-native-paper-dates';
 import { formatDayShort } from '@/utils';
+import { isDayReadOnly } from '@/utils/dateUtils';
 import { WorkDay, TimesheetStatus, DayStatus } from '@/types';
 
 interface DayTimeCardProps {
@@ -118,6 +120,14 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
   const today = new Date();
   const isToday = workDay.date.toDateString() === today.toDateString();
   const isCompleted = timesheet.status === TimesheetStatus.COMPLETED;
+  const readOnly = isDayReadOnly(workDay);
+  const isFuture = (() => {
+    const t = new Date(today);
+    t.setHours(0,0,0,0);
+    const d = new Date(workDay.date);
+    d.setHours(0,0,0,0);
+    return d.getTime() > t.getTime();
+  })();
   
   // Usar la fecha actual real si es hoy, sino usar la fecha del workDay
   const displayDate = isToday ? today : workDay.date;
@@ -159,65 +169,97 @@ export const DayTimeCard: React.FC<DayTimeCardProps> = ({
             onPrev={onPreviousDay}
             onNext={onNextDay}
             onOpenPicker={() => setDatePickerVisible(true)}
+            variant={readOnly ? 'surfaceBright' : 'default'}
           />
 
-          {/* Filas de progreso como en el diseño */}
-          <View style={[styles.fullWidthSection, { marginTop: 16 }]}>
-            <ProgressRow
-              label="Tareas"
-              valueLabel={`${tasksCompleted}/${totalTasks}`}
-              progress={tasksPct}
-            />
-            <ProgressRow
-              label="Subtareas"
-              valueLabel={`${subtasksCompleted}/${totalSubtasks}`}
-              progress={subtasksPct}
-            />
-            <ProgressRow
-              label="Progreso"
-              valueLabel={`${Math.round(overallPct * 100)}%`}
-              progress={overallPct}
-              variant="large"
-            />
-          </View>
+          {isFuture && (
+            <View style={[styles.readOnlyChipRow, styles.centerRow]}>
+              <Chip
+                mode="outlined"
+                icon="calendar-clock"
+                style={styles.readOnlyChip}
+                textStyle={{ color: theme.colors.onSurfaceVariant }}
+              >
+                Tareas a futuro
+              </Chip>
+            </View>
+          )}
 
-          {/* Cronómetro (subcomponente) */}
-          <View style={{ marginTop: 24 }}>
-          <TimerBlock
-            displayText={formatDuration(getTotalDisplayDuration)}
-            isRunning={timesheet.status === TimesheetStatus.IN_PROGRESS}
-            activeTasksCount={getActiveTasksCount()}
-            dayOnlyDurationSeconds={getDayOnlyDuration}
-            tasksCurrentTimeSeconds={getTasksCurrentTime()}
-            primaryLabel={
-              timesheet.status === TimesheetStatus.NOT_STARTED
-                ? 'Iniciar Fichaje'
-                : timesheet.status === TimesheetStatus.IN_PROGRESS
-                ? 'Pausar'
-                : timesheet.status === TimesheetStatus.PAUSED
-                ? 'Reanudar'
-                : undefined
-            }
-            primaryIcon={
-              timesheet.status === TimesheetStatus.NOT_STARTED
-                ? 'play'
-                : timesheet.status === TimesheetStatus.IN_PROGRESS
-                ? 'pause'
-                : timesheet.status === TimesheetStatus.PAUSED
-                ? 'play'
-                : undefined
-            }
-            onPrimaryPress={
-              timesheet.status === TimesheetStatus.NOT_STARTED
-                ? onStartTimesheet
-                : timesheet.status === TimesheetStatus.IN_PROGRESS
-                ? onPauseTimesheet
-                : timesheet.status === TimesheetStatus.PAUSED
-                ? onStartTimesheet
-                : undefined
-            }
-          />
-          </View>
+          {readOnly && (
+            <View style={[styles.readOnlyChipRow, styles.centerRow]}>
+              <Chip
+                mode="outlined"
+                icon="lock"
+                style={styles.readOnlyChip}
+                textStyle={{ color: theme.colors.onSurfaceVariant }}
+              >
+                Solo lectura
+              </Chip>
+            </View>
+          )}
+
+          {/* Filas de progreso: ocultas en días futuros */}
+          {!isFuture && (
+            <View style={[styles.fullWidthSection, { marginTop: 16 }]}> 
+              <ProgressRow
+                label="Tareas"
+                valueLabel={`${tasksCompleted}/${totalTasks}`}
+                progress={tasksPct}
+              />
+              <ProgressRow
+                label="Subtareas"
+                valueLabel={`${subtasksCompleted}/${totalSubtasks}`}
+                progress={subtasksPct}
+              />
+              <ProgressRow
+                label="Progreso"
+                valueLabel={`${Math.round(overallPct * 100)}%`}
+                progress={overallPct}
+                variant="large"
+              />
+            </View>
+          )}
+
+          {/* Cronómetro: oculto en días futuros */}
+          {!isFuture && (
+            <View style={{ marginTop: 24 }}>
+              <TimerBlock
+                displayText={formatDuration(getTotalDisplayDuration)}
+                isRunning={timesheet.status === TimesheetStatus.IN_PROGRESS}
+                activeTasksCount={getActiveTasksCount()}
+                dayOnlyDurationSeconds={getDayOnlyDuration}
+                tasksCurrentTimeSeconds={getTasksCurrentTime()}
+                primaryLabel={
+                  timesheet.status === TimesheetStatus.NOT_STARTED
+                    ? 'Iniciar Fichaje'
+                    : timesheet.status === TimesheetStatus.IN_PROGRESS
+                    ? 'Pausar'
+                    : timesheet.status === TimesheetStatus.PAUSED
+                    ? 'Reanudar'
+                    : undefined
+                }
+                primaryIcon={
+                  timesheet.status === TimesheetStatus.NOT_STARTED
+                    ? 'play'
+                    : timesheet.status === TimesheetStatus.IN_PROGRESS
+                    ? 'pause'
+                    : timesheet.status === TimesheetStatus.PAUSED
+                    ? 'play'
+                    : undefined
+                }
+                primaryDisabled={readOnly}
+                onPrimaryPress={
+                  timesheet.status === TimesheetStatus.NOT_STARTED
+                    ? onStartTimesheet
+                    : timesheet.status === TimesheetStatus.IN_PROGRESS
+                    ? onPauseTimesheet
+                    : timesheet.status === TimesheetStatus.PAUSED
+                    ? onStartTimesheet
+                    : undefined
+                }
+              />
+            </View>
+          )}
 
         </View>
       </View>
@@ -350,5 +392,21 @@ const styles = StyleSheet.create({
   breakdownText: {
     fontSize: 12,
     color: '#666',
+  },
+  readOnlyChipRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    alignItems: 'center',
+  },
+  readOnlyChip: {
+    height: 32,
+    borderRadius: 8,
+  },
+  centerRow: {
+    alignItems: 'center',
+  },
+  futureLabelRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
 }); 

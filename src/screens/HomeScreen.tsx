@@ -11,7 +11,8 @@ import {
   NotificationDialog,
   NFCExternalDialog,
   QRExternalDialog,
-  ProgressRow
+  ProgressRow,
+  DatePill
 } from '@/components';
 import { TasksSection } from '@/components';
 
@@ -852,99 +853,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onExternalQRHandled?.();
   };
 
+  // Fondo especial para días pasados en solo lectura
+  const isPastReadOnlyDay = workDay && isDayReadOnly(workDay);
+
+  const surfaceBright = (theme.colors as any).surfaceBright ?? theme.colors.background;
+  const isEmptyDay = !loadingTasks && !loadingWorkDay && tasks.length === 0;
   return (
-    <Surface style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <Surface style={[
+      styles.container,
+      { backgroundColor: isPastReadOnlyDay ? surfaceBright : theme.colors.background }
+    ]}>
       {/* Main Content */}
-      <ScrollView style={[styles.content, { backgroundColor: theme.colors.background }] }>
+      <ScrollView style={[
+        styles.content,
+        { backgroundColor: isPastReadOnlyDay ? surfaceBright : theme.colors.background }
+      ] }>
 
         {/* Header integrado eliminado: AppBar superior gestiona notificaciones */}
         {/* Layout especial para días sin tareas - aparece solo */}
-        {!loadingTasks && !loadingWorkDay && tasks.length === 0 ? (
-          <View style={styles.restDayContainer}>
-            <View style={styles.restDayContent}>
-              {/* Navegación de fechas minimalista */}
-              <View style={styles.restDayNavigation}>
-                <IconButton
-                  icon="chevron-left"
-                  size={28}
-                  onPress={handlePreviousDay}
-                  style={styles.restDayNavButton}
-                />
-                <View style={styles.restDayDateContainer}>
-                  <Text variant="bodyLarge" style={styles.restDayDate}>
-                    {workDay?.date.toLocaleDateString('es-ES', { 
-                      weekday: 'long', 
-                      day: 'numeric', 
-                      month: 'long' 
-                    })}
-                  </Text>
-                </View>
-                <IconButton
-                  icon="chevron-right"
-                  size={28}
-                  onPress={handleNextDay}
-                  style={styles.restDayNavButton}
-                />
-              </View>
+        {isEmptyDay ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+            <DatePill
+              label={`${workDay?.date.toLocaleDateString('es-ES', { weekday: 'short' })?.replace('.', '')}, ${workDay?.date.getDate()} de ${workDay?.date.toLocaleString('es-ES', { month: 'long' })}`}
+              onPrev={handlePreviousDay}
+              onNext={handleNextDay}
+              onOpenPicker={() => loadWorkDay(new Date())}
+            />
 
-              {/* Ilustración central */}
-              <View style={styles.restDayIllustration}>
-                <View style={[styles.restDayIconCircle, { backgroundColor: getRestDayMessage().color + '15' }]}>
-                  <Text style={styles.restDayMainIcon}>
-                    {getRestDayMessage().icon}
-                  </Text>
-                </View>
-                
-                {/* Iconos decorativos flotantes */}
-                <View style={styles.floatingIcons}>
-                  <View style={[styles.floatingIcon, styles.floatingIcon1]}>
-                    <Text style={styles.floatingIconText}>🌙</Text>
-                  </View>
-                  <View style={[styles.floatingIcon, styles.floatingIcon2]}>
-                    <Text style={styles.floatingIconText}>✨</Text>
-                  </View>
-                  <View style={[styles.floatingIcon, styles.floatingIcon3]}>
-                    <Text style={styles.floatingIconText}>🕊️</Text>
-                  </View>
-                </View>
-              </View>
+            <View style={{ alignItems: 'center', marginTop: 24 }}>
+              <Text variant="titleLarge" style={{ color: theme.colors.onSurface }}>
+                Disfruta de tu free day
+              </Text>
+            </View>
 
-              {/* Mensaje principal */}
-              <View style={styles.restDayMessage}>
-                <Text variant="headlineMedium" style={[styles.restDayTitle, { color: getRestDayMessage().color }]}>
-                  {getRestDayMessage().text}
-                </Text>
-                <Text variant="bodyLarge" style={styles.restDaySubtitle}>
-                  No tienes tareas programadas para hoy
-                </Text>
-              </View>
-
-              {/* Sugerencias creativas */}
-              <View style={styles.restDaySuggestions}>
-                <Text variant="titleSmall" style={styles.suggestionsTitle}>
-                  Aprovecha este tiempo para:
-                </Text>
-                <View style={styles.suggestionsList}>
-                  <View style={styles.suggestionItem}>
-                    <Icon source="book-open" size={16} color="#666" />
-                    <Text variant="bodyMedium" style={styles.suggestionText}>Leer algo inspirador</Text>
-                  </View>
-                  <View style={styles.suggestionItem}>
-                    <Icon source="nature" size={16} color="#666" />
-                    <Text variant="bodyMedium" style={styles.suggestionText}>Dar un paseo al aire libre</Text>
-                  </View>
-                  <View style={styles.suggestionItem}>
-                    <Icon source="coffee" size={16} color="#666" />
-                    <Text variant="bodyMedium" style={styles.suggestionText}>Disfrutar de un buen café</Text>
-                  </View>
-                  <View style={styles.suggestionItem}>
-                    <Icon source="heart" size={16} color="#666" />
-                    <Text variant="bodyMedium" style={styles.suggestionText}>Conectar contigo mismo</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Botón para volver a hoy (si no estamos en hoy) */}
               {workDay && !isToday(workDay.date) && (
                 <Button 
                   mode="outlined" 
@@ -955,7 +896,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   Volver a hoy
                 </Button>
               )}
-            </View>
           </View>
         ) : (
           /* Layout normal para días con tareas o cargando */

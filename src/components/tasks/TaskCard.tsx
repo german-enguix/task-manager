@@ -44,7 +44,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isReadOnly, onPress })
       key={task.id}
       style={[
         styles.taskCard,
-        { backgroundColor: isCompleted ? theme.colors.secondaryContainer : theme.colors.surface, borderColor },
+        { backgroundColor: isCompleted ? theme.colors.secondaryContainer : 'transparent', borderColor },
         isReadOnly && styles.taskCardReadOnly,
       ]}
       onPress={() => onPress(task.id)}
@@ -109,17 +109,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isReadOnly, onPress })
         )}
 
         {/* Se elimina barra y texto de progreso según nuevo diseño */}
-
-        {isReadOnly && (
-          <View style={styles.readOnlyIndicator}>
-            <View style={styles.readOnlyRow}>
-              <Icon source="lock" size={14} color="#666" />
-              <Text variant="bodySmall" style={styles.readOnlyText}>
-                Solo lectura
-              </Text>
-            </View>
-          </View>
-        )}
       </Card.Content>
     </Card>
   );

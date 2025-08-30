@@ -9,11 +9,12 @@ interface DatePillProps {
   onOpenPicker?: () => void; // opcional si se quiere abrir datepicker al tocar
 }
 
-export const DatePill: React.FC<DatePillProps> = ({
+export const DatePill: React.FC<DatePillProps & { variant?: 'default' | 'surfaceBright' } > = ({
   label,
   onPrev,
   onNext,
   onOpenPicker,
+  variant = 'default'
 }) => {
   const theme = useTheme();
 
@@ -22,7 +23,10 @@ export const DatePill: React.FC<DatePillProps> = ({
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={onOpenPicker}
-        style={[styles.pill, { backgroundColor: theme.colors.secondaryContainer }]}
+        style={[
+          styles.pill,
+          { backgroundColor: variant === 'surfaceBright' ? (theme.colors as any).surfaceBright ?? theme.colors.surface : theme.colors.secondaryContainer }
+        ]}
       >
         <IconButton
           icon="chevron-left"
